@@ -3,6 +3,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerFilterTools = registerFilterTools;
 const zod_1 = require("zod");
 const pbir_js_1 = require("../pbir.js");
+// --- Helper: flatten a PBIR FieldRef to "Table[Field]" string ---
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function fieldRefToString(field) {
+    const f = field;
+    if (f?.Column)
+        return `${f.Column.Expression?.SourceRef?.Entity}[${f.Column.Property}]`;
+    if (f?.Measure)
+        return `${f.Measure.Expression?.SourceRef?.Entity}[${f.Measure.Property}]`;
+    return JSON.stringify(field);
+}
 // --- Helper: build a Categorical filter ---
 function buildCategoricalFilter(entity, property, values) {
     const field = (0, pbir_js_1.columnRef)(entity, property);
@@ -83,10 +93,11 @@ function registerFilterTools(server, ctx) {
     // ============================================================
     // TOOL: list_filters
     // ============================================================
-    server.tool("list_filters", "List all filters on a page or a specific visual. Filters are stored in filterConfig of page.json (page-level) or visual.json (visual-level).", {
+    server.tool("list_filters", "List filters on a page or visual. Slim mode (default) flattens field refs to 'Table[Column]' strings. Set slim=false for full PBIR field objects.", {
         pageId: zod_1.z.string().describe("The page ID"),
-        visualId: zod_1.z.string().optional().describe("Visual ID — omit to list page-level filters"),
-    }, async ({ pageId, visualId }) => {
+        visualId: zod_1.z.string().optional().describe("Visual ID — omit for page-level filters"),
+        slim: zod_1.z.boolean().optional().default(true).describe("Slim mode (default true) — flattens field ref to Table[Column] string"),
+    }, async ({ pageId, visualId, slim }) => {
         let filters = [];
         let scope;
         if (visualId) {
@@ -102,7 +113,7 @@ function registerFilterTools(server, ctx) {
         const summary = filters.map((f) => ({
             name: f.name,
             type: f.type,
-            field: f.field,
+            field: slim ? fieldRefToString(f.field) : f.field,
         }));
         return {
             content: [{ type: "text", text: JSON.stringify({ scope, count: filters.length, filters: summary }, null, 2) }],
@@ -111,47 +122,44 @@ function registerFilterTools(server, ctx) {
     // ============================================================
     // TOOL: add_page_filter
     // ============================================================
-    server.tool("add_page_filter", `Add a filter to a page (page-level filter affects all visuals on the page). Supports three filter types:
-- **categorical**: include/exclude specific values from a column. Omit 'values' to show the filter panel without pre-selecting values.
-- **topN**: show only the top/bottom N items ranked by a measure or column.
-- **relativeDate**: rolling date window (last/next N days/weeks/months/quarters/years).`, {
+    server.tool("add_page_filter", "Add a page-level filter (affects all visuals). Types: categorical (specific values), topN (top/bottom N by measure), relativeDate (rolling date window).", {
         pageId: zod_1.z.string().describe("The page ID to add the filter to"),
         filterType: zod_1.z
             .enum(["categorical", "topN", "relativeDate"])
             .describe("Type of filter to add"),
         // Field to filter
-        entity: zod_1.z.string().describe("Table name for the filter field (e.g. 'Date', 'Product')"),
-        property: zod_1.z.string().describe("Column name to filter on (e.g. 'Year', 'Category')"),
+        entity: zod_1.z.string().describe("Table name of the filter field"),
+        property: zod_1.z.string().describe("Column to filter on"),
         // Categorical options
         values: zod_1.z
             .array(zod_1.z.string())
             .optional()
-            .describe("For categorical: specific values to include (e.g. ['East', 'West'])"),
+            .describe("categorical: values to include"),
         // TopN options
-        n: zod_1.z.number().optional().describe("For topN: number of items to show"),
+        n: zod_1.z.number().optional().describe("topN: number of items"),
         topNDirection: zod_1.z
             .enum(["Top", "Bottom"])
             .optional()
             .default("Top")
-            .describe("For topN: 'Top' (highest) or 'Bottom' (lowest)"),
-        orderByEntity: zod_1.z.string().optional().describe("For topN: table of the ranking field"),
-        orderByProperty: zod_1.z.string().optional().describe("For topN: column/measure to rank by"),
+            .describe("topN: Top or Bottom"),
+        orderByEntity: zod_1.z.string().optional().describe("topN: table of ranking field"),
+        orderByProperty: zod_1.z.string().optional().describe("topN: column/measure to rank by"),
         orderByIsMeasure: zod_1.z
             .boolean()
             .optional()
             .default(false)
-            .describe("For topN: true if orderBy field is a DAX measure"),
+            .describe("topN: true if ranking field is a measure"),
         // RelativeDate options
         period: zod_1.z
             .enum(["days", "weeks", "months", "quarters", "years"])
             .optional()
-            .describe("For relativeDate: time unit"),
-        count: zod_1.z.number().optional().describe("For relativeDate: number of periods"),
+            .describe("relativeDate: time unit"),
+        count: zod_1.z.number().optional().describe("relativeDate: number of periods"),
         dateDirection: zod_1.z
             .enum(["last", "next"])
             .optional()
             .default("last")
-            .describe("For relativeDate: 'last' (past) or 'next' (future)"),
+            .describe("relativeDate: last (past) or next (future)"),
     }, async ({ pageId, filterType, entity, property, values, n, topNDirection, orderByEntity, orderByProperty, orderByIsMeasure, period, count, dateDirection, }) => {
         let newFilter;
         if (filterType === "categorical") {

@@ -159,14 +159,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "set_conditional_format",
-    `Apply conditional (data-driven) formatting to a visual's container background or font color.
-- **rules**: colour changes based on measure/column value comparisons (e.g. green if sales > 10000, red otherwise)
-- **gradient**: linear colour scale from minColor to maxColor based on a measure/column
-- **clear**: remove all conditional formatting for the target property
-
-Applies to visualContainerObjects (container-level — affects the whole visual card background or title font).
-
-ComparisonKind values: 0=Equal, 1=GreaterThan, 2=GreaterThanOrEqual, 3=LessThan, 4=LessThanOrEqual, 5=NotEqual`,
+    "Apply conditional formatting to a visual container background or title font. formatType: rules (value comparisons), gradient (color scale), clear (remove). ComparisonKind: 0=Eq, 1=GT, 2=GTE, 3=LT, 4=LTE, 5=NEq.",
     {
       pageId: z.string().describe("The page ID"),
       visualId: z.string().describe("The visual ID"),

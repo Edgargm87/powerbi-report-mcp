@@ -338,6 +338,50 @@ function registerReportTools(server, ctx) {
         };
     });
     // ============================================================
+    // TOOL: get_page_summary
+    // ============================================================
+    server.tool("get_page_summary", "Get pages with their visuals in one call — replaces list_pages + list_visuals. Returns slim visual list per page. Provide pageId to scope to one page.", {
+        pageId: zod_1.z.string().optional().describe("Scope to a single page. Omit for all pages."),
+    }, async ({ pageId }) => {
+        const meta = ctx.project.getPagesMetadata();
+        const ids = pageId ? [pageId] : meta.pageOrder;
+        const pages = ids.map((id) => {
+            const page = ctx.project.getPage(id);
+            const visualIds = ctx.project.listVisualIds(id);
+            const visuals = visualIds.map((vid) => {
+                const v = ctx.project.getVisual(id, vid);
+                const titleArr = v.visual.visualContainerObjects?.title;
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const titleValue = Array.isArray(titleArr) && titleArr.length > 0
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    ? titleArr[0]?.properties?.text?.expr?.Literal?.Value?.replace(/^'|'$/g, "") ?? null
+                    : null;
+                const entry = {
+                    id: vid,
+                    type: v.visual.visualType,
+                    x: v.position.x,
+                    y: v.position.y,
+                    w: v.position.width,
+                    h: v.position.height,
+                };
+                if (titleValue)
+                    entry.title = titleValue;
+                return entry;
+            });
+            return {
+                id,
+                displayName: page.displayName,
+                isActive: id === meta.activePageName,
+                hidden: page.visibility === 1,
+                visualCount: visualIds.length,
+                visuals,
+            };
+        });
+        return {
+            content: [{ type: "text", text: JSON.stringify({ pageCount: pages.length, pages }, null, 2) }],
+        };
+    });
+    // ============================================================
     // TOOL: reload_report
     // ============================================================
     server.tool("reload_report", "Reload the report in Power BI Desktop by closing and reopening the .pbip file. Use this after making changes to see them in Power BI Desktop.", {}, async () => {

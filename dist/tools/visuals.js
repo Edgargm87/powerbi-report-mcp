@@ -53,17 +53,64 @@ function registerVisualTools(server, ctx) {
     // ============================================================
     // TOOL: get_visual
     // ============================================================
-    server.tool("get_visual", "Get the full definition of a visual", {
+    server.tool("get_visual", "Get visual details. Slim mode (default) returns type, position, bindings summary, title, filterCount. Set slim=false for the full raw PBIR JSON.", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().describe("The visual ID"),
-    }, async ({ pageId, visualId }) => {
+        slim: zod_1.z.boolean().optional().default(true).describe("Slim mode (default true) — summary instead of full JSON"),
+    }, 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async ({ pageId, visualId, slim }) => {
         const visual = ctx.project.getVisual(pageId, visualId);
-        return { content: [{ type: "text", text: JSON.stringify(visual, null, 2) }] };
+        if (!slim) {
+            return { content: [{ type: "text", text: JSON.stringify(visual, null, 2) }] };
+        }
+        // Extract title
+        const titleArr = visual.visual.visualContainerObjects?.title;
+        const titleValue = Array.isArray(titleArr) && titleArr.length > 0
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ? titleArr[0]?.properties?.text?.expr?.Literal?.Value?.replace(/^'|'$/g, "") ?? null
+            : null;
+        // Extract bindings as Table[Field] strings
+        const bindings = {};
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const qs = visual.visual.query?.queryState;
+        if (qs) {
+            for (const [bucket, state] of Object.entries(qs)) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const projs = state?.projections ?? [];
+                bindings[bucket] = projs.map((p) => {
+                    const f = p.field;
+                    if (f?.Column)
+                        return `${f.Column.Expression?.SourceRef?.Entity}[${f.Column.Property}]`;
+                    if (f?.Measure)
+                        return `${f.Measure.Expression?.SourceRef?.Entity}[${f.Measure.Property}]`;
+                    if (f?.Aggregation?.Expression?.Column) {
+                        const col = f.Aggregation.Expression.Column;
+                        return `${col.Expression?.SourceRef?.Entity}[${col.Property}]`;
+                    }
+                    return "(unknown)";
+                });
+            }
+        }
+        const result = {
+            id: visual.name,
+            type: visual.visual.visualType,
+            x: visual.position.x,
+            y: visual.position.y,
+            w: visual.position.width,
+            h: visual.position.height,
+        };
+        if (titleValue)
+            result.title = titleValue;
+        if (Object.keys(bindings).length > 0)
+            result.bindings = bindings;
+        result.filterCount = visual.filterConfig?.filters?.length ?? 0;
+        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     });
     // ============================================================
     // TOOL: add_visual (single + batch mode)
     // ============================================================
-    server.tool("add_visual", `Add one or more visuals to a page with optional inline formatting. Supports single mode (use top-level params) or batch mode (use 'visuals' array). Inline containerFormat, visualFormat, and dataColors eliminate the need for separate format_visual/set_datapoint_colors calls. IMPORTANT chart naming (Power BI convention): 'columnChart'=stacked column (use Series bucket for stack breakdown), 'barChart'=stacked bar (use Series bucket for stack breakdown), 'clusteredColumnChart'=clustered column, 'clusteredBarChart'=clustered bar, 'hundredPercentStackedColumnChart'=100% stacked column, 'hundredPercentStackedBarChart'=100% stacked bar. Visual types: ${Object.keys(pbir_js_1.VISUAL_BUCKETS).join(", ")}.`, {
+    server.tool("add_visual", "Add one or more visuals to a page. Single mode: top-level params. Batch mode: 'visuals' array. Inline containerFormat/visualFormat/dataColors = 0 extra format calls. Chart naming: columnChart=stacked column (Series=stack), barChart=stacked bar (Series=stack), clusteredColumnChart=clustered column, clusteredBarChart=clustered bar. Call get_visual_types for full type list.", {
         pageId: zod_1.z.string().describe("The page ID to add the visual(s) to"),
         // Single mode params
         visualType: zod_1.z.string().optional().describe("Visual type for single mode"),

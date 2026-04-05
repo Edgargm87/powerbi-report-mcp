@@ -23,11 +23,11 @@ exports.FieldSpecSchema = zod_1.z.object({
     entity: zod_1.z
         .string()
         .optional()
-        .describe("Table/entity name (e.g. 'financials'). Use either 'field' shorthand or both entity+property."),
+        .describe("Table name. Use 'field' shorthand or entity+property."),
     property: zod_1.z
         .string()
         .optional()
-        .describe("Column or measure name (e.g. 'Gross Sales'). Use either 'field' shorthand or both entity+property."),
+        .describe("Column or measure name. Use 'field' shorthand or entity+property."),
     type: zod_1.z
         .enum(["column", "measure", "aggregation"])
         .describe("'column' for raw column, 'aggregation' for aggregated column, 'measure' for DAX measure"),
@@ -37,7 +37,7 @@ exports.FieldSpecSchema = zod_1.z.object({
         .describe("Aggregation function: Sum, Avg, Count, Min, Max, CountNonNull, Median, StandardDeviation, Variance"),
 });
 exports.BucketBindingSchema = zod_1.z.object({
-    bucket: zod_1.z.string().describe("Data role bucket name (e.g. 'Category', 'Y', 'Series', 'Values', 'Rows')"),
+    bucket: zod_1.z.string().describe("Data role bucket (e.g. Category, Y, Series, Values, Rows)"),
     fields: zod_1.z.array(exports.FieldSpecSchema).describe("Fields to bind to this bucket"),
 });
 exports.FormatCategorySchema = zod_1.z.object({
@@ -66,24 +66,24 @@ exports.VisualSpecSchema = zod_1.z.object({
     fillColor: zod_1.z
         .string()
         .optional()
-        .describe("Fill color for shapes (hex, e.g. '#D9D9D9'). Defaults to #D9D9D9 if not provided."),
-    textContent: zod_1.z.string().optional().describe("Text label displayed inside a shape or textbox"),
-    textColor: zod_1.z.string().optional().describe("Text color (hex, e.g. '#595959')"),
+        .describe("Shape fill color (hex, default #D9D9D9)"),
+    textContent: zod_1.z.string().optional().describe("Text inside shape/textbox"),
+    textColor: zod_1.z.string().optional().describe("Text color (hex)"),
     textAlign: zod_1.z
         .enum(["left", "center", "right"])
         .optional()
-        .describe("Horizontal text alignment inside shape/textbox"),
-    textSize: zod_1.z.number().optional().describe("Font size in pt (e.g. 10)"),
+        .describe("Text alignment"),
+    textSize: zod_1.z.number().optional().describe("Font size in pt"),
     textBold: zod_1.z.boolean().optional().describe("Bold text"),
     title: zod_1.z.string().optional(),
     containerFormat: zod_1.z
         .array(exports.FormatCategorySchema)
         .optional()
-        .describe("Inline container formatting (title, background, border, padding, dropShadow, visualHeader)"),
+        .describe("Inline container formatting (title/background/border/padding)"),
     visualFormat: zod_1.z
         .array(exports.FormatCategorySchema)
         .optional()
-        .describe("Inline visual formatting (axes, legend, labels, lineStyles, etc.)"),
+        .describe("Inline visual formatting (axes/legend/labels)"),
     dataColors: zod_1.z
         .array(exports.DataColorSchema)
         .optional()

@@ -71,11 +71,11 @@ export const FieldSpecSchema = z.object({
   entity: z
     .string()
     .optional()
-    .describe("Table/entity name (e.g. 'financials'). Use either 'field' shorthand or both entity+property."),
+    .describe("Table name. Use 'field' shorthand or entity+property."),
   property: z
     .string()
     .optional()
-    .describe("Column or measure name (e.g. 'Gross Sales'). Use either 'field' shorthand or both entity+property."),
+    .describe("Column or measure name. Use 'field' shorthand or entity+property."),
   type: z
     .enum(["column", "measure", "aggregation"])
     .describe("'column' for raw column, 'aggregation' for aggregated column, 'measure' for DAX measure"),
@@ -86,7 +86,7 @@ export const FieldSpecSchema = z.object({
 });
 
 export const BucketBindingSchema = z.object({
-  bucket: z.string().describe("Data role bucket name (e.g. 'Category', 'Y', 'Series', 'Values', 'Rows')"),
+  bucket: z.string().describe("Data role bucket (e.g. Category, Y, Series, Values, Rows)"),
   fields: z.array(FieldSpecSchema).describe("Fields to bind to this bucket"),
 });
 
@@ -118,26 +118,24 @@ export const VisualSpecSchema = z.object({
   fillColor: z
     .string()
     .optional()
-    .describe("Fill color for shapes (hex, e.g. '#D9D9D9'). Defaults to #D9D9D9 if not provided."),
-  textContent: z.string().optional().describe("Text label displayed inside a shape or textbox"),
-  textColor: z.string().optional().describe("Text color (hex, e.g. '#595959')"),
+    .describe("Shape fill color (hex, default #D9D9D9)"),
+  textContent: z.string().optional().describe("Text inside shape/textbox"),
+  textColor: z.string().optional().describe("Text color (hex)"),
   textAlign: z
     .enum(["left", "center", "right"])
     .optional()
-    .describe("Horizontal text alignment inside shape/textbox"),
-  textSize: z.number().optional().describe("Font size in pt (e.g. 10)"),
+    .describe("Text alignment"),
+  textSize: z.number().optional().describe("Font size in pt"),
   textBold: z.boolean().optional().describe("Bold text"),
   title: z.string().optional(),
   containerFormat: z
     .array(FormatCategorySchema)
     .optional()
-    .describe(
-      "Inline container formatting (title, background, border, padding, dropShadow, visualHeader)"
-    ),
+    .describe("Inline container formatting (title/background/border/padding)"),
   visualFormat: z
     .array(FormatCategorySchema)
     .optional()
-    .describe("Inline visual formatting (axes, legend, labels, lineStyles, etc.)"),
+    .describe("Inline visual formatting (axes/legend/labels)"),
   dataColors: z
     .array(DataColorSchema)
     .optional()

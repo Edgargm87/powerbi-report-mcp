@@ -53,44 +53,41 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
   // ============================================================
   server.tool(
     "set_report_theme",
-    `Apply a custom JSON theme to the report. The theme is saved to StaticResources/RegisteredResources/ and wired into report.json. Affects all visuals globally — no individual visual.json files are touched. Supports the full Power BI theme schema: dataColors, background, foreground, tableAccent, visualStyles, and more.`,
+    "Apply a custom JSON theme to the report. Saved to StaticResources, wired into report.json, affects all visuals globally.",
     {
       name: z.string().describe("Display name of the theme (e.g. 'Corporate Brand', 'Dark Mode')"),
       dataColors: z
         .array(z.string())
         .optional()
-        .describe("Data series colour palette — 6 to 12 hex values recommended (e.g. ['#0078D4', '#00BCF2'])"),
+        .describe("Data series colors — 6–12 hex values"),
       background: z
         .string()
         .optional()
-        .describe("Page background colour (hex). Default #FFFFFF for light, #121212 for dark."),
+        .describe("Page background (hex)"),
       foreground: z
         .string()
         .optional()
-        .describe("Primary text / title colour (hex)."),
+        .describe("Primary text/title (hex)"),
       foregroundNeutralSecondary: z
         .string()
         .optional()
-        .describe("Secondary text colour (hex) — used for axis labels, subtitles."),
+        .describe("Axis labels/subtitle text (hex)"),
       backgroundLight: z
         .string()
         .optional()
-        .describe("Light background variant (hex) — used for card/panel backgrounds."),
+        .describe("Card/panel background (hex)"),
       backgroundNeutral: z
         .string()
         .optional()
-        .describe("Neutral background variant (hex)."),
+        .describe("Neutral background (hex)"),
       tableAccent: z
         .string()
         .optional()
-        .describe("Table/matrix header accent colour (hex)."),
+        .describe("Table/matrix header accent (hex)"),
       visualStyles: z
         .record(z.string(), z.unknown())
         .optional()
-        .describe(
-          "Advanced per-visual-type style overrides. Key is visual type (e.g. 'barChart', '*' for all). " +
-          "Value is an object of style property groups. See Power BI theme docs for full schema."
-        ),
+        .describe("Per-visual-type style overrides. Key=visual type (e.g. 'barChart', '*'). See PBI theme docs."),
     },
     async ({ name, dataColors, background, foreground, foregroundNeutralSecondary,
              backgroundLight, backgroundNeutral, tableAccent, visualStyles }) => {
