@@ -17,81 +17,98 @@ function fieldRefToString(field) {
     }
     return JSON.stringify(field);
 }
+// --- Helper: unique short alias for a table name (avoids collision when same first letter) ---
+function alias(entity, existing = []) {
+    let a = entity.charAt(0).toLowerCase();
+    let i = 2;
+    while (existing.includes(a))
+        a = entity.charAt(0).toLowerCase() + i++;
+    return a;
+}
 // --- Helper: build a Categorical filter ---
+// PBIR requires From/Where DAX query format — NOT { Categorical: {} }
 function buildCategoricalFilter(entity, property, values) {
     const field = (0, pbir_js_1.columnRef)(entity, property);
-    const filter = {
-        Categorical: {
-            ...(values && values.length > 0
-                ? {
-                    Values: values.map((v) => [
-                        { Literal: { Value: `'${v}'` } },
-                    ]),
-                }
-                : {}),
-        },
-    };
-    return {
-        name: (0, pbir_js_1.generateId)(),
-        field,
-        type: "Categorical",
-        howCreated: "User",
-        filter: values && values.length > 0 ? filter : undefined,
-        objects: { general: [{ properties: {} }] },
-    };
+    const src = alias(entity);
+    let filter;
+    if (values && values.length > 0) {
+        filter = {
+            From: [{ Name: src, Entity: entity, Type: 0 }],
+            Where: [{
+                    Condition: {
+                        In: {
+                            Expressions: [{
+                                    Column: {
+                                        Expression: { SourceRef: { Source: src } },
+                                        Property: property,
+                                    },
+                                }],
+                            Values: values.map((v) => [{ Literal: { Value: `'${v}'` } }]),
+                        },
+                    },
+                }],
+        };
+    }
+    return { name: (0, pbir_js_1.generateId)(), field, type: "Categorical", ...(filter ? { filter } : {}) };
 }
 // --- Helper: build a TopN filter ---
+// PBIR requires From/Where DAX query format — NOT { TopN: {} }
 function buildTopNFilter(entity, property, n, direction, orderByEntity, orderByProperty, orderByIsMeasure) {
     const field = (0, pbir_js_1.columnRef)(entity, property);
-    const orderByField = orderByIsMeasure
-        ? (0, pbir_js_1.measureRef)(orderByEntity, orderByProperty)
-        : (0, pbir_js_1.columnRef)(orderByEntity, orderByProperty);
+    const src = alias(entity);
+    const ord = alias(orderByEntity, [src]);
+    const fromList = [{ Name: src, Entity: entity, Type: 0 }];
+    if (orderByEntity !== entity)
+        fromList.push({ Name: ord, Entity: orderByEntity, Type: 0 });
+    const orderBySource = orderByEntity !== entity ? ord : src;
+    const orderByExpr = orderByIsMeasure
+        ? { Measure: { Expression: { SourceRef: { Source: orderBySource } }, Property: orderByProperty } }
+        : { Column: { Expression: { SourceRef: { Source: orderBySource } }, Property: orderByProperty } };
     const filter = {
-        TopN: {
-            ItemCount: n,
-            Ordered: direction === "Top" ? 2 : 1, // 2=descending(Top), 1=ascending(Bottom)
-            OrderBy: [{ QueryRef: { Name: `${orderByEntity}.${orderByProperty}` }, Direction: direction === "Top" ? 2 : 1 }],
-            By: orderByField,
-        },
+        From: fromList,
+        Where: [{
+                Condition: {
+                    TopN: {
+                        Expression: {
+                            Column: {
+                                Expression: { SourceRef: { Source: src } },
+                                Property: property,
+                            },
+                        },
+                        ItemCount: n,
+                        OrderBy: [{ Direction: direction === "Top" ? 2 : 1, Expression: orderByExpr }],
+                    },
+                },
+            }],
     };
-    return {
-        name: (0, pbir_js_1.generateId)(),
-        field,
-        type: "TopN",
-        howCreated: "User",
-        filter,
-        objects: { general: [{ properties: {} }] },
-    };
+    return { name: (0, pbir_js_1.generateId)(), field, type: "TopN", filter };
 }
 // --- Helper: build a RelativeDate filter ---
+// PBIR requires From/Where DAX query format — NOT { RelativeDate: {} }
 function buildRelativeDateFilter(entity, property, period, count, direction) {
     const field = (0, pbir_js_1.columnRef)(entity, property);
-    // Power BI period type mapping
-    const periodMap = {
-        days: 0,
-        weeks: 1,
-        months: 2,
-        quarters: 3,
-        years: 4,
-    };
-    // Direction: 0 = last (past), 1 = next (future)
-    const directionValue = direction === "last" ? 0 : 1;
+    const src = alias(entity);
+    const periodMap = { days: 0, weeks: 1, months: 2, quarters: 3, years: 4 };
     const filter = {
-        RelativeDate: {
-            TimeUnitsCount: count,
-            TimeUnitType: periodMap[period],
-            OperatorType: directionValue,
-            IncludeToday: true,
-        },
+        From: [{ Name: src, Entity: entity, Type: 0 }],
+        Where: [{
+                Condition: {
+                    RelativeDate: {
+                        Expression: {
+                            Column: {
+                                Expression: { SourceRef: { Source: src } },
+                                Property: property,
+                            },
+                        },
+                        TimeUnitsCount: count,
+                        TimeUnitType: periodMap[period],
+                        OperatorType: direction === "last" ? 0 : 1,
+                        IncludeToday: true,
+                    },
+                },
+            }],
     };
-    return {
-        name: (0, pbir_js_1.generateId)(),
-        field,
-        type: "RelativeDate",
-        howCreated: "User",
-        filter,
-        objects: { general: [{ properties: {} }] },
-    };
+    return { name: (0, pbir_js_1.generateId)(), field, type: "RelativeDate", filter };
 }
 function registerFilterTools(server, ctx) {
     // ============================================================

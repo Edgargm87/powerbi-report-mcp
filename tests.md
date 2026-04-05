@@ -83,6 +83,56 @@ Measured by approximate output token counts per call. Input tokens vary by promp
 
 ---
 
+---
+
+## UAT Round 1 — Visual Inspection Tests
+
+Run against `Training` and `Training 2` pages with real `financials` data.
+Date: 2026-04-05 | Pages preserved for visual inspection in Power BI Desktop.
+
+### Pages Under Test
+| Page | ID | Wireframe | Visuals |
+|------|----|-----------|---------|
+| Training | `11b1f35a6bd0ddba217b` | Layout 2 — Classic Dashboard | 10 (header + 4 cards + 5 charts) |
+| Training 2 | `6c5a8d5bf5197ec214ad` | Layout 8 — KPI Banner + Body | 11 (header + 5 cards + 5 charts) |
+| train | `f43991a29338abe4ddb8` | — (empty, used for slicer test) | 3 slicers |
+
+### Results
+
+| #   | Tool(s)                          | Input / Target                                              | Result | Notes |
+|-----|----------------------------------|-------------------------------------------------------------|--------|-------|
+| U01 | `get_page_summary`               | All pages                                                   | PASS   | Confirmed 3 pages, Training=10, Training 2=11 visuals |
+| U02 | `apply_theme`                    | `corporate` on Training page (9 visuals)                    | PASS   | 9 visuals formatted in 1 call |
+| U03 | `bulk_update_format` ×2          | Card backgrounds (#F7F9FC) + border (#1F3864) on both pages | PASS   | 4 cards on Training, 5 on Training 2 — 2 calls total |
+| U04 | `format_visual`                  | Data labels + axis fontSize on clusteredColumnChart         | PASS   | categoryAxis, valueAxis, labels all applied |
+| U05 | `set_datapoint_colors` ×2        | 6-colour palette on pieChart + donutChart                   | PASS   | Both charts coloured in parallel |
+| U06 | `set_conditional_format`         | Gradient red→green on tableEx Profit column                 | PASS   | Required `formatType: "gradient"` not `"colorScale"` — see schema note below |
+| U07 | `change_visual_type`             | `barChart` → `columnChart` on Training page                 | PASS   | Bindings preserved; required `visualType` param (not `newVisualType`) — see schema note |
+| U08 | `add_visual` (slicers)           | Segment, Country, Year dropdowns on `train` page            | PASS   | 3 slicers created in 1 batch call |
+| U09 | `add_page_filter`                | Categorical Year=2014 on Training 2                         | PASS   | Page-level filter applied |
+| U10 | `format_visual`                  | lineStyles strokeWidth + axes + labels on line chart        | PASS   | All 4 categories formatted |
+| U11 | `set_visual_title` ×3            | "Total Sales $", "Net Profit $", "Total Sales $ (2014)"     | PASS   | All 3 updated in parallel |
+| U12 | `duplicate_visual`               | Clone `Sales by Country` chart → Training 2 page            | PASS   | New visual `556cccc96dd18dde7b8f` created on target page |
+
+**UAT Total: 12/12 PASS**
+
+### Schema Knowledge Notes (not bugs — correct usage)
+
+| # | Tool | Wrong usage | Correct usage |
+|---|------|-------------|---------------|
+| S01 | `set_conditional_format` | `formatType: "colorScale"` | `formatType: "gradient"` — valid values: `rules`, `gradient`, `clear` |
+| S02 | `change_visual_type` | `newVisualType: "..."` | `visualType: "..."` — param name matches `add_visual` |
+
+### UAT Observations
+- `apply_theme` + `bulk_update_format` together give a fully styled page in 2 calls — highly efficient
+- `duplicate_visual` with `targetPageId` cross-page copy works correctly; visual lands at same coordinates as original
+- Slicers created with `slicerMode: "Dropdown"` render as compact dropdown — preferred for space-constrained layouts
+- `add_page_filter` categorical accepts string values even for integer Year column — Power BI coerces correctly
+- `change_visual_type` preserves bindings — `barChart` → `columnChart` kept Segment/Sales binding intact
+- `set_conditional_format` gradient applied to table background cells — red (low profit) → green (high profit) visible per row
+
+---
+
 ## Observations
 
 - **Batch/bulk tools save significant tokens** for multi-visual operations. On a 10-visual page, `bulk_update_format` saves ~9 round-trips.
