@@ -2,6 +2,19 @@
 
 ---
 
+## [0.4.1] — 2026-04-05
+
+### Added
+- `list_pages` gains `slim` param (default `true`) — returns id, displayName, visualCount, isActive, hidden only; set `slim=false` for width/height/displayOption
+- `list_visuals` gains `slim` param (default `true`) — returns id, type, x, y, w, h, title; set `slim=false` for full position object + filterCount
+- `skills/token-usage.md` — per-operation token costs, 5 build scenarios (bare minimum → full brand), multi-page scaling, /compact guidance, optimal call sequence
+- `skills/token-comparison.md` — MCP vs CLI vs Manual token comparison, break-even analysis (~3 pages), /compact with/without for 5-page and 10-page sessions, decision table
+
+### Changed
+- README updated to v0.4.0 — all new tools documented (bookmarks, visibility, conditional format, diff_report_theme, filters), deployment note, Table[Column] shorthand, conditional formatting examples
+
+---
+
 ## [0.4.0] — 2026-04-04
 
 ### Added
