@@ -14,6 +14,12 @@ npm install
 npm run build
 ```
 
+> **Deploying on another machine?** The `dist/` folder is committed — no build step needed. Just clone and run:
+> ```bash
+> npm install        # restore node_modules only
+> node dist/index.js # run directly — no build required
+> ```
+
 ### 2. Configure your MCP client
 
 **Claude Desktop (Windows)**
