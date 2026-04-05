@@ -2,6 +2,21 @@
 
 ---
 
+## [0.4.2] — 2026-04-05
+
+### Added
+- `get_page_summary` tool — returns all pages with their visuals in one call, replacing `list_pages` + N×`list_visuals` at session start
+- `get_visual` gains `slim` param (default true) — returns type/position/bindings summary/title/filterCount (~50 tokens) instead of full PBIR JSON (~500–700 tokens)
+- `list_filters` gains `slim` param (default true) — flattens PBIR FieldRef objects to `Table[Column]` strings
+
+### Changed
+- `add_visual` description: removed inline visual types list (~250 tokens/session) — use `get_visual_types` instead
+- Trimmed verbose parameter descriptions across `createVisual.ts`, `themes.ts`, `format.ts`, `filters.ts` (~500–800 tokens off fixed schema overhead)
+- `token-comparison.md` moved to project root — it is human-facing analysis, not an in-session skill
+- `skills/token-usage.md` updated: `get_page_summary` replaces `list_pages` in optimal call sequence
+
+---
+
 ## [0.4.1] — 2026-04-05
 
 ### Added

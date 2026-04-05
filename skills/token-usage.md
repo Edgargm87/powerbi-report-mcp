@@ -9,11 +9,12 @@ Pricing reference: ~$3/M input tokens, ~$15/M output tokens.
 
 | Item | Tokens | Notes |
 |---|---|---|
-| All tool schemas loaded into context | ~12,000 | Unavoidable — MCP loads all 50+ tool definitions |
-| `add_visual` schema alone | ~2,500 | Largest single schema — all visual types + params |
+| All tool schemas loaded into context | ~11,200 | Unavoidable — MCP loads all 50+ tool definitions |
+| `add_visual` schema alone | ~2,250 | Largest single schema (visual types list removed) |
 | `set_report` | ~40 | Connect once per session |
+| `get_page_summary` | ~60 | Orient on existing pages + visuals — replaces list_pages + N×list_visuals |
 | Model read (tables + columns) | ~430 | Read once, reuse field names all session |
-| **Session startup total** | **~12,500** | Amortised across all pages built |
+| **Session startup total** | **~11,730** | Amortised across all pages built |
 
 ---
 
@@ -23,7 +24,8 @@ Pricing reference: ~$3/M input tokens, ~$15/M output tokens.
 
 | Operation | Input | Output | Total | Notes |
 |---|---|---|---|---|
-| `list_pages` (slim) | ~10 | ~30 | ~40 | Default slim mode |
+| `get_page_summary` (all pages) | ~20 | ~80 | ~100 | Replaces list_pages + N×list_visuals |
+| `list_pages` (slim) | ~10 | ~30 | ~40 | Use when you only need page list |
 | `create_page` | ~30 | ~25 | ~55 | |
 | `add_visual` batch — shapes (~8) | ~450 | ~180 | ~630 | Wireframe layer |
 | `add_visual` batch — 13 data visuals | ~1,200 | ~200 | ~1,400 | 4 KPIs + 5 slicers + 4 charts |
@@ -144,13 +146,16 @@ while preserving session knowledge (page IDs, field names, design decisions).
 | `add_visual` batch | 🟢 Cheap | N visuals, 1 call |
 | Inline `containerFormat` | 🟢 Free | No extra call |
 | Inline `title` | 🟢 Free | No extra call |
+| `get_page_summary` | 🟢 Cheap | ~100 tokens, replaces N+1 calls |
 | `list_pages` slim | 🟢 Cheap | ~40 tokens |
 | `list_visuals` slim | 🟢 Cheap | ~30 tokens per visual |
+| `get_visual` slim | 🟢 Cheap | ~50 tokens — bindings summary |
+| `list_filters` slim | 🟢 Cheap | Table[Column] strings only |
 | `format_visual` ×N | 🟡 Medium | 1 call per visual |
 | `set_visual_title` ×N | 🟡 Medium | 1 call per visual |
-| `get_visual` | 🟡 Medium | Returns full JSON |
+| `get_visual` slim=false | 🟡 Medium | Full PBIR JSON ~500–700 tokens |
 | `list_visuals` slim=false | 🟡 Medium | Full position objects |
-| Session tool schemas | 🔴 Fixed | ~12,000, unavoidable |
+| Session tool schemas | 🔴 Fixed | ~11,200, unavoidable |
 
 ---
 
@@ -171,6 +176,7 @@ while preserving session knowledge (page IDs, field names, design decisions).
 ```
 Session start (once):
   set_report
+  get_page_summary        ← all pages + visuals in 1 call (replaces list_pages + N×list_visuals)
   model read (tables + columns)
   set_report_theme        ← global brand, skip if already set
 

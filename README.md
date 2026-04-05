@@ -1,6 +1,6 @@
 # Power BI Report MCP Server
 
-**Version 0.4.0** — An MCP (Model Context Protocol) server that lets AI assistants programmatically create, edit, and format Power BI reports in PBIR format. Works with Claude Desktop, Claude Code, Cursor, Cline, and any MCP-compatible client.
+**Version 0.4.2** — An MCP (Model Context Protocol) server that lets AI assistants programmatically create, edit, and format Power BI reports in PBIR format. Works with Claude Desktop, Claude Code, Cursor, Cline, and any MCP-compatible client.
 
 ---
 
@@ -80,7 +80,8 @@ After changing config or rebuilding, restart the client to pick up the new MCP p
 
 | Tool | Description |
 |------|-------------|
-| `list_pages` | List all pages with IDs, names, sizes, visual counts, hidden state |
+| `get_page_summary` | All pages + their visuals in one call — use at session start instead of `list_pages` + `list_visuals` |
+| `list_pages` | List all pages (slim mode default — id, name, visualCount, hidden) |
 | `create_page` | Create a new page (name, width, height, display option) |
 | `delete_page` | Delete a page and all its visuals |
 | `rename_page` | Rename an existing page |
@@ -100,8 +101,8 @@ After changing config or rebuilding, restart the client to pick up the new MCP p
 | `duplicate_visual` | Clone a visual (optionally to another page) |
 | `move_visual` | Reposition and resize a visual |
 | `change_visual_type` | Swap visual type while keeping data bindings |
-| `list_visuals` | List all visuals on a page with types and positions |
-| `get_visual` | Get the full JSON definition of a visual |
+| `list_visuals` | List all visuals on a page (slim mode default — id, type, x, y, w, h, title) |
+| `get_visual` | Get visual details (slim mode default — type/position/bindings/title; `slim=false` for full JSON) |
 | `get_visual_types` | List all supported visual types and their data buckets |
 
 ### Data Binding
@@ -137,7 +138,7 @@ Field types: **column** (raw), **aggregation** (Sum/Avg/Count/Min/Max/Median/etc
 
 | Tool | Description |
 |------|-------------|
-| `list_filters` | List all filters on a page or visual |
+| `list_filters` | List filters on a page or visual (slim mode default — field as `Table[Column]` string) |
 | `add_page_filter` | Add a categorical, TopN, or relative date filter to a page |
 | `remove_filter` | Remove a filter by name |
 | `clear_filters` | Remove all filters from a page or visual |
