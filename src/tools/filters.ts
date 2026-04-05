@@ -59,7 +59,8 @@ function buildCategoricalFilter(
 }
 
 // --- Helper: build a TopN filter ---
-// PBIR requires From/Where DAX query format — NOT { TopN: {} }
+// PBIR TopN uses a subquery pattern: outer From has a Subquery entry (Type:2) + category table.
+// Where uses In with Table referencing the subquery — NOT a TopN condition inside Where.
 function buildTopNFilter(
   entity: string,
   property: string,
@@ -70,30 +71,48 @@ function buildTopNFilter(
   orderByIsMeasure: boolean
 ): FilterItem {
   const field = columnRef(entity, property);
-  const src = alias(entity);
-  const ord = alias(orderByEntity, [src]);
+  const catAlias = alias(entity);
+  const ordAlias = alias(orderByEntity, [catAlias]);
+  const pbiDirection = direction === "Top" ? 2 : 1; // 2=Descending, 1=Ascending
 
-  const fromList: unknown[] = [{ Name: src, Entity: entity, Type: 0 }];
-  if (orderByEntity !== entity) fromList.push({ Name: ord, Entity: orderByEntity, Type: 0 });
+  // Inner from: always includes category table; add orderBy table only if different entity
+  const innerFrom: unknown[] = [{ Name: catAlias, Entity: entity, Type: 0 }];
+  if (orderByEntity !== entity) innerFrom.push({ Name: ordAlias, Entity: orderByEntity, Type: 0 });
 
-  const orderBySource = orderByEntity !== entity ? ord : src;
+  // OrderBy expression: Aggregation(Sum) for columns, Measure for DAX measures
+  const ordSrc = orderByEntity !== entity ? ordAlias : catAlias;
   const orderByExpr = orderByIsMeasure
-    ? { Measure: { Expression: { SourceRef: { Source: orderBySource } }, Property: orderByProperty } }
-    : { Column: { Expression: { SourceRef: { Source: orderBySource } }, Property: orderByProperty } };
+    ? { Measure: { Expression: { SourceRef: { Source: ordSrc } }, Property: orderByProperty } }
+    : { Aggregation: { Expression: { Column: { Expression: { SourceRef: { Source: ordSrc } }, Property: orderByProperty } }, Function: 0 } };
 
   const filter = {
-    From: fromList,
-    Where: [{
-      Condition: {
-        TopN: {
-          Expression: {
-            Column: {
-              Expression: { SourceRef: { Source: src } },
-              Property: property,
+    Version: 2,
+    From: [
+      {
+        Name: "subquery",
+        Expression: {
+          Subquery: {
+            Query: {
+              Version: 2,
+              From: innerFrom,
+              Select: [{
+                Column: { Expression: { SourceRef: { Source: catAlias } }, Property: property },
+                Name: "field",
+              }],
+              OrderBy: [{ Direction: pbiDirection, Expression: orderByExpr }],
+              Top: n,
             },
           },
-          ItemCount: n,
-          OrderBy: [{ Direction: direction === "Top" ? 2 : 1, Expression: orderByExpr }],
+        },
+        Type: 2,
+      },
+      { Name: catAlias, Entity: entity, Type: 0 },
+    ],
+    Where: [{
+      Condition: {
+        In: {
+          Expressions: [{ Column: { Expression: { SourceRef: { Source: catAlias } }, Property: property } }],
+          Table: { SourceRef: { Source: "subquery" } },
         },
       },
     }],

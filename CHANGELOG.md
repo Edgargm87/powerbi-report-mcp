@@ -5,6 +5,7 @@
 ## [0.4.5] — 2026-04-05
 
 ### Fixed
+- **B04** `add_page_filter` — all three filter types (`categorical`, `topN`, `relativeDate`) were writing Power BI REST API format (`{ Categorical: {} }`) which fails PBIR schema validation. Fixed to emit DAX query format: `{ From: [...], Where: [{ Condition: { In/TopN/RelativeDate: {} } }] }`. Also removed spurious `howCreated`/`objects` fields from filter items.
 - **B01** `set_page_visibility` — `hidden` boolean rejected when MCP client serialises it as a string; fixed with `z.coerce.boolean()`
 - **B02** All required array params (`bindings`, `formatting`, `colors`, `visualIds`, `updates`, `pageOrder`) — rejected when MCP client serialises arrays as JSON strings; fixed with `z.preprocess` wrapper across `bindings.ts`, `bulk.ts`, `format.ts`, `report.ts`
 - **B03** `list_filters` slim mode — `Aggregation` FieldRef (used by auto-filters on SUM columns) fell back to raw JSON; fixed by adding Aggregation branch to `fieldRefToString`

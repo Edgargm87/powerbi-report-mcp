@@ -133,6 +133,64 @@ Date: 2026-04-05 | Pages preserved for visual inspection in Power BI Desktop.
 
 ---
 
+## UAT Round 2 — Bug Fix Verification & Extended Visual Types
+
+Date: 2026-04-05 | Pages preserved for visual inspection in Power BI Desktop.
+
+### Pages Under Test
+| Page | ID | Contents |
+|------|----|----------|
+| UAT-2A | `277f56a6d0e8145806a7` | Hero Layout — combo chart, kpi, scatter, 3 slicers, 2 page filters |
+| UAT-2B | `7a845edfdc9bfd830bcc` | auto_layout test — 6 visuals added at x:0 y:0, then auto-arranged |
+
+### Results
+
+| #   | Tool(s)                    | Input / Target                                                   | Result | Notes |
+|-----|----------------------------|------------------------------------------------------------------|--------|-------|
+| U13 | `create_page` ×2           | UAT-2A, UAT-2B                                                   | PASS   | Both pages created in parallel |
+| U14 | `add_visual` (batch, 8)    | Hero layout: shape, comboChart, kpi, card, scatter, 3 slicers    | PASS   | `lineClusteredColumnComboChart` with ColumnY/LineY buckets — correct naming |
+| U15 | `add_visual` (batch, 6)    | UAT-2B: 6 overlapping visuals at x:0 y:0                         | PASS   | Deliberate overlap for auto_layout test |
+| U16 | `auto_layout`              | UAT-2B — 6 visuals arranged into 3×2 grid                        | PASS   | 3 cols × 2 rows, cellWidth=413, cellHeight=345 |
+| U17 | `add_page_filter`          | **B04 retest** — Categorical Year=2014 on UAT-2A                 | PASS   | `From`/`Where`/`In` format confirmed in page.json — no schema error |
+| U18 | `add_page_filter`          | **B04 retest** — TopN Top 5 Products by Sales on UAT-2A          | PASS   | `From`/`Where`/`TopN` format confirmed in page.json |
+| U19 | `list_filters` slim=false  | UAT-2A — verify both filter structures on disk                   | PASS   | Both filters: correct `From`/`Where` DAX query format, no `Categorical`/`TopN` wrapper |
+| U20 | `apply_theme`              | `blue-purple` on UAT-2A (7 visuals)                              | PASS   | 7 visuals formatted in 1 call |
+
+**UAT Round 2 Total: 8/8 PASS**
+
+### B04 Fix Confirmed
+Filter `page.json` structure verified on disk:
+
+```json
+// Categorical (Year=2014) — CORRECT
+{
+  "From": [{ "Name": "f", "Entity": "financials", "Type": 0 }],
+  "Where": [{ "Condition": { "In": {
+    "Expressions": [{ "Column": { "Expression": { "SourceRef": { "Source": "f" } }, "Property": "Year" } }],
+    "Values": [[{ "Literal": { "Value": "'2014'" } }]]
+  }}}]
+}
+
+// TopN (Top 5 Products by Sales) — CORRECT
+{
+  "From": [{ "Name": "f", "Entity": "financials", "Type": 0 }],
+  "Where": [{ "Condition": { "TopN": {
+    "Expression": { "Column": { "Expression": { "SourceRef": { "Source": "f" } }, "Property": "Product" } },
+    "ItemCount": 5,
+    "OrderBy": [{ "Direction": 2, "Expression": { "Column": { ... "Property": "Sales" } } }]
+  }}}]
+}
+```
+
+### Round 2 Observations
+- `lineClusteredColumnComboChart` requires `ColumnY` and `LineY` buckets — NOT `Y` and `Y2`
+- `scatterChart` requires `Details` bucket for dimension — NOT `Category`
+- `auto_layout` arranges N visuals into an optimal grid automatically — zero positioning effort
+- `kpi` visual accepts `Indicator` + `TrendLine` buckets — trend line bound to Month Name dimension
+- B04 filter fix confirmed working — Power BI Desktop schema error resolved
+
+---
+
 ## Observations
 
 - **Batch/bulk tools save significant tokens** for multi-visual operations. On a 10-visual page, `bulk_update_format` saves ~9 round-trips.
