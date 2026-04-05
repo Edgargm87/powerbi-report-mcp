@@ -62,21 +62,23 @@ function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: list_pages
     // ============================================================
-    server.tool("list_pages", "List all pages in the report with their details", {}, async () => {
+    server.tool("list_pages", "List all pages in the report. Slim mode (default) returns id, displayName, visualCount, isActive, hidden. Set slim=false for full details including width, height, displayOption.", {
+        slim: zod_1.z.boolean().optional().default(true).describe("Slim mode (default true) — omits width/height/displayOption to reduce token usage"),
+    }, async ({ slim }) => {
         const meta = ctx.project.getPagesMetadata();
         const pages = meta.pageOrder.map((id) => {
             const page = ctx.project.getPage(id);
             const visualCount = ctx.project.listVisualIds(id).length;
-            return {
+            const base = {
                 id,
                 displayName: page.displayName,
-                width: page.width,
-                height: page.height,
-                displayOption: page.displayOption,
                 visualCount,
                 isActive: id === meta.activePageName,
                 hidden: page.visibility === 1,
             };
+            if (slim)
+                return base;
+            return { ...base, width: page.width, height: page.height, displayOption: page.displayOption };
         });
         return { content: [{ type: "text", text: JSON.stringify(pages, null, 2) }] };
     });

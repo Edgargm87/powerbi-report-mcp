@@ -14,16 +14,37 @@ function registerVisualTools(server, ctx) {
     // ============================================================
     // TOOL: list_visuals
     // ============================================================
-    server.tool("list_visuals", "List all visuals on a page", {
+    server.tool("list_visuals", "List all visuals on a page. Slim mode (default) returns id, type, x, y, w, h and title if set. Set slim=false for full position object and filter count.", {
         pageId: zod_1.z.string().describe("The page ID"),
-    }, async ({ pageId }) => {
+        slim: zod_1.z.boolean().optional().default(true).describe("Slim mode (default true) — flat short keys, omits z/tabOrder/filterCount to reduce token usage"),
+    }, async ({ pageId, slim }) => {
         const visualIds = ctx.project.listVisualIds(pageId);
         const visuals = visualIds.map((id) => {
             const v = ctx.project.getVisual(pageId, id);
+            // Extract title text if set
+            const titleArr = v.visual.visualContainerObjects?.title;
+            const titleValue = Array.isArray(titleArr) && titleArr.length > 0
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ? titleArr[0]?.properties?.text?.expr?.Literal?.Value?.replace(/^'|'$/g, "") ?? null
+                : null;
+            if (slim) {
+                const entry = {
+                    id,
+                    type: v.visual.visualType,
+                    x: v.position.x,
+                    y: v.position.y,
+                    w: v.position.width,
+                    h: v.position.height,
+                };
+                if (titleValue)
+                    entry.title = titleValue;
+                return entry;
+            }
             return {
                 id,
                 visualType: v.visual.visualType,
                 position: v.position,
+                title: titleValue,
                 filterCount: v.filterConfig?.filters?.length ?? 0,
             };
         });

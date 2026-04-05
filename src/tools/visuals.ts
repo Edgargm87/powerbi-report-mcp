@@ -30,18 +30,41 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "list_visuals",
-    "List all visuals on a page",
+    "List all visuals on a page. Slim mode (default) returns id, type, x, y, w, h and title if set. Set slim=false for full position object and filter count.",
     {
       pageId: z.string().describe("The page ID"),
+      slim: z.boolean().optional().default(true).describe("Slim mode (default true) — flat short keys, omits z/tabOrder/filterCount to reduce token usage"),
     },
-    async ({ pageId }) => {
+    async ({ pageId, slim }) => {
       const visualIds = ctx.project.listVisualIds(pageId);
       const visuals = visualIds.map((id) => {
         const v = ctx.project.getVisual(pageId, id);
+
+        // Extract title text if set
+        const titleArr = (v.visual.visualContainerObjects as Record<string, unknown[]> | undefined)?.title;
+        const titleValue = Array.isArray(titleArr) && titleArr.length > 0
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          ? (titleArr[0] as any)?.properties?.text?.expr?.Literal?.Value?.replace(/^'|'$/g, "") ?? null
+          : null;
+
+        if (slim) {
+          const entry: Record<string, unknown> = {
+            id,
+            type: v.visual.visualType,
+            x: v.position.x,
+            y: v.position.y,
+            w: v.position.width,
+            h: v.position.height,
+          };
+          if (titleValue) entry.title = titleValue;
+          return entry;
+        }
+
         return {
           id,
           visualType: v.visual.visualType,
           position: v.position,
+          title: titleValue,
           filterCount: v.filterConfig?.filters?.length ?? 0,
         };
       });
