@@ -5,13 +5,18 @@ const zod_1 = require("zod");
 const pbir_js_1 = require("../pbir.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
 const formatting_js_1 = require("../helpers/formatting.js");
+// Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseArray(schema) {
+    return zod_1.z.preprocess((val) => (typeof val === "string" ? JSON.parse(val) : val), zod_1.z.array(schema));
+}
 function registerBulkTools(server, ctx) {
     // ============================================================
     // TOOL: bulk_delete_visuals
     // ============================================================
     server.tool("bulk_delete_visuals", "Delete multiple visuals from a page in one call.", {
         pageId: zod_1.z.string().describe("The page ID"),
-        visualIds: zod_1.z.array(zod_1.z.string()).describe("Visual IDs to delete"),
+        visualIds: parseArray(zod_1.z.string()).describe("Visual IDs to delete"),
     }, async ({ pageId, visualIds }) => {
         const deleted = [];
         const errors = [];
@@ -38,8 +43,8 @@ function registerBulkTools(server, ctx) {
     // ============================================================
     server.tool("bulk_update_format", "Apply the same formatting to multiple visuals in one call. target='container' for title/background/border, 'visual' for axes/legend/labels.", {
         pageId: zod_1.z.string().describe("The page ID"),
-        visualIds: zod_1.z.array(zod_1.z.string()).describe("Visual IDs to format"),
-        formatting: zod_1.z.array(createVisual_js_1.FormatCategorySchema).describe("Formatting to apply to all visuals"),
+        visualIds: parseArray(zod_1.z.string()).describe("Visual IDs to format"),
+        formatting: parseArray(createVisual_js_1.FormatCategorySchema).describe("Formatting to apply to all visuals"),
         target: zod_1.z
             .enum(["visual", "container"])
             .optional()
@@ -76,12 +81,10 @@ function registerBulkTools(server, ctx) {
     // ============================================================
     server.tool("bulk_bind", "Update data bindings on multiple visuals in one call. Each entry specifies a visualId and its new bindings. Replaces existing bindings entirely.", {
         pageId: zod_1.z.string().describe("The page ID"),
-        updates: zod_1.z
-            .array(zod_1.z.object({
+        updates: parseArray(zod_1.z.object({
             visualId: zod_1.z.string().describe("Visual ID to rebind"),
-            bindings: zod_1.z.array(createVisual_js_1.BucketBindingSchema).describe("New bindings"),
-        }))
-            .describe("Array of {visualId, bindings} pairs"),
+            bindings: parseArray(createVisual_js_1.BucketBindingSchema).describe("New bindings"),
+        })).describe("Array of {visualId, bindings} pairs"),
         autoFilters: zod_1.z
             .boolean()
             .optional()

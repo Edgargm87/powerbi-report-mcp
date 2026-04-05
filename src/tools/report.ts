@@ -158,7 +158,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     "reorder_pages",
     "Set the page order",
     {
-      pageOrder: z.array(z.string()).describe("Array of page IDs in desired order"),
+      pageOrder: z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, z.array(z.string())).describe("Array of page IDs in desired order"),
     },
     async ({ pageOrder }) => {
       const meta = ctx.project.getPagesMetadata();
@@ -195,7 +195,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     "Show or hide a page in the report navigation pane. Hidden pages are not shown to report viewers but can still be used for drillthrough.",
     {
       pageId: z.string().describe("The page ID"),
-      hidden: z.boolean().describe("true to hide the page, false to show it"),
+      hidden: z.coerce.boolean().describe("true to hide the page, false to show it"),
     },
     async ({ pageId, hidden }) => {
       const page = ctx.project.getPage(pageId);

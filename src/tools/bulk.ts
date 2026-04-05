@@ -11,6 +11,15 @@ import {
 import { applyFormattingToTarget } from "../helpers/formatting.js";
 import type { ServerContext } from "../context.js";
 
+// Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk)
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseArray<T>(schema: z.ZodType<T>) {
+  return z.preprocess(
+    (val) => (typeof val === "string" ? JSON.parse(val) : val),
+    z.array(schema)
+  );
+}
+
 export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
   // TOOL: bulk_delete_visuals
@@ -20,7 +29,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
     "Delete multiple visuals from a page in one call.",
     {
       pageId: z.string().describe("The page ID"),
-      visualIds: z.array(z.string()).describe("Visual IDs to delete"),
+      visualIds: parseArray(z.string()).describe("Visual IDs to delete"),
     },
     async ({ pageId, visualIds }) => {
       const deleted: string[] = [];
@@ -54,8 +63,8 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
     "Apply the same formatting to multiple visuals in one call. target='container' for title/background/border, 'visual' for axes/legend/labels.",
     {
       pageId: z.string().describe("The page ID"),
-      visualIds: z.array(z.string()).describe("Visual IDs to format"),
-      formatting: z.array(FormatCategorySchema).describe("Formatting to apply to all visuals"),
+      visualIds: parseArray(z.string()).describe("Visual IDs to format"),
+      formatting: parseArray(FormatCategorySchema).describe("Formatting to apply to all visuals"),
       target: z
         .enum(["visual", "container"])
         .optional()
@@ -100,14 +109,12 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
     "Update data bindings on multiple visuals in one call. Each entry specifies a visualId and its new bindings. Replaces existing bindings entirely.",
     {
       pageId: z.string().describe("The page ID"),
-      updates: z
-        .array(
-          z.object({
-            visualId: z.string().describe("Visual ID to rebind"),
-            bindings: z.array(BucketBindingSchema).describe("New bindings"),
-          })
-        )
-        .describe("Array of {visualId, bindings} pairs"),
+      updates: parseArray(
+        z.object({
+          visualId: z.string().describe("Visual ID to rebind"),
+          bindings: parseArray(BucketBindingSchema).describe("New bindings"),
+        })
+      ).describe("Array of {visualId, bindings} pairs"),
       autoFilters: z
         .boolean()
         .optional()

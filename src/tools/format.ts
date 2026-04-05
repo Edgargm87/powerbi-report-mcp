@@ -89,8 +89,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
     {
       pageId: z.string().describe("The page ID"),
       visualId: z.string().describe("The visual ID"),
-      formatting: z
-        .array(FormatCategorySchema)
+      formatting: z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, z.array(FormatCategorySchema))
         .describe("Array of formatting categories and their properties to set"),
       target: z
         .enum(["visual", "container"])
@@ -133,7 +132,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
     {
       pageId: z.string().describe("The page ID"),
       visualId: z.string().describe("The visual ID"),
-      colors: z.array(DataColorSchema).describe("Array of color assignments for data points"),
+      colors: z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, z.array(DataColorSchema)).describe("Array of color assignments for data points"),
       defaultTransparency: z
         .number()
         .optional()

@@ -11,6 +11,10 @@ function fieldRefToString(field) {
         return `${f.Column.Expression?.SourceRef?.Entity}[${f.Column.Property}]`;
     if (f?.Measure)
         return `${f.Measure.Expression?.SourceRef?.Entity}[${f.Measure.Property}]`;
+    if (f?.Aggregation?.Expression?.Column) {
+        const col = f.Aggregation.Expression.Column;
+        return `${col.Expression?.SourceRef?.Entity}[${col.Property}]`;
+    }
     return JSON.stringify(field);
 }
 // --- Helper: build a Categorical filter ---

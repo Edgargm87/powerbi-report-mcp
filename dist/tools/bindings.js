@@ -11,7 +11,7 @@ function registerBindingTools(server, ctx) {
     server.tool("update_visual_bindings", `Update the data bindings of an existing visual. Replaces the query state entirely. Supports Table[Column] shorthand: use { "field": "Sales[Net Price]", "type": "measure" } as an alternative to separate entity/property fields.`, {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().describe("The visual ID"),
-        bindings: zod_1.z.array(createVisual_js_1.BucketBindingSchema).describe("New data bindings"),
+        bindings: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(createVisual_js_1.BucketBindingSchema)).describe("New data bindings"),
         autoFilters: zod_1.z.boolean().optional().default(true),
     }, async ({ pageId, visualId, bindings, autoFilters }) => {
         const visual = ctx.project.getVisual(pageId, visualId);

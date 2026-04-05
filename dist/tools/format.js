@@ -74,8 +74,7 @@ function registerFormatTools(server, ctx) {
     server.tool("format_visual", "Format visual properties. target='visual' for axes/legend/labels/lineStyles/etc. target='container' for title/background/border/padding/dropShadow/visualHeader. Colors starting with # auto-wrap. Numbers use D suffix.", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().describe("The visual ID"),
-        formatting: zod_1.z
-            .array(createVisual_js_1.FormatCategorySchema)
+        formatting: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(createVisual_js_1.FormatCategorySchema))
             .describe("Array of formatting categories and their properties to set"),
         target: zod_1.z
             .enum(["visual", "container"])
@@ -109,7 +108,7 @@ function registerFormatTools(server, ctx) {
     server.tool("set_datapoint_colors", "Set data point colors for specific series/measures in a visual.", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().describe("The visual ID"),
-        colors: zod_1.z.array(createVisual_js_1.DataColorSchema).describe("Array of color assignments for data points"),
+        colors: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(createVisual_js_1.DataColorSchema)).describe("Array of color assignments for data points"),
         defaultTransparency: zod_1.z
             .number()
             .optional()

@@ -15,7 +15,7 @@ export function registerBindingTools(server: McpServer, ctx: ServerContext): voi
     {
       pageId: z.string().describe("The page ID"),
       visualId: z.string().describe("The visual ID"),
-      bindings: z.array(BucketBindingSchema).describe("New data bindings"),
+      bindings: z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, z.array(BucketBindingSchema)).describe("New data bindings"),
       autoFilters: z.boolean().optional().default(true),
     },
     async ({ pageId, visualId, bindings, autoFilters }) => {

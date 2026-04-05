@@ -148,7 +148,7 @@ function registerReportTools(server, ctx) {
     // TOOL: reorder_pages
     // ============================================================
     server.tool("reorder_pages", "Set the page order", {
-        pageOrder: zod_1.z.array(zod_1.z.string()).describe("Array of page IDs in desired order"),
+        pageOrder: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(zod_1.z.string())).describe("Array of page IDs in desired order"),
     }, async ({ pageOrder }) => {
         const meta = ctx.project.getPagesMetadata();
         meta.pageOrder = pageOrder;
@@ -173,7 +173,7 @@ function registerReportTools(server, ctx) {
     // ============================================================
     server.tool("set_page_visibility", "Show or hide a page in the report navigation pane. Hidden pages are not shown to report viewers but can still be used for drillthrough.", {
         pageId: zod_1.z.string().describe("The page ID"),
-        hidden: zod_1.z.boolean().describe("true to hide the page, false to show it"),
+        hidden: zod_1.z.coerce.boolean().describe("true to hide the page, false to show it"),
     }, async ({ pageId, hidden }) => {
         const page = ctx.project.getPage(pageId);
         if (hidden) {
