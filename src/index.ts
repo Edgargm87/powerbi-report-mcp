@@ -10,7 +10,6 @@ import { registerFormatTools } from "./tools/format.js";
 import { registerBindingTools } from "./tools/bindings.js";
 import { registerThemeTools } from "./tools/themes.js";
 import { registerFilterTools } from "./tools/filters.js";
-import { registerBookmarkTools } from "./tools/bookmarks.js";
 import { registerBulkTools } from "./tools/bulk.js";
 import { registerCalculationTools } from "./tools/calculations.js";
 
@@ -100,7 +99,7 @@ async function main() {
 
   const server = new McpServer({
     name: "powerbi-report-mcp",
-    version: "0.4.4",
+    version: "0.4.5",
   });
 
   // Auto-wrap all tool handlers with safe() for error resilience
@@ -123,7 +122,6 @@ async function main() {
   registerBindingTools(server, ctx);
   registerThemeTools(server, ctx);
   registerFilterTools(server, ctx);
-  registerBookmarkTools(server, ctx);
   registerBulkTools(server, ctx);
   registerCalculationTools(server, ctx);
 

@@ -2,6 +2,18 @@
 
 ---
 
+## [0.4.5] — 2026-04-05
+
+### Fixed
+- **B01** `set_page_visibility` — `hidden` boolean rejected when MCP client serialises it as a string; fixed with `z.coerce.boolean()`
+- **B02** All required array params (`bindings`, `formatting`, `colors`, `visualIds`, `updates`, `pageOrder`) — rejected when MCP client serialises arrays as JSON strings; fixed with `z.preprocess` wrapper across `bindings.ts`, `bulk.ts`, `format.ts`, `report.ts`
+- **B03** `list_filters` slim mode — `Aggregation` FieldRef (used by auto-filters on SUM columns) fell back to raw JSON; fixed by adding Aggregation branch to `fieldRefToString`
+
+### Added
+- `tests.md` — full 26-test suite run against training report; all 26 pass; documents token estimates per operation
+
+---
+
 ## [0.4.4] — 2026-04-05
 
 ### Added
