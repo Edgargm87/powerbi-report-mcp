@@ -11,6 +11,8 @@ import { registerBindingTools } from "./tools/bindings.js";
 import { registerThemeTools } from "./tools/themes.js";
 import { registerFilterTools } from "./tools/filters.js";
 import { registerBookmarkTools } from "./tools/bookmarks.js";
+import { registerBulkTools } from "./tools/bulk.js";
+import { registerCalculationTools } from "./tools/calculations.js";
 
 // --- Discover .Report folder ---
 function findReportFolder(basePath: string): string | null {
@@ -98,7 +100,7 @@ async function main() {
 
   const server = new McpServer({
     name: "powerbi-report-mcp",
-    version: "0.4.0",
+    version: "0.4.3",
   });
 
   // Auto-wrap all tool handlers with safe() for error resilience
@@ -122,6 +124,8 @@ async function main() {
   registerThemeTools(server, ctx);
   registerFilterTools(server, ctx);
   registerBookmarkTools(server, ctx);
+  registerBulkTools(server, ctx);
+  registerCalculationTools(server, ctx);
 
   // PBIR instructions resource
   server.resource("pbir-instructions", "resource://pbir-instructions", () => ({
@@ -137,7 +141,7 @@ async function main() {
   const transport = new StdioServerTransport();
   console.error("Power BI Report MCP Server starting...");
   console.error(`Report path: ${reportPath || "none (use set_report to connect)"}`);
-  console.error("Version: 0.4.0");
+  console.error("Version: 0.4.3");
   await server.connect(transport);
 }
 

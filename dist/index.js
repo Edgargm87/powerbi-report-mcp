@@ -46,6 +46,8 @@ const bindings_js_1 = require("./tools/bindings.js");
 const themes_js_1 = require("./tools/themes.js");
 const filters_js_1 = require("./tools/filters.js");
 const bookmarks_js_1 = require("./tools/bookmarks.js");
+const bulk_js_1 = require("./tools/bulk.js");
+const calculations_js_1 = require("./tools/calculations.js");
 // --- Discover .Report folder ---
 function findReportFolder(basePath) {
     if (fs.existsSync(basePath) && fs.statSync(basePath).isDirectory()) {
@@ -124,7 +126,7 @@ async function main() {
     }
     const server = new mcp_js_1.McpServer({
         name: "powerbi-report-mcp",
-        version: "0.4.0",
+        version: "0.4.3",
     });
     // Auto-wrap all tool handlers with safe() for error resilience
     const _tool = server.tool.bind(server);
@@ -144,6 +146,8 @@ async function main() {
     (0, themes_js_1.registerThemeTools)(server, ctx);
     (0, filters_js_1.registerFilterTools)(server, ctx);
     (0, bookmarks_js_1.registerBookmarkTools)(server, ctx);
+    (0, bulk_js_1.registerBulkTools)(server, ctx);
+    (0, calculations_js_1.registerCalculationTools)(server, ctx);
     // PBIR instructions resource
     server.resource("pbir-instructions", "resource://pbir-instructions", () => ({
         contents: [
@@ -157,7 +161,7 @@ async function main() {
     const transport = new stdio_js_1.StdioServerTransport();
     console.error("Power BI Report MCP Server starting...");
     console.error(`Report path: ${reportPath || "none (use set_report to connect)"}`);
-    console.error("Version: 0.4.0");
+    console.error("Version: 0.4.3");
     await server.connect(transport);
 }
 // --- PBIR instructions resource ---

@@ -2,6 +2,18 @@
 
 ---
 
+## [0.4.3] — 2026-04-05
+
+### Added
+- `bulk_delete_visuals` — delete multiple visuals from a page in one call
+- `bulk_update_format` — apply the same formatting to multiple visuals in one call (target: visual or container)
+- `bulk_bind` — update data bindings on multiple visuals in one call, each with its own binding spec
+- `list_visual_calculations` — list DAX visual calculations on a matrix/table visual
+- `add_visual_calculation` — add a DAX visual calculation (RUNNINGSUM, RANK, MOVINGAVERAGE, etc.)
+- `delete_visual_calculation` — delete a visual calculation by name
+
+---
+
 ## [0.4.2] — 2026-04-05
 
 ### Added
