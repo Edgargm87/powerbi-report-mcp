@@ -100,7 +100,7 @@ async function main() {
 
   const server = new McpServer({
     name: "powerbi-report-mcp",
-    version: "0.4.3",
+    version: "0.4.4",
   });
 
   // Auto-wrap all tool handlers with safe() for error resilience
@@ -141,7 +141,7 @@ async function main() {
   const transport = new StdioServerTransport();
   console.error("Power BI Report MCP Server starting...");
   console.error(`Report path: ${reportPath || "none (use set_report to connect)"}`);
-  console.error("Version: 0.4.3");
+  console.error("Version: 0.4.4");
   await server.connect(transport);
 }
 

@@ -2,6 +2,19 @@
 
 ---
 
+## [0.4.4] — 2026-04-05
+
+### Added
+- `image` visual: `imageUrl` + `imageScaling` (fit/fill/normal) params — sets `objects.general.imageUrl` in PBIR
+- `actionButton` visual: `buttonText`, `buttonAction` (pageNavigation/URL/bookmark/back), `buttonActionTarget` — builds correct `objects.text` and `objects.action` structures
+- `pageNavigator` visual: already worked; now documented alongside image/actionButton in skills/visuals.md
+
+### Changed
+- `createAndSaveVisual` — new branches for `image` and `actionButton` object building
+- `VisualSpec` interface + `VisualSpecSchema` + `add_visual` tool schema updated with new params
+
+---
+
 ## [0.4.3] — 2026-04-05
 
 ### Added

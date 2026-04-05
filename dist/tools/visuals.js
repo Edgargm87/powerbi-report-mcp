@@ -135,6 +135,19 @@ function registerVisualTools(server, ctx) {
         containerFormat: zod_1.z.array(createVisual_js_1.FormatCategorySchema).optional().describe("Inline container formatting"),
         visualFormat: zod_1.z.array(createVisual_js_1.FormatCategorySchema).optional().describe("Inline visual formatting"),
         dataColors: zod_1.z.array(createVisual_js_1.DataColorSchema).optional().describe("Inline data point colors"),
+        // Image params
+        imageUrl: zod_1.z.string().optional().describe("Image URL (image visual only)"),
+        imageScaling: zod_1.z.enum(["fit", "fill", "normal"]).optional().describe("Image scaling (default fit)"),
+        // actionButton params
+        buttonText: zod_1.z.string().optional().describe("Button label (actionButton only)"),
+        buttonAction: zod_1.z
+            .enum(["pageNavigation", "URL", "bookmark", "back"])
+            .optional()
+            .describe("Button action type"),
+        buttonActionTarget: zod_1.z
+            .string()
+            .optional()
+            .describe("Action target: page ID for pageNavigation, URL for URL, bookmark ID for bookmark"),
         // Batch mode
         visuals: zod_1.z
             .array(createVisual_js_1.VisualSpecSchema)
@@ -176,6 +189,11 @@ function registerVisualTools(server, ctx) {
                     containerFormat: params.containerFormat,
                     visualFormat: params.visualFormat,
                     dataColors: params.dataColors,
+                    imageUrl: params.imageUrl,
+                    imageScaling: params.imageScaling,
+                    buttonText: params.buttonText,
+                    buttonAction: params.buttonAction,
+                    buttonActionTarget: params.buttonActionTarget,
                 },
             ];
         }

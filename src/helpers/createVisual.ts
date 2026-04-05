@@ -39,6 +39,13 @@ export interface VisualSpec {
   containerFormat?: Array<{ category: string; properties: Record<string, string | number | boolean> }>;
   visualFormat?: Array<{ category: string; properties: Record<string, string | number | boolean> }>;
   dataColors?: Array<{ color: string; seriesName?: string }>;
+  // image params
+  imageUrl?: string;
+  imageScaling?: "fit" | "fill" | "normal";
+  // actionButton params
+  buttonText?: string;
+  buttonAction?: "pageNavigation" | "URL" | "bookmark" | "back";
+  buttonActionTarget?: string;
 }
 
 // --- Field spec input type (supports Table[Column] shorthand) ---
@@ -140,6 +147,19 @@ export const VisualSpecSchema = z.object({
     .array(DataColorSchema)
     .optional()
     .describe("Inline data point colors"),
+  // image
+  imageUrl: z.string().optional().describe("Image URL (for image visual type)"),
+  imageScaling: z.enum(["fit", "fill", "normal"]).optional().describe("Image scaling mode (default fit)"),
+  // actionButton
+  buttonText: z.string().optional().describe("Button label text (for actionButton)"),
+  buttonAction: z
+    .enum(["pageNavigation", "URL", "bookmark", "back"])
+    .optional()
+    .describe("Button action type (for actionButton)"),
+  buttonActionTarget: z
+    .string()
+    .optional()
+    .describe("Action target: page ID for pageNavigation, URL string for URL, bookmark ID for bookmark"),
 });
 
 // --- Parse field specification — supports Table[Column] shorthand ---
@@ -205,6 +225,11 @@ export function createAndSaveVisual(
     containerFormat,
     visualFormat,
     dataColors,
+    imageUrl,
+    imageScaling = "fit",
+    buttonText,
+    buttonAction,
+    buttonActionTarget,
   } = spec;
 
   // Normalise basicShape → shape
@@ -361,6 +386,65 @@ export function createAndSaveVisual(
         },
       ],
     };
+  } else if (visualType === "image") {
+    // Build image objects when a URL is provided
+    if (imageUrl) {
+      visualObjects = {
+        general: [
+          {
+            properties: {
+              imageUrl: { expr: { Literal: { Value: `'${imageUrl}'` } } },
+              scaling: { expr: { Literal: { Value: `'${imageScaling}'` } } },
+            },
+          },
+        ],
+      };
+    }
+  } else if (visualType === "actionButton") {
+    const btnObjs: Record<string, unknown> = {};
+
+    // Button label text
+    if (buttonText) {
+      btnObjs.text = [
+        {
+          properties: {
+            text: { expr: { Literal: { Value: `'${buttonText}'` } } },
+            show: { expr: { Literal: { Value: "true" } } },
+          },
+        },
+      ];
+    }
+
+    // Button action
+    if (buttonAction) {
+      const actionProps: Record<string, unknown> = {};
+
+      if (buttonAction === "back") {
+        actionProps.type = { expr: { Literal: { Value: "'Back'" } } };
+      } else if (buttonAction === "URL" && buttonActionTarget) {
+        actionProps.type = { expr: { Literal: { Value: "'WebUrl'" } } };
+        actionProps.url = { expr: { Literal: { Value: `'${buttonActionTarget}'` } } };
+      } else if (buttonAction === "pageNavigation") {
+        actionProps.type = { expr: { Literal: { Value: "'PageNavigation'" } } };
+        if (buttonActionTarget) {
+          // Section reference — page ID as PBIR Section expression
+          actionProps.navigationSection = {
+            expr: { Section: { Section: buttonActionTarget } },
+          };
+        }
+      } else if (buttonAction === "bookmark" && buttonActionTarget) {
+        actionProps.type = { expr: { Literal: { Value: "'Bookmark'" } } };
+        actionProps.bookmarkDisplayName = { expr: { Literal: { Value: `'${buttonActionTarget}'` } } };
+      }
+
+      if (Object.keys(actionProps).length > 0) {
+        btnObjs.action = [{ properties: actionProps }];
+      }
+    }
+
+    if (Object.keys(btnObjs).length > 0) {
+      visualObjects = btnObjs;
+    }
   }
 
   const visual: VisualDefinition = {

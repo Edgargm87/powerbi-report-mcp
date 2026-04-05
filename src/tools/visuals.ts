@@ -166,6 +166,19 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       containerFormat: z.array(FormatCategorySchema).optional().describe("Inline container formatting"),
       visualFormat: z.array(FormatCategorySchema).optional().describe("Inline visual formatting"),
       dataColors: z.array(DataColorSchema).optional().describe("Inline data point colors"),
+      // Image params
+      imageUrl: z.string().optional().describe("Image URL (image visual only)"),
+      imageScaling: z.enum(["fit", "fill", "normal"]).optional().describe("Image scaling (default fit)"),
+      // actionButton params
+      buttonText: z.string().optional().describe("Button label (actionButton only)"),
+      buttonAction: z
+        .enum(["pageNavigation", "URL", "bookmark", "back"])
+        .optional()
+        .describe("Button action type"),
+      buttonActionTarget: z
+        .string()
+        .optional()
+        .describe("Action target: page ID for pageNavigation, URL for URL, bookmark ID for bookmark"),
       // Batch mode
       visuals: z
         .array(VisualSpecSchema)
@@ -208,6 +221,11 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
             containerFormat: params.containerFormat as VisualSpec["containerFormat"],
             visualFormat: params.visualFormat as VisualSpec["visualFormat"],
             dataColors: params.dataColors as VisualSpec["dataColors"],
+            imageUrl: params.imageUrl,
+            imageScaling: params.imageScaling as VisualSpec["imageScaling"],
+            buttonText: params.buttonText,
+            buttonAction: params.buttonAction as VisualSpec["buttonAction"],
+            buttonActionTarget: params.buttonActionTarget,
           },
         ];
       } else {

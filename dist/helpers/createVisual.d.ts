@@ -34,6 +34,11 @@ export interface VisualSpec {
         color: string;
         seriesName?: string;
     }>;
+    imageUrl?: string;
+    imageScaling?: "fit" | "fill" | "normal";
+    buttonText?: string;
+    buttonAction?: "pageNavigation" | "URL" | "bookmark" | "back";
+    buttonActionTarget?: string;
 }
 export interface FieldSpecInput {
     /** Shorthand: 'Table[Column]' — parsed automatically into entity + property */
@@ -140,6 +145,20 @@ export declare const VisualSpecSchema: z.ZodObject<{
         color: z.ZodString;
         seriesName: z.ZodOptional<z.ZodString>;
     }, z.core.$strip>>>;
+    imageUrl: z.ZodOptional<z.ZodString>;
+    imageScaling: z.ZodOptional<z.ZodEnum<{
+        fill: "fill";
+        fit: "fit";
+        normal: "normal";
+    }>>;
+    buttonText: z.ZodOptional<z.ZodString>;
+    buttonAction: z.ZodOptional<z.ZodEnum<{
+        pageNavigation: "pageNavigation";
+        URL: "URL";
+        bookmark: "bookmark";
+        back: "back";
+    }>>;
+    buttonActionTarget: z.ZodOptional<z.ZodString>;
 }, z.core.$strip>;
 export declare function parseFieldSpec(spec: FieldSpecInput): FieldRef;
 export declare function createAndSaveVisual(project: PbirProject, pageId: string, spec: VisualSpec, baseZ: number): {

@@ -88,6 +88,19 @@ exports.VisualSpecSchema = zod_1.z.object({
         .array(exports.DataColorSchema)
         .optional()
         .describe("Inline data point colors"),
+    // image
+    imageUrl: zod_1.z.string().optional().describe("Image URL (for image visual type)"),
+    imageScaling: zod_1.z.enum(["fit", "fill", "normal"]).optional().describe("Image scaling mode (default fit)"),
+    // actionButton
+    buttonText: zod_1.z.string().optional().describe("Button label text (for actionButton)"),
+    buttonAction: zod_1.z
+        .enum(["pageNavigation", "URL", "bookmark", "back"])
+        .optional()
+        .describe("Button action type (for actionButton)"),
+    buttonActionTarget: zod_1.z
+        .string()
+        .optional()
+        .describe("Action target: page ID for pageNavigation, URL string for URL, bookmark ID for bookmark"),
 });
 // --- Parse field specification — supports Table[Column] shorthand ---
 function parseFieldSpec(spec) {
@@ -123,7 +136,7 @@ function parseFieldSpec(spec) {
 // --- Create a single visual and save it ---
 function createAndSaveVisual(project, pageId, spec, baseZ) {
     const visualId = (0, pbir_js_1.generateId)();
-    const { x = 0, y = 0, width: rawWidth, height: rawHeight, bindings, autoFilters = true, slicerMode, shapeType, shapeRotation = 0, fillColor, textContent, textColor, textAlign, textSize, textBold, title, containerFormat, visualFormat, dataColors, } = spec;
+    const { x = 0, y = 0, width: rawWidth, height: rawHeight, bindings, autoFilters = true, slicerMode, shapeType, shapeRotation = 0, fillColor, textContent, textColor, textAlign, textSize, textBold, title, containerFormat, visualFormat, dataColors, imageUrl, imageScaling = "fit", buttonText, buttonAction, buttonActionTarget, } = spec;
     // Normalise basicShape → shape
     const visualType = spec.visualType === "basicShape" ? "shape" : spec.visualType;
     const slicerDefaultTypes = new Set(["slicer", "listSlicer", "textSlicer", "advancedSlicerVisual"]);
@@ -280,6 +293,65 @@ function createAndSaveVisual(project, pageId, spec, baseZ) {
                 },
             ],
         };
+    }
+    else if (visualType === "image") {
+        // Build image objects when a URL is provided
+        if (imageUrl) {
+            visualObjects = {
+                general: [
+                    {
+                        properties: {
+                            imageUrl: { expr: { Literal: { Value: `'${imageUrl}'` } } },
+                            scaling: { expr: { Literal: { Value: `'${imageScaling}'` } } },
+                        },
+                    },
+                ],
+            };
+        }
+    }
+    else if (visualType === "actionButton") {
+        const btnObjs = {};
+        // Button label text
+        if (buttonText) {
+            btnObjs.text = [
+                {
+                    properties: {
+                        text: { expr: { Literal: { Value: `'${buttonText}'` } } },
+                        show: { expr: { Literal: { Value: "true" } } },
+                    },
+                },
+            ];
+        }
+        // Button action
+        if (buttonAction) {
+            const actionProps = {};
+            if (buttonAction === "back") {
+                actionProps.type = { expr: { Literal: { Value: "'Back'" } } };
+            }
+            else if (buttonAction === "URL" && buttonActionTarget) {
+                actionProps.type = { expr: { Literal: { Value: "'WebUrl'" } } };
+                actionProps.url = { expr: { Literal: { Value: `'${buttonActionTarget}'` } } };
+            }
+            else if (buttonAction === "pageNavigation") {
+                actionProps.type = { expr: { Literal: { Value: "'PageNavigation'" } } };
+                if (buttonActionTarget) {
+                    // Section reference — page ID as PBIR Section expression
+                    actionProps.navigationSection = {
+                        expr: { Section: { Section: buttonActionTarget } },
+                    };
+                }
+            }
+            else if (buttonAction === "bookmark" && buttonActionTarget) {
+                actionProps.type = { expr: { Literal: { Value: "'Bookmark'" } } };
+                actionProps.bookmarkDisplayName = { expr: { Literal: { Value: `'${buttonActionTarget}'` } } };
+            }
+            if (Object.keys(actionProps).length > 0) {
+                btnObjs.action = [{ properties: actionProps }];
+            }
+        }
+        if (Object.keys(btnObjs).length > 0) {
+            visualObjects = btnObjs;
+        }
     }
     const visual = {
         $schema: "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.7.0/schema.json",
