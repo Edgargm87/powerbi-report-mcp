@@ -2,10 +2,23 @@
 
 ---
 
+## [0.4.6] — 2026-04-06
+
+### Fixed
+- **B04 (cont.)** `add_page_filter` topN — two additional iterations after the Round 1 format fix:
+  - **Round 2**: `Where[0].Condition.TopN` is not a valid PBIR condition type. Fixed: TopN uses a *subquery* pattern — `From` contains a `Type: 2` entry with a nested `Subquery.Query` (Select + OrderBy + Top N); `Where` uses `In` with `Table: { SourceRef: { Source: "subquery" } }`.
+  - **Round 3**: TopN filter still not recognised by Power BI Desktop. Fixed: `howCreated: "User"` required at filter item level for PBI Desktop to treat it as a user-applied TopN filter. Confirmed by applying a manual filter in PBI Desktop, saving, and reading back the written JSON.
+- **B05** `add_page_filter` topN scope — TopN is only valid at visual level in Power BI (not page/report level). Added optional `visualId` param to `add_page_filter`: when provided, filter is written to `visual.filterConfig`; when omitted with `filterType: "topN"`, tool returns an error instead of silently writing invalid data.
+
+### Changed
+- `add_page_filter` tool description updated to document `visualId` param and topN visual-level requirement.
+
+---
+
 ## [0.4.5] — 2026-04-05
 
 ### Fixed
-- **B04** `add_page_filter` — all three filter types (`categorical`, `topN`, `relativeDate`) were writing Power BI REST API format (`{ Categorical: {} }`) which fails PBIR schema validation. Fixed to emit DAX query format: `{ From: [...], Where: [{ Condition: { In/TopN/RelativeDate: {} } }] }`. Also removed spurious `howCreated`/`objects` fields from filter items.
+- **B04** `add_page_filter` — all three filter types (`categorical`, `topN`, `relativeDate`) were writing Power BI REST API format (`{ Categorical: {} }`) which fails PBIR schema validation. Fixed to emit DAX query format: `{ From: [...], Where: [{ Condition: { In/RelativeDate: {} } }] }` (topN subquery format corrected in v0.4.6). Also removed spurious `howCreated`/`objects` fields from filter items.
 - **B01** `set_page_visibility` — `hidden` boolean rejected when MCP client serialises it as a string; fixed with `z.coerce.boolean()`
 - **B02** All required array params (`bindings`, `formatting`, `colors`, `visualIds`, `updates`, `pageOrder`) — rejected when MCP client serialises arrays as JSON strings; fixed with `z.preprocess` wrapper across `bindings.ts`, `bulk.ts`, `format.ts`, `report.ts`
 - **B03** `list_filters` slim mode — `Aggregation` FieldRef (used by auto-filters on SUM columns) fell back to raw JSON; fixed by adding Aggregation branch to `fieldRefToString`

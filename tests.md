@@ -55,6 +55,10 @@ Date: 2026-04-05 | Version: 0.4.5
 | B01 | `set_page_visibility` | `hidden` boolean rejected when sent as string      | `z.coerce.boolean()` on `hidden` param     |
 | B02 | Array params (multiple tools) | Array params rejected when MCP serialises as JSON string | `z.preprocess` wrapper on all required array params |
 | B03 | `list_filters` slim   | Aggregation FieldRef returned raw JSON instead of `Table[Field]` | Added Aggregation branch to `fieldRefToString` |
+| B04-R1 | `add_page_filter` | All filters written in REST API format (`Categorical`/`TopN` wrapper) — fails PBIR schema | Rewrote all three builders to DAX query `From`/`Where` format |
+| B04-R2 | `add_page_filter` topN | `Condition.TopN` not a valid PBIR condition type | Rewrote topN to subquery pattern: `Type: 2` From entry with nested Query; `Where` uses `In` with `Table` referencing subquery |
+| B04-R3 | `add_page_filter` topN | TopN filter not recognised by Power BI Desktop despite correct structure | Added `howCreated: "User"` at filter item level — discovered by reading JSON written by PBI Desktop after manual filter application |
+| B05 | `add_page_filter` topN | TopN applied at page level — invalid in Power BI (visual level only) | Added optional `visualId` param; topN without `visualId` now returns error; filter written to `visual.filterConfig` when `visualId` provided |
 
 ---
 
@@ -152,32 +156,19 @@ Date: 2026-04-05 | Pages preserved for visual inspection in Power BI Desktop.
 | U15 | `add_visual` (batch, 6)    | UAT-2B: 6 overlapping visuals at x:0 y:0                         | PASS   | Deliberate overlap for auto_layout test |
 | U16 | `auto_layout`              | UAT-2B — 6 visuals arranged into 3×2 grid                        | PASS   | 3 cols × 2 rows, cellWidth=413, cellHeight=345 |
 | U17 | `add_page_filter`          | **B04 retest** — Categorical Year=2014 on UAT-2A                 | PASS   | `From`/`Where`/`In` format confirmed in page.json — no schema error |
-| U18 | `add_page_filter`          | **B04 retest** — TopN Top 5 Products by Sales on UAT-2A          | PASS   | `From`/`Where`/`TopN` format confirmed in page.json |
+| U18 | `add_page_filter`          | **B04 retest** — TopN Top 5 Products by Sales on UAT-2A          | FAIL   | `Condition.TopN` written — not a valid PBIR condition type; subquery format required (see B04 Round 2) |
 | U19 | `list_filters` slim=false  | UAT-2A — verify both filter structures on disk                   | PASS   | Both filters: correct `From`/`Where` DAX query format, no `Categorical`/`TopN` wrapper |
 | U20 | `apply_theme`              | `blue-purple` on UAT-2A (7 visuals)                              | PASS   | 7 visuals formatted in 1 call |
 
-**UAT Round 2 Total: 8/8 PASS**
+**UAT Round 2 Total: 7/8 PASS** (U18 failed — triggered B04 Round 2 fix)
 
-### B04 Fix Confirmed
-Filter `page.json` structure verified on disk:
-
+### B04 Categorical Fix Confirmed
 ```json
-// Categorical (Year=2014) — CORRECT
 {
   "From": [{ "Name": "f", "Entity": "financials", "Type": 0 }],
   "Where": [{ "Condition": { "In": {
     "Expressions": [{ "Column": { "Expression": { "SourceRef": { "Source": "f" } }, "Property": "Year" } }],
     "Values": [[{ "Literal": { "Value": "'2014'" } }]]
-  }}}]
-}
-
-// TopN (Top 5 Products by Sales) — CORRECT
-{
-  "From": [{ "Name": "f", "Entity": "financials", "Type": 0 }],
-  "Where": [{ "Condition": { "TopN": {
-    "Expression": { "Column": { "Expression": { "SourceRef": { "Source": "f" } }, "Property": "Product" } },
-    "ItemCount": 5,
-    "OrderBy": [{ "Direction": 2, "Expression": { "Column": { ... "Property": "Sales" } } }]
   }}}]
 }
 ```
@@ -187,7 +178,68 @@ Filter `page.json` structure verified on disk:
 - `scatterChart` requires `Details` bucket for dimension — NOT `Category`
 - `auto_layout` arranges N visuals into an optimal grid automatically — zero positioning effort
 - `kpi` visual accepts `Indicator` + `TrendLine` buckets — trend line bound to Month Name dimension
-- B04 filter fix confirmed working — Power BI Desktop schema error resolved
+- B04 categorical fix confirmed; TopN still broken (U18) — triggered further investigation
+
+---
+
+## UAT Round 3 — TopN Filter Fix Verification
+
+Date: 2026-04-06 | Pages preserved for visual inspection in Power BI Desktop.
+
+### Pages Under Test
+| Page | ID | Contents |
+|------|----|----------|
+| UAT-TopN | `fede249b6bcffed9b15e` | TopN with subquery format (patched directly) |
+| UAT-TopN-2 | `a13550e9064b80f3db50` | TopN with `howCreated: "User"` (patched, then moved to visual level manually) |
+| UAT-TopN-3 | `2178f717581c280808f7` | TopN at visual level via updated `add_page_filter` tool + rebuilt server |
+
+### Results
+
+| #   | Tool(s)                    | Input / Target                                                            | Result | Notes |
+|-----|----------------------------|---------------------------------------------------------------------------|--------|-------|
+| U21 | `add_page_filter` topN     | UAT-TopN — subquery format, page level                                    | FAIL   | Subquery structure correct; missing `howCreated: "User"` — PBI Desktop did not recognise filter |
+| U22 | Manual filter in PBI Desktop | User applied TopN filter on visual, saved — read back JSON                | PASS   | Revealed `howCreated: "User"` at filter item level as the missing field |
+| U23 | `add_page_filter` topN     | UAT-TopN-2 — subquery + `howCreated: "User"`, page level                  | FAIL   | Filter structure correct; TopN is not valid at page level — must be visual-level |
+| U24 | `add_page_filter` topN     | UAT-TopN-3 — subquery + `howCreated: "User"`, visual level via `visualId` | PASS   | Filter pane shows "Top N / Top / 5 / Sum of Sales"; no schema error; bar chart filters to 5 products |
+
+**UAT Round 3 Total: 1/4 PASS** (each failure drove a targeted fix; final test confirmed full resolution)
+
+### B04 Final Fix — TopN Subquery Format
+TopN filter written to `visual.filterConfig` (not page), confirmed in Power BI Desktop:
+
+```json
+{
+  "type": "TopN",
+  "filter": {
+    "Version": 2,
+    "From": [
+      {
+        "Name": "subquery",
+        "Expression": { "Subquery": { "Query": {
+          "Version": 2,
+          "From": [{ "Name": "f", "Entity": "financials", "Type": 0 }],
+          "Select": [{ "Column": { "Expression": { "SourceRef": { "Source": "f" } }, "Property": "Product" }, "Name": "field" }],
+          "OrderBy": [{ "Direction": 2, "Expression": { "Aggregation": { "Expression": { "Column": { "Expression": { "SourceRef": { "Source": "f" } }, "Property": "Sales" } }, "Function": 0 } } }],
+          "Top": 5
+        }}},
+        "Type": 2
+      },
+      { "Name": "f", "Entity": "financials", "Type": 0 }
+    ],
+    "Where": [{ "Condition": { "In": {
+      "Expressions": [{ "Column": { "Expression": { "SourceRef": { "Source": "f" } }, "Property": "Product" } }],
+      "Table": { "SourceRef": { "Source": "subquery" } }
+    }}}]
+  },
+  "howCreated": "User"
+}
+```
+
+### Round 3 Observations
+- TopN is **visual-level only** in Power BI — page/report level filter pane does not support TopN type
+- `howCreated: "User"` is required at filter item level for PBI Desktop to recognise the TopN filter
+- TopN uses a **subquery pattern** — `From` contains a `Type: 2` subquery entry; `Where` uses `In` with `Table` referencing the subquery — NOT `Condition.TopN`
+- Discovery method: user applied manual TopN filter in PBI Desktop, saved, then read back the exact JSON PBI Desktop wrote
 
 ---
 

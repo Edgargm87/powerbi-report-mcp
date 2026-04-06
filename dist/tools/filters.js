@@ -100,7 +100,7 @@ function buildTopNFilter(entity, property, n, direction, orderByEntity, orderByP
                 },
             }],
     };
-    return { name: (0, pbir_js_1.generateId)(), field, type: "TopN", filter };
+    return { name: (0, pbir_js_1.generateId)(), field, type: "TopN", filter, howCreated: "User" };
 }
 // --- Helper: build a RelativeDate filter ---
 // PBIR requires From/Where DAX query format — NOT { RelativeDate: {} }
@@ -162,11 +162,12 @@ function registerFilterTools(server, ctx) {
     // ============================================================
     // TOOL: add_page_filter
     // ============================================================
-    server.tool("add_page_filter", "Add a page-level filter (affects all visuals). Types: categorical (specific values), topN (top/bottom N by measure), relativeDate (rolling date window).", {
-        pageId: zod_1.z.string().describe("The page ID to add the filter to"),
+    server.tool("add_page_filter", "Add a filter to a page or visual. Omit visualId for page-level (affects all visuals). Provide visualId for visual-level. NOTE: topN filters only work at visual level — always provide visualId when filterType is topN. Types: categorical (specific values), topN (top/bottom N by measure), relativeDate (rolling date window).", {
+        pageId: zod_1.z.string().describe("The page ID"),
+        visualId: zod_1.z.string().optional().describe("Visual ID — omit for page-level, required for topN"),
         filterType: zod_1.z
             .enum(["categorical", "topN", "relativeDate"])
-            .describe("Type of filter to add"),
+            .describe("Type of filter to add. topN requires visualId."),
         // Field to filter
         entity: zod_1.z.string().describe("Table name of the filter field"),
         property: zod_1.z.string().describe("Column to filter on"),
@@ -200,7 +201,12 @@ function registerFilterTools(server, ctx) {
             .optional()
             .default("last")
             .describe("relativeDate: last (past) or next (future)"),
-    }, async ({ pageId, filterType, entity, property, values, n, topNDirection, orderByEntity, orderByProperty, orderByIsMeasure, period, count, dateDirection, }) => {
+    }, async ({ pageId, visualId, filterType, entity, property, values, n, topNDirection, orderByEntity, orderByProperty, orderByIsMeasure, period, count, dateDirection, }) => {
+        if (filterType === "topN" && !visualId) {
+            return {
+                content: [{ type: "text", text: JSON.stringify({ success: false, error: "topN filters must be applied at visual level — provide visualId" }) }],
+            };
+        }
         let newFilter;
         if (filterType === "categorical") {
             newFilter = buildCategoricalFilter(entity, property, values);
@@ -221,15 +227,25 @@ function registerFilterTools(server, ctx) {
             }
             newFilter = buildRelativeDateFilter(entity, property, period, count, dateDirection ?? "last");
         }
-        const page = ctx.project.getPage(pageId);
-        if (!page.filterConfig)
-            page.filterConfig = { filters: [] };
-        page.filterConfig.filters.push(newFilter);
-        ctx.project.savePage(pageId, page);
+        if (visualId) {
+            const visual = ctx.project.getVisual(pageId, visualId);
+            if (!visual.filterConfig)
+                visual.filterConfig = { filters: [] };
+            visual.filterConfig.filters.push(newFilter);
+            ctx.project.saveVisual(pageId, visualId, visual);
+        }
+        else {
+            const page = ctx.project.getPage(pageId);
+            if (!page.filterConfig)
+                page.filterConfig = { filters: [] };
+            page.filterConfig.filters.push(newFilter);
+            ctx.project.savePage(pageId, page);
+        }
+        const scope = visualId ? "visual" : "page";
         return {
             content: [{
                     type: "text",
-                    text: JSON.stringify({ success: true, filterId: newFilter.name, filterType, entity, property }),
+                    text: JSON.stringify({ success: true, filterId: newFilter.name, filterType, entity, property, scope }),
                 }],
         };
     });
