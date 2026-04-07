@@ -7,4 +7,4 @@ export declare function applyFormattingToTarget(targetObj: Record<string, unknow
 export declare function applyDataColors(visual: VisualDefinition, colors: Array<{
     color: string;
     seriesName?: string;
-}>, defaultTransparency?: number): void;
+}>, defaultTransparency?: number, categoryEntity?: string, categoryProperty?: string): void;

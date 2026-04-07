@@ -199,11 +199,29 @@ function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: update_report_settings
     // ============================================================
-    server.tool("update_report_settings", "Update report-level settings (merges with existing settings)", {
+    const VALID_REPORT_SETTINGS = new Set([
+        "useStylableVisualContainerHeader",
+        "exportDataMode",
+        "defaultDrillFilterOtherVisuals",
+        "allowChangeFilterTypes",
+        "useEnhancedTooltips",
+        "useDefaultAggregateDisplayName",
+        "isPaginatedReportMode",
+        "hideVisualContainerHeader",
+        "useNewFilterPaneExperience",
+        "optOutNewFilterPaneExperience",
+    ]);
+    server.tool("update_report_settings", "Update report-level settings (merges with existing settings). Valid keys: useStylableVisualContainerHeader, exportDataMode, defaultDrillFilterOtherVisuals, allowChangeFilterTypes, useEnhancedTooltips, useDefaultAggregateDisplayName.", {
         settings: zod_1.z
             .record(zod_1.z.string(), zod_1.z.unknown())
             .describe("Settings key-value pairs to merge into report.settings"),
     }, async ({ settings }) => {
+        const invalid = Object.keys(settings).filter((k) => !VALID_REPORT_SETTINGS.has(k));
+        if (invalid.length > 0) {
+            return {
+                content: [{ type: "text", text: JSON.stringify({ success: false, error: `Invalid setting keys: ${invalid.join(", ")}. Valid keys: ${[...VALID_REPORT_SETTINGS].join(", ")}` }) }],
+            };
+        }
         const report = ctx.project.getReport();
         report.settings = { ...report.settings, ...settings };
         ctx.project.saveReport(report);

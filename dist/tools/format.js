@@ -105,17 +105,19 @@ function registerFormatTools(server, ctx) {
     // ============================================================
     // TOOL: set_datapoint_colors
     // ============================================================
-    server.tool("set_datapoint_colors", "Set data point colors for specific series/measures in a visual.", {
+    server.tool("set_datapoint_colors", "Set data point colors. For series-based charts (Series bucket) use metadata mode (default). For category-based charts (Category bucket, no Series) provide categoryEntity+categoryProperty to use data selector mode — required for barChart, columnChart, pieChart etc. with a single measure.", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().describe("The visual ID"),
-        colors: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(createVisual_js_1.DataColorSchema)).describe("Array of color assignments for data points"),
+        colors: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(createVisual_js_1.DataColorSchema)).describe("Array of {seriesName, color} — seriesName is the category value or series name to color"),
+        categoryEntity: zod_1.z.string().optional().describe("Category table name — required for category-based charts (barChart, columnChart, pieChart etc.)"),
+        categoryProperty: zod_1.z.string().optional().describe("Category column name — required for category-based charts"),
         defaultTransparency: zod_1.z
             .number()
             .optional()
             .describe("Default transparency for all data points (0-100)"),
-    }, async ({ pageId, visualId, colors, defaultTransparency }) => {
+    }, async ({ pageId, visualId, colors, categoryEntity, categoryProperty, defaultTransparency }) => {
         const visual = ctx.project.getVisual(pageId, visualId);
-        (0, formatting_js_1.applyDataColors)(visual, colors, defaultTransparency);
+        (0, formatting_js_1.applyDataColors)(visual, colors, defaultTransparency, categoryEntity, categoryProperty);
         ctx.project.saveVisual(pageId, visualId, visual);
         return {
             content: [
@@ -174,10 +176,11 @@ function registerFormatTools(server, ctx) {
                 content: [{ type: "text", text: JSON.stringify({ success: false, error: "entity and property2 are required for rules and gradient" }) }],
             };
         }
-        // Build the field expression
+        // Build the field expression — columns must use Aggregation (Sum) not raw Column,
+        // as table/matrix visuals project aggregated values and a raw Column adds an invalid projection.
         const fieldExpr = isMeasure
             ? { Measure: { Expression: { SourceRef: { Entity: entity } }, Property: property2 } }
-            : { Column: { Expression: { SourceRef: { Entity: entity } }, Property: property2 } };
+            : { Aggregation: { Expression: { Column: { Expression: { SourceRef: { Entity: entity } }, Property: property2 } }, Function: 0 } };
         let colorExpr;
         if (formatType === "rules") {
             if (!rules || rules.length === 0) {

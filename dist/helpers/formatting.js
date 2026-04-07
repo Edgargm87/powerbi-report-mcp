@@ -41,10 +41,15 @@ function applyFormattingToTarget(targetObj, formatting) {
     }
 }
 // --- Apply data colors to a visual ---
-function applyDataColors(visual, colors, defaultTransparency) {
+// selector mode:
+//   metadata: for series-based charts (Series bucket) — selector = { metadata: seriesName }
+//   data:     for category-based charts (Category bucket, no Series) — selector = { data: [scopeId Comparison] }
+//             requires categoryEntity + categoryProperty to build the expression
+function applyDataColors(visual, colors, defaultTransparency, categoryEntity, categoryProperty) {
     if (!visual.visual.objects) {
         visual.visual.objects = {};
     }
+    const useDataSelector = !!(categoryEntity && categoryProperty);
     const dataPoints = [];
     for (const c of colors) {
         const entry = {
@@ -53,7 +58,22 @@ function applyDataColors(visual, colors, defaultTransparency) {
             },
         };
         if (c.seriesName) {
-            entry.selector = { metadata: c.seriesName };
+            if (useDataSelector) {
+                entry.selector = {
+                    data: [{
+                            scopeId: {
+                                Comparison: {
+                                    ComparisonKind: 0,
+                                    Left: { Column: { Expression: { SourceRef: { Entity: categoryEntity } }, Property: categoryProperty } },
+                                    Right: { Literal: { Value: `'${c.seriesName}'` } },
+                                },
+                            },
+                        }],
+                };
+            }
+            else {
+                entry.selector = { metadata: c.seriesName };
+            }
         }
         dataPoints.push(entry);
     }

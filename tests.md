@@ -59,6 +59,11 @@ Date: 2026-04-05 | Version: 0.4.5
 | B04-R2 | `add_page_filter` topN | `Condition.TopN` not a valid PBIR condition type | Rewrote topN to subquery pattern: `Type: 2` From entry with nested Query; `Where` uses `In` with `Table` referencing subquery |
 | B04-R3 | `add_page_filter` topN | TopN filter not recognised by Power BI Desktop despite correct structure | Added `howCreated: "User"` at filter item level — discovered by reading JSON written by PBI Desktop after manual filter application |
 | B05 | `add_page_filter` topN | TopN applied at page level — invalid in Power BI (visual level only) | Added optional `visualId` param; topN without `visualId` now returns error; filter written to `visual.filterConfig` when `visualId` provided |
+| B06 | `update_report_settings` | Accepted arbitrary keys (e.g. `persistFilters`) — written to `report.json` causing schema error on open | Added allowlist of valid setting keys; invalid keys return error before writing |
+| B07 | `add_page_filter` relativeDate | `Condition.RelativeDate` not a valid PBIR condition type | Rewrote to `Condition.Between` with `DateSpan`/`DateAdd` expressions; added `howCreated: "User"` — confirmed from PBI Desktop manual filter |
+| B08 | `set_conditional_format` | `isMeasure:false` used raw `Column` in comparison — adds invalid projection at index 4 in table/matrix visuals | Changed to use `Aggregation` (Function:0 = Sum) wrapping the column expression |
+| B09 | `set_datapoint_colors` | Used `selector: { metadata: name }` for all charts — only works for series-based charts | Added `categoryEntity`+`categoryProperty` params; when provided uses `selector: { data: [{ scopeId: Comparison }] }` required for category-based charts (barChart, columnChart, pieChart etc.) |
+| B10 | `add_visual` | `stackedBarChart` used as visual type — not a built-in PBI type ("custom visual" error) | Correct type is `barChart` (PBI's stacked bar); `clusteredBarChart` is the clustered variant |
 
 ---
 
@@ -240,6 +245,47 @@ TopN filter written to `visual.filterConfig` (not page), confirmed in Power BI D
 - `howCreated: "User"` is required at filter item level for PBI Desktop to recognise the TopN filter
 - TopN uses a **subquery pattern** — `From` contains a `Type: 2` subquery entry; `Where` uses `In` with `Table` referencing the subquery — NOT `Condition.TopN`
 - Discovery method: user applied manual TopN filter in PBI Desktop, saved, then read back the exact JSON PBI Desktop wrote
+
+---
+
+## UAT Round 4 — Extended Coverage + Bug Fix Verification
+
+Date: 2026-04-07 | Pages preserved for visual inspection in Power BI Desktop.
+
+### Pages Under Test
+| Page | ID | Focus |
+|------|----|-------|
+| UAT-R1-Filters | `f167dae42e8b3e6ace61` | relativeDate filter (visual-level) + categorical visual-level filter |
+| UAT-R2-DuplicatePage | `58485b34b840ccb0aa65` | `duplicate_page` + `change_visual_type` (ribbon, waterfall) + rebind |
+| UAT-R3-VisualTypes | `b65870c36a2d529fcc65` | waterfallChart, ribbonChart, treemap, funnel |
+| UAT-R4-CondFormat | `ca1ff2ebcb2634acd794` | rules conditional format + `set_datapoint_colors` category mode |
+| UAT-R5-PageOps | `f88b50d444daca5199d0` | `update_page_size` (360×640 mobile), `update_report_settings` |
+
+### Results
+
+| #   | Tool(s)                       | Input / Target                                                      | Result | Notes |
+|-----|-------------------------------|---------------------------------------------------------------------|--------|-------|
+| U25 | `create_page` ×4 + `duplicate_page` | UAT-R1 through UAT-R5                                        | PASS   | 4 created + 1 duplicated from Training page |
+| U26 | `add_page_filter` relativeDate | Last 2 years on line chart (visual-level)                          | FAIL→PASS | `Condition.RelativeDate` invalid; fixed to `Condition.Between` + `DateSpan`/`DateAdd` + `howCreated:"User"` (B07). PBI Desktop wrote correct format after manual apply |
+| U27 | `add_page_filter` categorical  | Germany/France/USA on bar chart (visual-level)                     | PASS   | `scope:"visual"` confirmed; filter pane shows correctly |
+| U28 | `duplicate_page`              | Clone Training → UAT-R2-DuplicatePage (10 visuals)                 | PASS   | All 10 visuals copied; bindings/formatting preserved |
+| U29 | `change_visual_type`          | clusteredColumnChart → ribbonChart; columnChart → waterfallChart    | PASS   | Both types accepted; bindings preserved |
+| U30 | `update_visual_bindings`      | Add Series (Segment) to ribbonChart                                 | PASS   | Ribbon chart shows segment ranking by month |
+| U31 | `add_visual` (batch, 4)       | waterfallChart, ribbonChart, treemap, funnel on UAT-R3              | PASS   | All 4 new visual types rendered correctly in PBI Desktop |
+| U32 | `set_conditional_format` rules | Profit column: red(<0), yellow(0–5M), green(>5M) on tableEx        | FAIL→PASS | Raw `Column` in comparison caused invalid projection at index 4 (B08); fixed to `Aggregation` |
+| U33 | `set_datapoint_colors`        | 5 custom colors on barChart by Segment                              | FAIL→PASS | `metadata` selector doesn't work for category charts (B09); fixed to `data`+`scopeId` Comparison selector with `categoryEntity`/`categoryProperty` |
+| U34 | `update_page_size`            | UAT-R5 → 360×640 mobile portrait                                   | PASS   | Page renders in mobile dimensions |
+| U35 | `update_report_settings`      | `persistFilters:true` + `defaultDrillFilterOtherVisuals:false`      | FAIL→PASS | `persistFilters` not a valid PBIR schema key — caused report to fail to open (B06); fixed with allowlist validation |
+
+**UAT Round 4 Total: 6/11 PASS on first attempt — 5 bugs found and fixed — 11/11 PASS after fixes**
+
+### Round 4 Observations
+- **relativeDate filter**: correct format is `Condition.Between` with nested `DateAdd(DateAdd(Now,+1,day),-N,unit)` for lower bound — NOT `Condition.RelativeDate`. Also `howCreated:"User"` required same as TopN.
+- **`set_datapoint_colors`**: must distinguish between series-based charts (`metadata` selector) and category-based charts (`data`+`scopeId` selector). Category-based = any chart with Category bucket and no Series bucket (barChart, columnChart, pieChart, treemap, funnel etc.)
+- **`update_report_settings`**: schema is strict — only a fixed set of known keys are valid. Allowlist prevents silent schema corruption.
+- **`duplicate_page`** works correctly — all visuals, bindings, formatting, and filter configs copied.
+- **waterfallChart, ribbonChart, treemap, funnel** all render correctly with `financials` data.
+- **`stackedBarChart`** is not a valid PBI built-in type — use `barChart` (B10).
 
 ---
 

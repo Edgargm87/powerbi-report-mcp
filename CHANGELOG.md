@@ -2,6 +2,21 @@
 
 ---
 
+## [0.4.7] — 2026-04-07
+
+### Fixed
+- **B06** `update_report_settings` — accepted arbitrary keys (e.g. `persistFilters`) which written to `report.json` caused PBIR schema error and report would not open. Fixed: added allowlist of valid setting keys; invalid keys return error before writing.
+- **B07** `add_page_filter` relativeDate — `Condition.RelativeDate` is not a valid PBIR condition type. Fixed: rewrote `buildRelativeDateFilter` to use `Condition.Between` with `DateSpan`/`DateAdd` expressions matching what PBI Desktop writes. Also added `Version: 2` and `howCreated: "User"` (same requirement as TopN). Confirmed from PBI Desktop manual filter read-back.
+- **B08** `set_conditional_format` — `isMeasure:false` built comparison using raw `Column` expression, adding an invalid non-aggregated projection (index 4) in table/matrix visuals. Fixed: now wraps column in `Aggregation` (Function:0 = Sum).
+- **B09** `set_datapoint_colors` — used `selector: { metadata: name }` for all charts. This only works for series-based charts (Series bucket populated). Category-based charts (barChart, columnChart, pieChart etc. with Category bucket and no Series) require `selector: { data: [{ scopeId: { Comparison } }] }`. Fixed: added optional `categoryEntity` + `categoryProperty` params; when provided, builds data selector with scopeId Comparison on the category column.
+- **B10** `add_visual` — `stackedBarChart` is not a valid Power BI built-in visual type (treated as missing custom visual). Correct type is `barChart` (PBI's stacked bar); `clusteredBarChart` is the clustered variant. Added note to visual type documentation.
+
+### Changed
+- `set_datapoint_colors` tool: new optional `categoryEntity` and `categoryProperty` params for category-based chart coloring.
+- `update_report_settings` tool: description updated to list valid setting keys.
+
+---
+
 ## [0.4.6] — 2026-04-06
 
 ### Fixed

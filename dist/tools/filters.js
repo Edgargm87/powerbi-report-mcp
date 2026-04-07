@@ -103,31 +103,47 @@ function buildTopNFilter(entity, property, n, direction, orderByEntity, orderByP
     return { name: (0, pbir_js_1.generateId)(), field, type: "TopN", filter, howCreated: "User" };
 }
 // --- Helper: build a RelativeDate filter ---
-// PBIR requires From/Where DAX query format — NOT { RelativeDate: {} }
+// Confirmed format from PBI Desktop: Condition.Between with DateSpan/DateAdd expressions.
+// "last N years" → LowerBound = DateSpan(DateAdd(DateAdd(Now,+1,Day),-N,Unit), Day)
+//                  UpperBound = DateSpan(Now, Day)
+// TimeUnit for DateAdd: days=0, weeks=1, months=2, years=3
+// Quarters use months×3 (no native quarter unit in DateAdd).
 function buildRelativeDateFilter(entity, property, period, count, direction) {
     const field = (0, pbir_js_1.columnRef)(entity, property);
     const src = alias(entity);
-    const periodMap = { days: 0, weeks: 1, months: 2, quarters: 3, years: 4 };
+    // TimeUnit for DateAdd (observed: years=3 from PBI Desktop)
+    const unitMap = { days: 0, weeks: 1, months: 2, quarters: 2, years: 3 };
+    const addUnit = unitMap[period];
+    const addAmount = period === "quarters" ? count * 3 : count;
+    const colExpr = {
+        Column: {
+            Expression: { SourceRef: { Source: src } },
+            Property: property,
+        },
+    };
+    const nowPlusOne = { DateAdd: { Expression: { Now: {} }, Amount: 1, TimeUnit: 0 } };
+    // "last": LowerBound = start of (tomorrow - N), UpperBound = start of today
+    // "next": LowerBound = start of today, UpperBound = start of (yesterday + N)
+    const lowerExpr = direction === "last"
+        ? { DateSpan: { Expression: { DateAdd: { Expression: nowPlusOne, Amount: -addAmount, TimeUnit: addUnit } }, TimeUnit: 0 } }
+        : { DateSpan: { Expression: { Now: {} }, TimeUnit: 0 } };
+    const upperExpr = direction === "last"
+        ? { DateSpan: { Expression: { Now: {} }, TimeUnit: 0 } }
+        : { DateSpan: { Expression: { DateAdd: { Expression: { DateAdd: { Expression: { Now: {} }, Amount: -1, TimeUnit: 0 } }, Amount: addAmount, TimeUnit: addUnit } }, TimeUnit: 0 } };
     const filter = {
+        Version: 2,
         From: [{ Name: src, Entity: entity, Type: 0 }],
         Where: [{
                 Condition: {
-                    RelativeDate: {
-                        Expression: {
-                            Column: {
-                                Expression: { SourceRef: { Source: src } },
-                                Property: property,
-                            },
-                        },
-                        TimeUnitsCount: count,
-                        TimeUnitType: periodMap[period],
-                        OperatorType: direction === "last" ? 0 : 1,
-                        IncludeToday: true,
+                    Between: {
+                        Expression: colExpr,
+                        LowerBound: lowerExpr,
+                        UpperBound: upperExpr,
                     },
                 },
             }],
     };
-    return { name: (0, pbir_js_1.generateId)(), field, type: "RelativeDate", filter };
+    return { name: (0, pbir_js_1.generateId)(), field, type: "RelativeDate", filter, howCreated: "User" };
 }
 function registerFilterTools(server, ctx) {
     // ============================================================
