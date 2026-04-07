@@ -1,6 +1,6 @@
 # Power BI Report MCP Server
 
-**Version 0.4.2** — An MCP (Model Context Protocol) server that lets AI assistants programmatically create, edit, and format Power BI reports in PBIR format. Works with Claude Desktop, Claude Code, Cursor, Cline, and any MCP-compatible client.
+**Version 0.4.8** — An agent-agnostic MCP (Model Context Protocol) server that lets any AI assistant programmatically create, edit, and format Power BI reports in PBIR format. Zero vendor lock-in — works with Claude, OpenAI, GitHub Copilot, Cursor, Windsurf, Continue.dev, and any MCP-compatible client.
 
 ---
 
@@ -120,7 +120,7 @@ Field types: **column** (raw), **aggregation** (Sum/Avg/Count/Min/Max/Median/etc
 |------|-------------|
 | `format_visual` | Apply any formatting (axes, legend, labels, borders, background, etc.) |
 | `set_visual_title` | Set title text, font, size, alignment, visibility |
-| `set_datapoint_colors` | Set per-series data point colors |
+| `set_datapoint_colors` | Set per-series or per-category data point colors with optional transparency |
 | `set_conditional_format` | Rules-based or gradient conditional formatting on background/title color |
 | `apply_theme` | Apply a named theme preset to all visuals on a page |
 
@@ -142,6 +142,16 @@ Field types: **column** (raw), **aggregation** (Sum/Avg/Count/Min/Max/Median/etc
 | `add_page_filter` | Add a categorical, TopN, or relative date filter to a page |
 | `remove_filter` | Remove a filter by name |
 | `clear_filters` | Remove all filters from a page or visual |
+
+### Visual Calculations
+
+| Tool | Description |
+|------|-------------|
+| `list_visual_calculations` | List DAX visual calculations on a table/matrix visual |
+| `add_visual_calculation` | Add a visual calculation (RUNNINGSUM, RANK, MOVINGAVERAGE, etc.) |
+| `delete_visual_calculation` | Remove a visual calculation by name |
+
+> **Note:** Visual calculations and bookmarks are currently parked — the correct PBIR format has been identified but requires further investigation for reliable rendering.
 
 ### Bookmarks
 
@@ -221,12 +231,12 @@ Apply data-driven background or title color to a visual:
 }
 ```
 
-**Gradient** (white → blue scale):
+**Gradient** (white → blue scale, with optional mid-point):
 ```json
 {
   "formatType": "gradient",
-  "entity": "Sales", "property2": "Total",
-  "minColor": "#FFFFFF", "maxColor": "#0078D4"
+  "entity": "financials", "property2": "Sales", "isMeasure": false,
+  "minColor": "#FF6B6B", "midColor": "#FFD93D", "maxColor": "#6BCB77"
 }
 ```
 
@@ -386,7 +396,7 @@ Apply a preset to all visuals on one page:
 | `legend` | `show`, `position`, `labelColor`, `fontSize` | Charts with Series |
 | `labels` | `show`, `color`, `fontSize`, `labelDisplayUnits` | Most chart types |
 | `lineStyles` | `strokeWidth`, `lineChartType` (`curved`/`step`/`straight`) | Line, area, combo |
-| `dataPoint` | `transparency` | Most chart types |
+| `dataPoint` | `fillTransparency` (0–100) | Most chart types |
 | `plotArea` | `transparency` | Charts |
 | `grid` | `fontSize` | Table, pivot |
 | `header` | `show`, `fontFamily`, `textSize` | Slicer |
@@ -452,18 +462,119 @@ A typical 10-visual dashboard can be built in **4–6 tool calls** using batch m
 - `set_report_theme` applies globally; `apply_theme` applies per-page presets
 - `format_visual` merges with existing formatting — safe to call incrementally
 - `set_page_visibility: hidden=true` for drillthrough pages
+- TopN filters are **visual-level only** — use the `visualId` param on `add_page_filter`
+- For category-based charts (bar/column/pie with no Series), use `categoryEntity` + `categoryProperty` on `set_datapoint_colors`
+- `barChart` = stacked bar, `clusteredBarChart` = clustered bar — there is no `stackedBarChart` type
+- Gradient conditional formatting uses `FillRule` in `objects.values` — not container background
 - All tools return `{ success: false, error: "..." }` on failure — the server never crashes
 
 ---
 
-## Connecting Other AI Models
+## Known Issues
 
-| Client | Config location |
-|--------|----------------|
-| Claude Desktop | `%LOCALAPPDATA%\...\Claude\claude_desktop_config.json` |
-| Claude Code | `.claude/settings.json` or `claude mcp add` |
-| Cursor | `~/.cursor/mcp.json` |
-| Cline (VS Code) | Settings → Cline → MCP Servers |
-| Continue.dev | `~/.continue/config.json` |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Visual calculations | Parked | `NativeVisualCalculation` format identified but not rendering when written programmatically |
+| Bookmarks | Parked | Tools registered but not exposed in MCP session |
+
+---
+
+## Agent-Agnostic — Works with Any MCP Client
+
+This server has **zero vendor-specific dependencies**. It uses only the open `@modelcontextprotocol/sdk` and `zod` — no Anthropic, OpenAI, or other AI SDK imports. Any agent that speaks MCP over stdio can connect.
+
+| Client | MCP Support | Config Location |
+|--------|-------------|-----------------|
+| **Claude Desktop** | Native | `%LOCALAPPDATA%\...\Claude\claude_desktop_config.json` |
+| **Claude Code** | Native | `.claude/settings.json` or `claude mcp add` |
+| **OpenAI ChatGPT** | Via MCP bridge | MCP plugin/tool integration |
+| **GitHub Copilot** | VS Code agent mode | `.vscode/mcp.json` |
+| **Cursor** | Native | `~/.cursor/mcp.json` |
+| **Windsurf** | Native | MCP settings |
+| **Continue.dev** | Native | `~/.continue/config.json` |
+| **Cline (VS Code)** | Native | Settings → Cline → MCP Servers |
+| **Custom agents** | `@modelcontextprotocol/sdk` | Programmatic client |
 
 For models without native MCP support, use `mcp-proxy` to expose the server over HTTP/SSE.
+
+---
+
+## Token Overhead
+
+All 49 tool schemas are sent to the LLM at session start. Here's the cost breakdown by category:
+
+| Category | Tools | Schema Tokens | Avg/Tool | Heaviest Tool |
+|----------|-------|--------------|----------|---------------|
+| Report Ops | 16 | ~3,290 | 206 | `auto_layout` (300) |
+| Visual Ops | 8 | ~2,800 | 350 | `add_visual` (1,200) |
+| Format Ops | 5 | ~2,100 | 420 | `set_conditional_format` (800) |
+| Filter Ops | 4 | ~1,600 | 400 | `add_page_filter` (1,000) |
+| Theme Ops | 5 | ~1,150 | 230 | `set_report_theme` (500) |
+| Bulk Ops | 3 | ~900 | 300 | `bulk_update_format` (350) |
+| Binding Ops | 1 | ~350 | 350 | `update_visual_bindings` (350) |
+| Calculation Ops | 3 | ~650 | 217 | `add_visual_calculation` (250) |
+| Bookmark Ops | 4 | ~700 | 175 | `add_bookmark` (200) |
+| **Total** | **49** | **~14,600** | **~298** | |
+
+**Key efficiency patterns:**
+
+| Operation | Efficient | Tokens | vs N Calls | Tokens |
+|-----------|-----------|--------|------------|--------|
+| Add 6 visuals | 1× `add_visual` batch | ~200 | 6× `add_visual` | ~360 |
+| Format 10 visuals | 1× `bulk_update_format` | ~60 | 10× `format_visual` | ~600 |
+| Get all pages + visuals | 1× `get_page_summary` | ~120 | `list_pages` + N× `list_visuals` | ~300+ |
+| Style entire page | 1× `apply_theme` | ~80 | N× `format_visual` | ~60×N |
+
+### Report Build Cost — 10 Pages, ~60 Visuals
+
+**Base: theme + batch visuals only (22 calls)**
+
+| Step | Tool | Calls | I/O Tokens |
+|------|------|-------|-----------|
+| Connect | `set_report` | 1 | 50 |
+| Theme | `set_report_theme` | 1 | 180 |
+| Pages | `create_page` ×10 | 10 | 500 |
+| Visuals | `add_visual` batch(6) ×10 | 10 | 7,200 |
+| **Subtotal** | | **22** | **~8,000** |
+| + Schema overhead (one-time) | | | 14,600 |
+| + LLM reasoning (~12 turns) | | | ~2,400 |
+| + Context growth | | | ~3,000 |
+| **Total** | | | **~28,000** |
+
+**Adding layers on top (incremental cost per layer):**
+
+| Layer | Tool | Calls | +Tokens | Running Total |
+|-------|------|-------|---------|---------------|
+| Base | theme + visuals | 22 | — | **~28,000** |
+| +Page themes | `apply_theme` ×10 | +10 | +1,800 | ~30,000 |
+| +Bulk formatting | `bulk_update_format` ×10 | +10 | +3,700 | ~34,000 |
+| +Data colors | `set_datapoint_colors` ×20 | +20 | +5,400 | ~40,000 |
+| +Conditional format | `set_conditional_format` ×10 | +10 | +3,200 | ~44,000 |
+| +Page filters | `add_page_filter` ×10 | +10 | +3,000 | ~47,000 |
+| +Individual titles | `set_visual_title` ×60 | +60 | +6,600 | ~54,000 |
+| **Fully styled** | | **142** | | **~54,000** |
+
+> **Pro tip:** Use inline `title`, `dataColors`, and `containerFormat` in `add_visual` batch to skip separate title/color/format calls — a fully styled report in **~22 calls / ~32K tokens**.
+
+**Efficient vs naive approach:**
+
+| Approach | Calls | Tokens | Savings |
+|----------|-------|--------|---------|
+| Batch + bulk (recommended) | 22–32 | ~28–32K | baseline |
+| Per-visual calls (naive) | 300+ | ~120K | 2–4× more expensive |
+
+### Estimated API Cost (pricing as of April 2026)
+
+Based on ~19K input / ~9K output tokens (base) and ~30K input / ~24K output tokens (fully styled):
+
+| Model | Input $/1M | Output $/1M | Base Report | Fully Styled |
+|-------|-----------|-------------|-------------|--------------|
+| GPT-4o-mini | $0.15 | $0.60 | **$0.01** | $0.02 |
+| GPT-4.1-mini | $0.40 | $1.60 | **$0.02** | $0.05 |
+| GPT-4.1 | $2.00 | $8.00 | **$0.11** | $0.25 |
+| GPT-4o | $2.50 | $10.00 | **$0.14** | $0.32 |
+| Claude Haiku 3.5 | $0.80 | $4.00 | **$0.05** | $0.12 |
+| Claude Sonnet 4 | $3.00 | $15.00 | **$0.19** | $0.45 |
+| Claude Opus 4 | $15.00 | $75.00 | **$0.96** | $2.25 |
+
+> A 10-page, 60-visual report costs **$0.01–$2.25** depending on model. Sweet spot: **Sonnet or GPT-4.1 at $0.11–$0.45** for a fully styled report.

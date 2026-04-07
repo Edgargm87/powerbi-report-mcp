@@ -1,7 +1,7 @@
 # Test Suite — powerbi-report-mcp
 
 Run against the training report (`training.Report`) using Claude Sonnet 4.6 via MCP.
-Date: 2026-04-05 | Version: 0.4.5
+Date: 2026-04-05 | Version: 0.4.8
 
 ---
 
@@ -88,7 +88,19 @@ Measured by approximate output token counts per call. Input tokens vary by promp
 | 6 × `add_visual`                  | 6 calls                         | ~360               |
 
 ### MCP Schema overhead (one-time per session)
-~11,200 tokens to load all tool schemas at session start.
+~14,600 tokens to load all 49 tool schemas at session start.
+
+| Category | Tools | Schema Tokens | Heaviest Tool |
+|----------|-------|--------------|---------------|
+| Report Ops | 16 | ~3,290 | `auto_layout` (300) |
+| Visual Ops | 8 | ~2,800 | `add_visual` (1,200) |
+| Format Ops | 5 | ~2,100 | `set_conditional_format` (800) |
+| Filter Ops | 4 | ~1,600 | `add_page_filter` (1,000) |
+| Theme Ops | 5 | ~1,150 | `set_report_theme` (500) |
+| Bulk Ops | 3 | ~900 | `bulk_update_format` (350) |
+| Binding Ops | 1 | ~350 | `update_visual_bindings` (350) |
+| Calculation Ops | 3 | ~650 | `add_visual_calculation` (250) |
+| Bookmark Ops | 4 | ~700 | `add_bookmark` (200) |
 
 ---
 
