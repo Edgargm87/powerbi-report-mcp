@@ -11,7 +11,7 @@
 - Deferred tool registration — tools not in the default set are stored and can be activated at runtime without server restart.
 
 ### Changed
-- Default active tools: `list_pages`, `list_visuals`, `create_page`, `add_visual`, `get_visual`, `format_visual`, `update_visual_bindings`, `set_report_theme`, `bulk_bind`.
+- Default active tools: `set_report`, `list_pages`, `list_visuals`, `create_page`, `add_visual`, `get_visual`, `format_visual`, `update_visual_bindings`, `set_report_theme`, `bulk_bind`.
 - Visual calculation tools (`list_visual_calculations`, `add_visual_calculation`, `delete_visual_calculation`) fully disabled — not registered in any mode. Parked pending PBI Desktop support.
 - Bookmark tools remain unregistered (parked).
 - README updated: tool loading modes, default vs on-demand tool reference, revised token overhead tables.

@@ -53,6 +53,7 @@ const bulk_js_1 = require("./tools/bulk.js");
 // Default: only load core tools (~9) to reduce token overhead for LLM clients.
 // Set MCP_TOOLS=all to load all tools at startup.
 const DEFAULT_TOOLS = new Set([
+    "set_report",
     "list_pages",
     "list_visuals",
     "create_page",

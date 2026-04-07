@@ -67,7 +67,7 @@ To load **all tools** at startup (e.g. on your dev machine), add an `env` block:
 
 | Mode | Active Tools | Token Overhead | Use Case |
 |------|-------------|----------------|----------|
-| **Default** (no env) | 9 + `load_tools` | ~2,700 | Other machines, faster responses |
+| **Default** (no env) | 10 + `load_tools` | ~2,900 | Other machines, faster responses |
 | **`MCP_TOOLS=all`** | 42 + `load_tools` | ~13,000 | Dev machine, full access |
 
 ### 3. Connect to a report
@@ -95,6 +95,7 @@ These tools are always available and cover ~90% of report-building workflows:
 
 | Tool | Category | Description |
 |------|----------|-------------|
+| `set_report` | Report | Connect to a report at runtime — switch without restarting |
 | `list_pages` | Report | List all pages (slim mode — id, name, visualCount, hidden) |
 | `list_visuals` | Visuals | List all visuals on a page (slim mode — id, type, x, y, w, h, title) |
 | `create_page` | Report | Create a new page (name, width, height, display option) |
@@ -113,7 +114,6 @@ Call `load_tools()` to list available tools, or `load_tools(["tool_name"])` to a
 **Report Management**
 | Tool | Description |
 |------|-------------|
-| `set_report` | Connect to a report at runtime — switch without restarting |
 | `get_report` | Show which report is currently connected |
 | `reload_report` | Close and reopen the report in Power BI Desktop |
 | `get_report_settings` | Read report-level settings and theme config |
