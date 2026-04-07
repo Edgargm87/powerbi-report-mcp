@@ -58,7 +58,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
           displayName: page.displayName,
           visualCount,
           isActive: id === meta.activePageName,
-          hidden: page.visibility === 1,
+          hidden: page.visibility === "HiddenInViewMode",
         };
         if (slim) return base;
         return { ...base, width: page.width, height: page.height, displayOption: page.displayOption };
@@ -200,7 +200,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     async ({ pageId, hidden }) => {
       const page = ctx.project.getPage(pageId);
       if (hidden) {
-        page.visibility = 1;
+        page.visibility = "HiddenInViewMode";
       } else {
         delete page.visibility;
       }
@@ -454,7 +454,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
           id,
           displayName: page.displayName,
           isActive: id === meta.activePageName,
-          hidden: page.visibility === 1,
+          hidden: page.visibility === "HiddenInViewMode",
           visualCount: visualIds.length,
           visuals,
         };

@@ -2,6 +2,19 @@
 
 ---
 
+## [0.4.8] — 2026-04-07
+
+### Fixed
+- **B12** `set_conditional_format` gradient — used `ColorLinear` expression in `visualContainerObjects.background` which PBI Desktop does not recognise. Fixed: rewrote to use `FillRule` expression in `objects.values` with `backColor` property, `linearGradient2`/`linearGradient3` structure, `dataViewWildcard` + `metadata` selector. Confirmed from PBI Desktop manual format read-back.
+- **B13** `set_datapoint_colors` transparency — property name was `transparency` but PBI Desktop uses `fillTransparency`. Fixed property name; kept as separate no-selector dataPoint entry (matches PBI Desktop format).
+- **B14** `add_visual_calculation` — stored calculations in `query.calculations[]` which is not a valid PBIR schema property. Rewrote to use `NativeVisualCalculation` projections in `queryState.Values.projections[]` (matching PBI Desktop format). **Note:** projections written via file edit not rendering — visual calculations parked for further investigation.
+
+### Known Issues (Parked)
+- Visual calculations (`NativeVisualCalculation` projections) — correct format identified but not rendering when written programmatically. May require PBI Desktop internal state initialization.
+- Bookmark tools — registered in code but not exposed in MCP session.
+
+---
+
 ## [0.4.7] — 2026-04-07
 
 ### Fixed

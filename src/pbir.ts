@@ -93,8 +93,8 @@ export interface PageDefinition {
   displayOption: string;
   height: number;
   width: number;
-  /** 0 = visible (default), 1 = hidden from page navigation */
-  visibility?: number;
+  /** "HiddenInViewMode" = hidden from page nav. Omit for visible (default). */
+  visibility?: string;
   filterConfig?: {
     filters: FilterItem[];
   };

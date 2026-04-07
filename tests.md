@@ -289,6 +289,116 @@ Date: 2026-04-07 | Pages preserved for visual inspection in Power BI Desktop.
 
 ---
 
+## UAT Round 5 — Theme Application from JSON Files
+
+Date: 2026-04-07 | Applied 3 external theme JSON files to training report.
+
+### Results
+
+| #   | Tool               | Input / Target                                    | Result | Notes |
+|-----|--------------------|---------------------------------------------------|--------|-------|
+| U36 | `set_report_theme` | theme test1.json — "My Theme" (32 data colors)    | PASS   | Blues/teals/oranges palette; `dataColors` array applied |
+| U37 | `set_report_theme` | theme test2.json — "Custom" (8 data colors)       | PASS   | Purple/navy/orange palette |
+| U38 | `set_report_theme` | theme test3.json — "Seppirus Dark Mode 1.1"       | PASS   | Full dark theme: background, foreground, dataColors, tableAccent, visualStyles (slicer + filter pane + tooltip styling) — no schema errors |
+
+**UAT Round 5 Total: 3/3 PASS**
+
+### Round 5 Observations
+- `set_report_theme` correctly reads theme JSON, maps all known keys, and writes to StaticResources + wires into `report.json`
+- Full `visualStyles` objects (including slicer, filter pane, tooltip overrides) pass through correctly
+- Theme switching works cleanly — each apply replaces the previous custom theme
+
+---
+
+## UAT Round 6 — Bug Fix Verification (Gradient, Transparency, Duplicate)
+
+Date: 2026-04-07 | New pages created for clean re-test of B12/B13 fixes.
+
+### Pages Under Test
+| Page | ID | Focus |
+|------|----|-------|
+| T5-GradientFix | `c9587c5831da9117ae0f` | `set_conditional_format` gradient — FillRule in objects.values |
+| T7-TransparencyFix | `4cde52aee355902f0b89` | `set_datapoint_colors` transparency — `fillTransparency` property |
+| T9-DupVisual-Extra | `5af2b78e0c0ab634eb48` | `duplicate_visual` cross-page (bar chart from T9 page) |
+
+### Results
+
+| #   | Tool(s)                       | Input / Target                                                      | Result | Notes |
+|-----|-------------------------------|---------------------------------------------------------------------|--------|-------|
+| U39 | `set_conditional_format` gradient | tableEx Sales column — red→yellow→green 3-point gradient         | PASS   | FillRule + linearGradient3 in objects.values with dataViewWildcard selector — matches PBI Desktop format |
+| U40 | `set_datapoint_colors`        | 5 custom colors + 50% transparency on clusteredColumnChart          | PASS   | `fillTransparency` (not `transparency`) as separate no-selector dataPoint entry — matches PBI Desktop format |
+| U41 | `duplicate_visual`            | Bar chart from T9 → T9-DupVisual-Extra page                         | PASS   | Cross-page duplicate rendered correctly |
+
+**UAT Round 6 Total: 3/3 PASS**
+
+### Bugs Fixed This Round
+| Bug | Tool | Issue | Fix |
+|-----|------|-------|-----|
+| B12 | `set_conditional_format` gradient | Used `ColorLinear` expression in `visualContainerObjects.background` — PBI Desktop does not recognise this format | Rewrote to use `FillRule` expression in `objects.values` with `backColor` property, `linearGradient2/3` structure, `dataViewWildcard` selector + `metadata` queryRef |
+| B13 | `set_datapoint_colors` transparency | Property name `transparency` is wrong; PBI Desktop uses `fillTransparency` | Changed property name to `fillTransparency`; kept as separate no-selector dataPoint entry (correct per PBI Desktop format) |
+
+### Round 6 Observations
+- **Gradient conditional formatting** in PBI uses `FillRule` expression type (not `ColorLinear`). Structure: `FillRule.Input` = field expr, `FillRule.FillRule.linearGradient3` = min/mid/max with `color: { Literal: {...} }`. Placed in `objects.values` (not `visualContainerObjects`).
+- **Transparency** property in PBI dataPoint objects is `fillTransparency` (not `transparency`). Separate no-selector entry is the correct pattern — PBI treats it as the default for all data points.
+- Discovery method for both: user applied formatting manually in PBI Desktop, saved, and we read back the exact JSON PBI Desktop wrote.
+
+---
+
+## UAT Round 7 — Remaining Tool Coverage
+
+Date: 2026-04-07 | Tests for all previously untested tools.
+
+### Pages Under Test
+| Page | ID | Focus |
+|------|----|-------|
+| T11-FilterOps | `3562a0219549602de32b` | `remove_filter`, `clear_filters` |
+| T12-VisualOps | `013aa3fc07cf12fd46c5` | `delete_visual`, `move_visual` |
+| T13-PageOps | `728ae14a8ce39ff29166` | `set_page_visibility`, `set_active_page`, `reorder_pages` |
+
+### Results
+
+| #   | Tool(s)                       | Input / Target                                                      | Result | Notes |
+|-----|-------------------------------|---------------------------------------------------------------------|--------|-------|
+| U42 | `get_report` | Return connected report path | PASS | |
+| U43 | `get_report_settings` | Return schema, theme config, settings object | PASS | |
+| U44 | `get_visual_types` | Return 42 visual types with bucket mappings | PASS | |
+| U45 | `get_report_theme` | Return base + custom theme with full JSON | PASS | |
+| U46 | `list_report_themes` | Return 3 stored theme files with names + keys | PASS | |
+| U47 | `list_pages` | Return 13 pages with visibility/active flags | PASS | |
+| U48 | `add_page_filter` ×2 | Country + Segment categorical on T11 | PASS | |
+| U49 | `remove_filter` | Remove Country filter by name; Segment remains | PASS | |
+| U50 | `clear_filters` | Clear remaining Segment filter; 0 left | PASS | |
+| U51 | `delete_visual` | Delete bar chart from T12 | PASS | Visual removed from disk |
+| U52 | `move_visual` | Move line chart to x:500 y:50 at 700×400 | PASS | |
+| U53 | `set_page_visibility` | Hide T6-PieColors | PASS | User confirmed hidden in PBI Desktop page tabs |
+| U54 | `set_active_page` | Set T11-FilterOps as active page on open | PASS | |
+| U55 | `reorder_pages` | Move T13 to position 2 in tab order | PASS | |
+| U56 | `diff_report_theme` | Diff proposed 3-color theme vs Seppirus Dark | PASS | Returns added/removed/changed summary |
+| U57 | `remove_report_theme` | Remove Seppirus Dark; revert to base CY26SU02 | PASS | |
+
+**UAT Round 7 Total: 16/16 PASS**
+
+### Bugs Found This Round
+| Bug | Tool | Issue | Status |
+|-----|------|-------|--------|
+| B14 | `add_visual_calculation` | Stored calcs in `query.calculations[]` — invalid PBIR schema property. PBI Desktop stores visual calcs as `NativeVisualCalculation` projections in `queryState.Values.projections[]` | Code rewritten to use correct format but `NativeVisualCalculation` projections not rendering in PBI Desktop — **PARKED** for further investigation |
+
+### Parked (Not Rendering / Not Loaded)
+| Tool Group | Issue |
+|------------|-------|
+| `add_visual_calculation`, `list_visual_calculations`, `delete_visual_calculation` | B14: correct JSON format identified from PBI Desktop read-back but NativeVisualCalculation projections written via file edit not rendered — may require PBI internal state. Parked. |
+| `list_bookmarks`, `add_bookmark`, `delete_bookmark`, `rename_bookmark` | Bookmark tools registered in code but not loaded in MCP session. Parked. |
+
+### Round 7 Observations
+- All read-only tools (`get_report`, `get_report_settings`, `get_visual_types`, `get_report_theme`, `list_report_themes`, `list_pages`) return well-structured data — no bugs.
+- `remove_filter` correctly targets a single filter by name while preserving others.
+- `clear_filters` removes all page-level filters in one call.
+- `diff_report_theme` is useful for previewing theme changes before applying — shows added/removed/changed keys with before/after values.
+- `set_page_visibility` uses `"HiddenInViewMode"` format (confirmed B11 fix from Round 5 still holds).
+- `reorder_pages` accepts full page ID array and updates `ordinal` values in each page definition.
+
+---
+
 ## Observations
 
 - **Batch/bulk tools save significant tokens** for multi-visual operations. On a 10-visual page, `bulk_update_format` saves ~9 round-trips.

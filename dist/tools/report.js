@@ -74,7 +74,7 @@ function registerReportTools(server, ctx) {
                 displayName: page.displayName,
                 visualCount,
                 isActive: id === meta.activePageName,
-                hidden: page.visibility === 1,
+                hidden: page.visibility === "HiddenInViewMode",
             };
             if (slim)
                 return base;
@@ -177,7 +177,7 @@ function registerReportTools(server, ctx) {
     }, async ({ pageId, hidden }) => {
         const page = ctx.project.getPage(pageId);
         if (hidden) {
-            page.visibility = 1;
+            page.visibility = "HiddenInViewMode";
         }
         else {
             delete page.visibility;
@@ -390,7 +390,7 @@ function registerReportTools(server, ctx) {
                 id,
                 displayName: page.displayName,
                 isActive: id === meta.activePageName,
-                hidden: page.visibility === 1,
+                hidden: page.visibility === "HiddenInViewMode",
                 visualCount: visualIds.length,
                 visuals,
             };

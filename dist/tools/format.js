@@ -181,7 +181,6 @@ function registerFormatTools(server, ctx) {
         const fieldExpr = isMeasure
             ? { Measure: { Expression: { SourceRef: { Entity: entity } }, Property: property2 } }
             : { Aggregation: { Expression: { Column: { Expression: { SourceRef: { Entity: entity } }, Property: property2 } }, Function: 0 } };
-        let colorExpr;
         if (formatType === "rules") {
             if (!rules || rules.length === 0) {
                 return {
@@ -201,63 +200,81 @@ function registerFormatTools(server, ctx) {
                     Value: { Literal: { Value: `'${rule.color}'` } },
                 };
             });
-            colorExpr = {
+            const colorExpr = {
                 Conditional: {
                     Cases: cases,
                     Default: { Literal: { Value: `'${defaultColor ?? "#FFFFFF"}'` } },
                 },
             };
+            // Rules: apply to visualContainerObjects
+            const colorProp = { solid: { color: { expr: colorExpr } } };
+            const targetKey = property === "background" ? "background" : "title";
+            const colorPropKey = property === "background" ? "color" : "fontColor";
+            const existingArr = container[targetKey];
+            if (Array.isArray(existingArr) && existingArr.length > 0) {
+                const item = existingArr[0];
+                item.properties = item.properties ?? {};
+                if (property === "background") {
+                    item.properties.show = { expr: { Literal: { Value: "true" } } };
+                }
+                item.properties[colorPropKey] = colorProp;
+            }
+            else {
+                const props = { [colorPropKey]: colorProp };
+                if (property === "background") {
+                    props.show = { expr: { Literal: { Value: "true" } } };
+                }
+                container[targetKey] = [{ properties: props }];
+            }
         }
         else {
-            // gradient
+            // gradient — uses FillRule in objects.values (not visualContainerObjects)
             if (!minColor || !maxColor) {
                 return {
                     content: [{ type: "text", text: JSON.stringify({ success: false, error: "minColor and maxColor are required for formatType=gradient" }) }],
                 };
             }
-            const midEntry = midColor
-                ? {
-                    Mid: {
-                        Field: fieldExpr,
-                        ForeColor: { expr: { Literal: { Value: `'${midColor}'` } } },
-                    },
-                }
-                : {};
-            colorExpr = {
-                ColorLinear: {
-                    Min: {
-                        Field: fieldExpr,
-                        ForeColor: { expr: { Literal: { Value: `'${minColor}'` } } },
-                    },
-                    ...midEntry,
-                    Max: {
-                        Field: fieldExpr,
-                        ForeColor: { expr: { Literal: { Value: `'${maxColor}'` } } },
-                    },
+            // Build the queryRef for the selector metadata
+            const queryRef = isMeasure
+                ? `${entity}.${property2}`
+                : `Sum(${entity}.${property2})`;
+            // Build linearGradient (2 or 3 point)
+            const gradientKey = midColor ? "linearGradient3" : "linearGradient2";
+            const gradientDef = {
+                min: { color: { Literal: { Value: `'${minColor}'` } } },
+                max: { color: { Literal: { Value: `'${maxColor}'` } } },
+                nullColoringStrategy: { strategy: { Literal: { Value: "'asZero'" } } },
+            };
+            if (midColor) {
+                gradientDef.mid = { color: { Literal: { Value: `'${midColor}'` } } };
+            }
+            const fillRuleExpr = {
+                FillRule: {
+                    Input: fieldExpr,
+                    FillRule: { [gradientKey]: gradientDef },
                 },
             };
-        }
-        // Apply to the target property
-        const colorProp = {
-            solid: { color: { expr: colorExpr } },
-        };
-        const targetKey = property === "background" ? "background" : "title";
-        const colorPropKey = property === "background" ? "color" : "fontColor";
-        const existingArr = container[targetKey];
-        if (Array.isArray(existingArr) && existingArr.length > 0) {
-            const item = existingArr[0];
-            item.properties = item.properties ?? {};
-            if (property === "background") {
-                item.properties.show = { expr: { Literal: { Value: "true" } } };
+            const colorPropKey = property === "background" ? "backColor" : "fontColor";
+            if (!visual.visual.objects)
+                visual.visual.objects = {};
+            const objects = visual.visual.objects;
+            const valuesEntry = {
+                properties: {
+                    [colorPropKey]: {
+                        solid: { color: { expr: fillRuleExpr } },
+                    },
+                },
+                selector: {
+                    data: [{ dataViewWildcard: { matchingOption: 1 } }],
+                    metadata: queryRef,
+                },
+            };
+            if (!objects.values) {
+                objects.values = [valuesEntry];
             }
-            item.properties[colorPropKey] = colorProp;
-        }
-        else {
-            const props = { [colorPropKey]: colorProp };
-            if (property === "background") {
-                props.show = { expr: { Literal: { Value: "true" } } };
+            else {
+                objects.values.push(valuesEntry);
             }
-            container[targetKey] = [{ properties: props }];
         }
         ctx.project.saveVisual(pageId, visualId, visual);
         return {

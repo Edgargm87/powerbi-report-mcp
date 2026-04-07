@@ -99,7 +99,7 @@ async function main() {
 
   const server = new McpServer({
     name: "powerbi-report-mcp",
-    version: "0.4.7",
+    version: "0.4.8",
   });
 
   // Auto-wrap all tool handlers with safe() for error resilience

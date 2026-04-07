@@ -1,11 +1,23 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { generateId } from "../pbir.js";
 import type { ServerContext } from "../context.js";
 
 /**
  * Visual calculations — DAX expressions scoped to a visual's matrix/table context.
- * Stored in visual.query.calculations[] in PBIR format.
+ * Stored as NativeVisualCalculation projections in queryState buckets.
+ *
+ * PBI Desktop format (inside a queryState bucket's projections array):
+ *   {
+ *     "field": {
+ *       "NativeVisualCalculation": {
+ *         "Language": "dax",
+ *         "Expression": "RUNNINGSUM([Sum of Profit])",
+ *         "Name": "Running sum"
+ *       }
+ *     },
+ *     "queryRef": "select",
+ *     "nativeQueryRef": "Running sum"
+ *   }
  *
  * Common expressions:
  *   RUNNINGSUM([Sales Amount])          — running total down rows
@@ -13,16 +25,43 @@ import type { ServerContext } from "../context.js";
  *   MOVINGAVERAGE([Value], 3)           — 3-period moving average
  *   PERCENTOFGRANDTOTAL([Value])        — % of grand total
  *   [Value] - PREVIOUS([Value])         — period-on-period delta
- *
- * Note: visual calculations only apply to matrix/table visuals and require
- * Power BI Desktop Feb 2024+ to render. Use get_visual(slim=false) to inspect
- * the raw calculations array if needed.
  */
 
-interface VisualCalculation {
-  name: string;
-  expression: string;
-  displayName: string;
+interface NativeVisualCalcProjection {
+  field: {
+    NativeVisualCalculation: {
+      Language: string;
+      Expression: string;
+      Name: string;
+    };
+  };
+  queryRef: string;
+  nativeQueryRef: string;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function isNativeCalc(proj: any): proj is NativeVisualCalcProjection {
+  return proj?.field?.NativeVisualCalculation !== undefined;
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function findValuesBucket(query: any): any[] | null {
+  const qs = query?.queryState;
+  if (!qs) return null;
+  // Visual calculations are added to the first bucket that holds projections
+  // (typically "Values" for tableEx, "Rows" for pivotTable)
+  for (const bucket of ["Values", "Rows"]) {
+    if (Array.isArray(qs[bucket]?.projections)) {
+      return qs[bucket].projections;
+    }
+  }
+  // Fallback: first bucket with projections
+  for (const key of Object.keys(qs)) {
+    if (Array.isArray(qs[key]?.projections)) {
+      return qs[key].projections;
+    }
+  }
+  return null;
 }
 
 export function registerCalculationTools(server: McpServer, ctx: ServerContext): void {
@@ -38,14 +77,20 @@ export function registerCalculationTools(server: McpServer, ctx: ServerContext):
     },
     async ({ pageId, visualId }) => {
       const visual = ctx.project.getVisual(pageId, visualId);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const calculations: VisualCalculation[] = (visual.visual.query as any)?.calculations ?? [];
+      const projections = findValuesBucket(visual.visual.query);
+      const calcs = (projections ?? [])
+        .filter(isNativeCalc)
+        .map((p) => ({
+          name: p.field.NativeVisualCalculation.Name,
+          expression: p.field.NativeVisualCalculation.Expression,
+          displayName: p.nativeQueryRef,
+        }));
 
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({ count: calculations.length, calculations }, null, 2),
+            text: JSON.stringify({ count: calcs.length, calculations: calcs }, null, 2),
           },
         ],
       };
@@ -68,20 +113,39 @@ export function registerCalculationTools(server: McpServer, ctx: ServerContext):
     },
     async ({ pageId, visualId, expression, displayName }) => {
       const visual = ctx.project.getVisual(pageId, visualId);
+      const projections = findValuesBucket(visual.visual.query);
 
-      if (!visual.visual.query) {
-        visual.visual.query = { queryState: {} };
+      if (!projections) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({ success: false, error: "No queryState bucket with projections found — visual calculations require a table/matrix visual with data bindings" }),
+            },
+          ],
+        };
       }
 
+      const calcProjection: NativeVisualCalcProjection = {
+        field: {
+          NativeVisualCalculation: {
+            Language: "dax",
+            Expression: expression,
+            Name: displayName,
+          },
+        },
+        queryRef: "select",
+        nativeQueryRef: displayName,
+      };
+
+      projections.push(calcProjection);
+
+      // Remove legacy calculations array if present
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const query = visual.visual.query as any;
-      if (!Array.isArray(query.calculations)) {
-        query.calculations = [];
+      if (query?.calculations) {
+        delete query.calculations;
       }
-
-      const name = generateId();
-      const calc: VisualCalculation = { name, expression, displayName };
-      query.calculations.push(calc);
 
       ctx.project.saveVisual(pageId, visualId, visual);
 
@@ -89,7 +153,7 @@ export function registerCalculationTools(server: McpServer, ctx: ServerContext):
         content: [
           {
             type: "text",
-            text: JSON.stringify({ success: true, name, displayName, expression }),
+            text: JSON.stringify({ success: true, name: displayName, displayName, expression }),
           },
         ],
       };
@@ -109,10 +173,9 @@ export function registerCalculationTools(server: McpServer, ctx: ServerContext):
     },
     async ({ pageId, visualId, name }) => {
       const visual = ctx.project.getVisual(pageId, visualId);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const query = visual.visual.query as any;
+      const projections = findValuesBucket(visual.visual.query);
 
-      if (!Array.isArray(query?.calculations) || query.calculations.length === 0) {
+      if (!projections) {
         return {
           content: [
             {
@@ -123,9 +186,24 @@ export function registerCalculationTools(server: McpServer, ctx: ServerContext):
         };
       }
 
-      const before = query.calculations.length;
+      const before = projections.length;
+      const filtered = projections.filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (p: any) => !(isNativeCalc(p) && p.field.NativeVisualCalculation.Name === name)
+      );
+      const removed = before - filtered.length;
+
+      // Replace projections in-place
+      projections.length = 0;
+      projections.push(...filtered);
+
+      // Remove legacy calculations array if present
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      query.calculations = query.calculations.filter((c: any) => c.name !== name);
+      const query = visual.visual.query as any;
+      if (query?.calculations) {
+        delete query.calculations;
+      }
+
       ctx.project.saveVisual(pageId, visualId, visual);
 
       return {
@@ -134,8 +212,8 @@ export function registerCalculationTools(server: McpServer, ctx: ServerContext):
             type: "text",
             text: JSON.stringify({
               success: true,
-              removed: before - query.calculations.length,
-              remaining: query.calculations.length,
+              removed,
+              remaining: filtered.filter(isNativeCalc).length,
             }),
           },
         ],

@@ -85,7 +85,7 @@ export function applyDataColors(
   if (defaultTransparency !== undefined) {
     dataPoints.push({
       properties: {
-        transparency: { expr: { Literal: { Value: `${defaultTransparency}D` } } },
+        fillTransparency: { expr: { Literal: { Value: `${defaultTransparency}D` } } },
       },
     });
   }
