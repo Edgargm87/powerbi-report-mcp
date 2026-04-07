@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as fs from "fs";
 import * as path from "path";
+import { z } from "zod";
 import { PbirProject } from "./pbir.js";
 import type { ServerContext } from "./context.js";
 import { registerReportTools } from "./tools/report.js";
@@ -11,7 +12,77 @@ import { registerBindingTools } from "./tools/bindings.js";
 import { registerThemeTools } from "./tools/themes.js";
 import { registerFilterTools } from "./tools/filters.js";
 import { registerBulkTools } from "./tools/bulk.js";
-import { registerCalculationTools } from "./tools/calculations.js";
+// Visual calculations parked — not registering until PBI Desktop supports programmatic creation
+// import { registerCalculationTools } from "./tools/calculations.js";
+
+// --- Tool loading modes ---
+// Default: only load core tools (~9) to reduce token overhead for LLM clients.
+// Set MCP_TOOLS=all to load all tools at startup.
+const DEFAULT_TOOLS = new Set([
+  "list_pages",
+  "list_visuals",
+  "create_page",
+  "add_visual",
+  "get_visual",
+  "format_visual",
+  "update_visual_bindings",
+  "set_report_theme",
+  "bulk_bind",
+]);
+
+const ALL_TOOLS: Record<string, string> = {
+  // Report management
+  set_report: "Connect to a different Power BI report",
+  get_report: "Get report metadata",
+  list_pages: "List all pages (DEFAULT)",
+  create_page: "Create a new page (DEFAULT)",
+  rename_page: "Rename a page",
+  delete_page: "Delete a page",
+  reorder_pages: "Reorder pages",
+  set_active_page: "Set the active page",
+  set_page_visibility: "Show or hide a page",
+  get_report_settings: "Get report-level settings",
+  update_report_settings: "Update report-level settings",
+  update_page_size: "Change page dimensions",
+  auto_layout: "Auto-arrange visuals on a page",
+  duplicate_page: "Duplicate an entire page",
+  get_page_summary: "Get a detailed page summary",
+  reload_report: "Reload report from disk",
+  // Visuals
+  list_visuals: "List visuals on a page (DEFAULT)",
+  get_visual: "Inspect a visual's full config (DEFAULT)",
+  get_visual_types: "List available visual types",
+  add_visual: "Add one or more visuals (DEFAULT)",
+  delete_visual: "Delete a visual",
+  move_visual: "Move or resize a visual",
+  duplicate_visual: "Duplicate a visual",
+  change_visual_type: "Change a visual's type",
+  // Formatting
+  format_visual: "Format visual properties (DEFAULT)",
+  set_visual_title: "Set a visual's title",
+  set_datapoint_colors: "Set data point colors",
+  set_conditional_format: "Apply conditional formatting",
+  apply_theme: "Apply a theme JSON to the report",
+  // Themes
+  set_report_theme: "Set the report theme (DEFAULT)",
+  get_report_theme: "Get the current theme JSON",
+  remove_report_theme: "Remove the custom theme",
+  diff_report_theme: "Diff current vs default theme",
+  list_report_themes: "List available themes",
+  // Bindings
+  update_visual_bindings: "Update data bindings (DEFAULT)",
+  // Bulk
+  bulk_bind: "Rebind multiple visuals at once (DEFAULT)",
+  bulk_delete_visuals: "Delete multiple visuals",
+  bulk_update_format: "Format multiple visuals at once",
+  // Filters
+  list_filters: "List filters on a page or visual",
+  add_page_filter: "Add a page-level filter",
+  remove_filter: "Remove a filter",
+  clear_filters: "Clear all filters",
+  // Calculations — PARKED: visual calculations don't render when written programmatically
+  // list_visual_calculations, add_visual_calculation, delete_visual_calculation
+};
 
 // --- Discover .Report folder ---
 function findReportFolder(basePath: string): string | null {
@@ -99,14 +170,29 @@ async function main() {
 
   const server = new McpServer({
     name: "powerbi-report-mcp",
-    version: "0.4.8",
+    version: "0.4.9",
   });
 
-  // Auto-wrap all tool handlers with safe() for error resilience
+  // Determine tool loading mode
+  const loadAll = (process.env.MCP_TOOLS || "").toLowerCase() === "all";
+  const activeTools = new Set(loadAll ? Object.keys(ALL_TOOLS) : DEFAULT_TOOLS);
+
+  // Store deferred tool registrations so load_tools can activate them later
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const deferredTools: Map<string, { desc: string; schema: any; handler: any }> = new Map();
+
+  // Auto-wrap all tool handlers with safe() and filter by active set
   const _tool = server.tool.bind(server);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (server as any).tool = (name: string, desc: string, schema: unknown, handler: (args: any) => Promise<any>) =>
-    _tool(name, desc, schema as Record<string, unknown>, safe(handler));
+  (server as any).tool = (name: string, desc: string, schema: unknown, handler: (args: any) => Promise<any>) => {
+    const safeHandler = safe(handler);
+    if (activeTools.has(name)) {
+      _tool(name, desc, schema as Record<string, unknown>, safeHandler);
+    } else {
+      // Store for on-demand activation
+      deferredTools.set(name, { desc, schema, handler: safeHandler });
+    }
+  };
 
   // Build shared context
   const ctx: ServerContext = {
@@ -115,7 +201,7 @@ async function main() {
     project,
   };
 
-  // Register tools from modules
+  // Register tools from modules (filtered by activeTools)
   registerReportTools(server, ctx);
   registerVisualTools(server, ctx);
   registerFormatTools(server, ctx);
@@ -123,7 +209,66 @@ async function main() {
   registerThemeTools(server, ctx);
   registerFilterTools(server, ctx);
   registerBulkTools(server, ctx);
-  registerCalculationTools(server, ctx);
+  // registerCalculationTools(server, ctx); // PARKED
+
+  // Meta tool: load_tools — lists available on-demand tools and activates them
+  _tool(
+    "load_tools",
+    "List available on-demand tools, or activate specific tools by name. Use without arguments to see what's available. Pass tool names to activate them for this session.",
+    {
+      tools: z
+        .array(z.string())
+        .optional()
+        .describe("Tool names to activate. Omit to list available on-demand tools."),
+    },
+    safe(async ({ tools }: { tools?: string[] }) => {
+      if (!tools || tools.length === 0) {
+        // List available on-demand tools
+        const available = [...deferredTools.entries()].map(([name, { desc }]) => ({
+          name,
+          description: desc.slice(0, 80),
+        }));
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                success: true,
+                activeCount: activeTools.size,
+                availableCount: available.length,
+                available,
+                hint: "Call load_tools with tool names to activate them.",
+              }),
+            },
+          ],
+        };
+      }
+      // Activate requested tools
+      const activated: string[] = [];
+      const notFound: string[] = [];
+      for (const name of tools) {
+        const entry = deferredTools.get(name);
+        if (entry) {
+          _tool(name, entry.desc, entry.schema as Record<string, unknown>, entry.handler);
+          activeTools.add(name);
+          deferredTools.delete(name);
+          activated.push(name);
+        } else if (activeTools.has(name)) {
+          activated.push(`${name} (already active)`);
+        } else {
+          notFound.push(name);
+        }
+      }
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: JSON.stringify({ success: true, activated, notFound }),
+          },
+        ],
+      };
+    })
+  );
 
   // PBIR instructions resource
   server.resource("pbir-instructions", "resource://pbir-instructions", () => ({
@@ -139,7 +284,9 @@ async function main() {
   const transport = new StdioServerTransport();
   console.error("Power BI Report MCP Server starting...");
   console.error(`Report path: ${reportPath || "none (use set_report to connect)"}`);
-  console.error("Version: 0.4.4");
+  console.error(`Version: 0.4.9`);
+  console.error(`Tools mode: ${loadAll ? "all" : "default"} (${activeTools.size} active, ${deferredTools.size} on-demand)`);
+  console.error(loadAll ? "" : "Tip: Set MCP_TOOLS=all to load all tools at startup, or use the load_tools tool.");
   await server.connect(transport);
 }
 

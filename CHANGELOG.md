@@ -2,6 +2,23 @@
 
 ---
 
+## [0.4.9] — 2026-04-07
+
+### Added
+- **Smart tool loading** — default mode loads only 9 core tools (~2,700 tokens) instead of all 42+ (~13,000 tokens). **82% reduction** in per-turn token overhead.
+- `load_tools` meta-tool — lists available on-demand tools and activates them mid-session. Always active in both modes.
+- `MCP_TOOLS=all` env var — loads all tools at startup for power users / dev machines.
+- Deferred tool registration — tools not in the default set are stored and can be activated at runtime without server restart.
+
+### Changed
+- Default active tools: `list_pages`, `list_visuals`, `create_page`, `add_visual`, `get_visual`, `format_visual`, `update_visual_bindings`, `set_report_theme`, `bulk_bind`.
+- Visual calculation tools (`list_visual_calculations`, `add_visual_calculation`, `delete_visual_calculation`) fully disabled — not registered in any mode. Parked pending PBI Desktop support.
+- Bookmark tools remain unregistered (parked).
+- README updated: tool loading modes, default vs on-demand tool reference, revised token overhead tables.
+- Version bumped to 0.4.9.
+
+---
+
 ## [0.4.8] — 2026-04-07
 
 ### Fixed

@@ -1,6 +1,6 @@
 # Power BI Report MCP Server
 
-**Version 0.4.8** — An agent-agnostic MCP (Model Context Protocol) server that lets any AI assistant programmatically create, edit, and format Power BI reports in PBIR format. Zero vendor lock-in — works with Claude, OpenAI, GitHub Copilot, Cursor, Windsurf, Continue.dev, and any MCP-compatible client.
+**Version 0.4.9** — An agent-agnostic MCP (Model Context Protocol) server that lets any AI assistant programmatically create, edit, and format Power BI reports in PBIR format. Zero vendor lock-in — works with Claude, OpenAI, GitHub Copilot, Cursor, Windsurf, Continue.dev, and any MCP-compatible client.
 
 ---
 
@@ -47,6 +47,29 @@ Settings → Cline → MCP Servers
 
 > The report path is **no longer required** in config. Use the `set_report` tool at runtime to connect to any report. You can still pass a path as a second argument as a default.
 
+#### Tool Loading Modes
+
+By default, only **9 core tools** are loaded to reduce token overhead (~2,700 tokens vs ~14,600). The LLM can activate additional tools on-demand via the `load_tools` meta-tool.
+
+To load **all tools** at startup (e.g. on your dev machine), add an `env` block:
+
+```json
+{
+  "mcpServers": {
+    "powerbi-report-mcp": {
+      "command": "node",
+      "args": ["C:\\path\\to\\powerbi-report-mcp\\dist\\index.js"],
+      "env": { "MCP_TOOLS": "all" }
+    }
+  }
+}
+```
+
+| Mode | Active Tools | Token Overhead | Use Case |
+|------|-------------|----------------|----------|
+| **Default** (no env) | 9 + `load_tools` | ~2,700 | Other machines, faster responses |
+| **`MCP_TOOLS=all`** | 42 + `load_tools` | ~13,000 | Dev machine, full access |
+
 ### 3. Connect to a report
 
 ```
@@ -66,8 +89,28 @@ After changing config or rebuilding, restart the client to pick up the new MCP p
 
 ## Tools Reference
 
-### Report Connection
+### Default Tools (loaded at startup — 9 tools)
 
+These tools are always available and cover ~90% of report-building workflows:
+
+| Tool | Category | Description |
+|------|----------|-------------|
+| `list_pages` | Report | List all pages (slim mode — id, name, visualCount, hidden) |
+| `list_visuals` | Visuals | List all visuals on a page (slim mode — id, type, x, y, w, h, title) |
+| `create_page` | Report | Create a new page (name, width, height, display option) |
+| `add_visual` | Visuals | Add one or many visuals with data bindings, formatting, and colors in one call |
+| `get_visual` | Visuals | Get visual details (slim mode — type/position/bindings/title; `slim=false` for full JSON) |
+| `format_visual` | Format | Apply any formatting (axes, legend, labels, borders, background, etc.) |
+| `update_visual_bindings` | Binding | Replace data bindings on an existing visual |
+| `set_report_theme` | Themes | Apply a custom JSON theme to the whole report |
+| `bulk_bind` | Bulk | Rebind multiple visuals in one call |
+| `load_tools` | Meta | List and activate on-demand tools mid-session |
+
+### On-Demand Tools (activate via `load_tools`)
+
+Call `load_tools()` to list available tools, or `load_tools(["tool_name"])` to activate specific ones.
+
+**Report Management**
 | Tool | Description |
 |------|-------------|
 | `set_report` | Connect to a report at runtime — switch without restarting |
@@ -75,14 +118,7 @@ After changing config or rebuilding, restart the client to pick up the new MCP p
 | `reload_report` | Close and reopen the report in Power BI Desktop |
 | `get_report_settings` | Read report-level settings and theme config |
 | `update_report_settings` | Merge new settings into the report |
-
-### Page Management
-
-| Tool | Description |
-|------|-------------|
-| `get_page_summary` | All pages + their visuals in one call — use at session start instead of `list_pages` + `list_visuals` |
-| `list_pages` | List all pages (slim mode default — id, name, visualCount, hidden) |
-| `create_page` | Create a new page (name, width, height, display option) |
+| `get_page_summary` | All pages + their visuals in one call |
 | `delete_page` | Delete a page and all its visuals |
 | `rename_page` | Rename an existing page |
 | `duplicate_page` | Clone an entire page including all visuals |
@@ -92,75 +128,61 @@ After changing config or rebuilding, restart the client to pick up the new MCP p
 | `set_page_visibility` | Show or hide a page from the navigation pane |
 | `auto_layout` | Arrange all visuals into an automatic grid |
 
-### Visual Management
-
+**Visual Management**
 | Tool | Description |
 |------|-------------|
-| `add_visual` | Add one or many visuals with data bindings, formatting, and colors in one call |
 | `delete_visual` | Remove a visual from a page |
 | `duplicate_visual` | Clone a visual (optionally to another page) |
 | `move_visual` | Reposition and resize a visual |
 | `change_visual_type` | Swap visual type while keeping data bindings |
-| `list_visuals` | List all visuals on a page (slim mode default — id, type, x, y, w, h, title) |
-| `get_visual` | Get visual details (slim mode default — type/position/bindings/title; `slim=false` for full JSON) |
 | `get_visual_types` | List all supported visual types and their data buckets |
 
-### Data Binding
-
+**Formatting**
 | Tool | Description |
 |------|-------------|
-| `update_visual_bindings` | Replace data bindings on an existing visual |
-
-Field shorthand: `"field": "Table[Column]"` — or use explicit `entity` + `property`.
-Field types: **column** (raw), **aggregation** (Sum/Avg/Count/Min/Max/Median/etc.), **measure** (DAX measure)
-
-### Formatting
-
-| Tool | Description |
-|------|-------------|
-| `format_visual` | Apply any formatting (axes, legend, labels, borders, background, etc.) |
 | `set_visual_title` | Set title text, font, size, alignment, visibility |
 | `set_datapoint_colors` | Set per-series or per-category data point colors with optional transparency |
 | `set_conditional_format` | Rules-based or gradient conditional formatting on background/title color |
 | `apply_theme` | Apply a named theme preset to all visuals on a page |
 
-### Report-Level Themes
-
+**Themes**
 | Tool | Description |
 |------|-------------|
-| `set_report_theme` | Apply a custom JSON theme to the whole report (saved to StaticResources) |
 | `get_report_theme` | Get the current base and custom theme with full JSON content |
 | `remove_report_theme` | Unlink the custom theme (revert to default) |
 | `list_report_themes` | List all theme files stored in StaticResources |
-| `diff_report_theme` | Compare a proposed theme JSON against the current — shows added/removed/changed keys |
+| `diff_report_theme` | Compare a proposed theme JSON against the current |
 
-### Filters
-
+**Filters**
 | Tool | Description |
 |------|-------------|
-| `list_filters` | List filters on a page or visual (slim mode default — field as `Table[Column]` string) |
+| `list_filters` | List filters on a page or visual (slim mode — field as `Table[Column]` string) |
 | `add_page_filter` | Add a categorical, TopN, or relative date filter to a page |
 | `remove_filter` | Remove a filter by name |
 | `clear_filters` | Remove all filters from a page or visual |
 
-### Visual Calculations
-
+**Bulk Operations**
 | Tool | Description |
 |------|-------------|
-| `list_visual_calculations` | List DAX visual calculations on a table/matrix visual |
-| `add_visual_calculation` | Add a visual calculation (RUNNINGSUM, RANK, MOVINGAVERAGE, etc.) |
-| `delete_visual_calculation` | Remove a visual calculation by name |
+| `bulk_delete_visuals` | Delete multiple visuals in one call |
+| `bulk_update_format` | Format multiple visuals in one call |
 
-> **Note:** Visual calculations and bookmarks are currently parked — the correct PBIR format has been identified but requires further investigation for reliable rendering.
+Field shorthand: `"field": "Table[Column]"` — or use explicit `entity` + `property`.
+Field types: **column** (raw), **aggregation** (Sum/Avg/Count/Min/Max/Median/etc.), **measure** (DAX measure)
 
-### Bookmarks
+### Disabled Tools (parked)
 
-| Tool | Description |
-|------|-------------|
-| `list_bookmarks` | List all bookmarks in the report |
-| `add_bookmark` | Create a new bookmark (optionally targeting a page) |
-| `rename_bookmark` | Rename a bookmark |
-| `delete_bookmark` | Delete a bookmark |
+These tools are not registered in any mode pending further investigation:
+
+| Tool | Status | Notes |
+|------|--------|-------|
+| `list_visual_calculations` | Parked | `NativeVisualCalculation` format correct but not rendering programmatically |
+| `add_visual_calculation` | Parked | Same — visual calculations parked until PBI Desktop supports it |
+| `delete_visual_calculation` | Parked | Same |
+| `list_bookmarks` | Parked | Bookmark tools registered in code but not exposed |
+| `add_bookmark` | Parked | Same |
+| `rename_bookmark` | Parked | Same |
+| `delete_bookmark` | Parked | Same |
 
 ---
 
@@ -474,8 +496,8 @@ A typical 10-visual dashboard can be built in **4–6 tool calls** using batch m
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| Visual calculations | Parked | `NativeVisualCalculation` format identified but not rendering when written programmatically |
-| Bookmarks | Parked | Tools registered but not exposed in MCP session |
+| Visual calculations | Disabled | `NativeVisualCalculation` format identified but not rendering when written programmatically. Tools removed from registration. |
+| Bookmarks | Disabled | Tools registered in code but not exposed. Removed from registration. |
 
 ---
 
@@ -501,7 +523,25 @@ For models without native MCP support, use `mcp-proxy` to expose the server over
 
 ## Token Overhead
 
-All 49 tool schemas are sent to the LLM at session start. Here's the cost breakdown by category:
+### Default Mode (9 tools)
+
+Only core tools are loaded at startup, dramatically reducing per-turn token cost:
+
+| Tool | Schema Tokens |
+|------|--------------|
+| `list_pages` | ~150 |
+| `list_visuals` | ~150 |
+| `create_page` | ~200 |
+| `add_visual` | ~1,200 |
+| `get_visual` | ~200 |
+| `format_visual` | ~350 |
+| `update_visual_bindings` | ~350 |
+| `set_report_theme` | ~500 |
+| `bulk_bind` | ~300 |
+| `load_tools` | ~100 |
+| **Total** | **~2,700** |
+
+### All Tools Mode (`MCP_TOOLS=all` — 42 tools)
 
 | Category | Tools | Schema Tokens | Avg/Tool | Heaviest Tool |
 |----------|-------|--------------|----------|---------------|
@@ -512,9 +552,16 @@ All 49 tool schemas are sent to the LLM at session start. Here's the cost breakd
 | Theme Ops | 5 | ~1,150 | 230 | `set_report_theme` (500) |
 | Bulk Ops | 3 | ~900 | 300 | `bulk_update_format` (350) |
 | Binding Ops | 1 | ~350 | 350 | `update_visual_bindings` (350) |
-| Calculation Ops | 3 | ~650 | 217 | `add_visual_calculation` (250) |
-| Bookmark Ops | 4 | ~700 | 175 | `add_bookmark` (200) |
-| **Total** | **49** | **~14,600** | **~298** | |
+| **Total** | **42** | **~13,000** | **~310** | |
+
+> **Note:** Visual calculation tools (3) and bookmark tools (4) are parked and not included in either mode.
+
+### Token Savings: Default vs All
+
+| Mode | Tools | Schema Tokens | Reduction |
+|------|-------|--------------|-----------|
+| Default | 9 + load_tools | ~2,700 | **82% less** |
+| All | 42 + load_tools | ~13,000 | baseline |
 
 **Key efficiency patterns:**
 
