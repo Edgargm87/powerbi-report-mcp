@@ -1,3 +1,4 @@
+<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
 # Skill: Wireframes — Report Layout Patterns
 
 All layouts use canvas **1280 × 720** (16:9), `displayOption: "FitToPage"`.

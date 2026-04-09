@@ -1,3 +1,4 @@
+<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
 # Skill: Shapes — Rectangles, Banners, Dividers, Decorative Elements
 
 ## When to use

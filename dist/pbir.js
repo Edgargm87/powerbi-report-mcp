@@ -275,6 +275,25 @@ class PbirProject {
         if (fs.existsSync(filePath))
             fs.unlinkSync(filePath);
     }
+    // --- Extension measures (reportExtensions.json) ---
+    get reportExtensionsPath() {
+        return path.join(this.definitionPath, "reportExtensions.json");
+    }
+    getReportExtensions() {
+        if (!fs.existsSync(this.reportExtensionsPath))
+            return null;
+        return this.readJson(this.reportExtensionsPath);
+    }
+    saveReportExtensions(extensions) {
+        // CRITICAL: delete file if no entities/measures to avoid PBI Desktop crash
+        if (!extensions?.entities?.length) {
+            if (fs.existsSync(this.reportExtensionsPath)) {
+                fs.unlinkSync(this.reportExtensionsPath);
+            }
+            return;
+        }
+        this.writeJson(this.reportExtensionsPath, extensions);
+    }
 }
 exports.PbirProject = PbirProject;
 // --- Field reference builders ---

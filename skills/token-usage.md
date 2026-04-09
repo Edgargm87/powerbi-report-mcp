@@ -1,3 +1,4 @@
+<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
 # Token Usage Guide — powerbi-report-mcp
 
 Estimates based on Claude Sonnet. All figures are approximate.

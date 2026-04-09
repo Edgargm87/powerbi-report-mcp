@@ -145,6 +145,79 @@ function buildRelativeDateFilter(entity, property, period, count, direction) {
     };
     return { name: (0, pbir_js_1.generateId)(), field, type: "RelativeDate", filter, howCreated: "User" };
 }
+// --- Helper: build an Advanced filter ---
+// Advanced filters use comparison conditions (Equals, GreaterThan, Contains, etc.)
+// Supports single condition or compound (And/Or) with two conditions.
+function buildAdvancedFilter(entity, property, operator, value, logicalOperator, operator2, value2) {
+    const field = (0, pbir_js_1.columnRef)(entity, property);
+    const src = alias(entity);
+    const colExpr = {
+        Column: {
+            Expression: { SourceRef: { Source: src } },
+            Property: property,
+        },
+    };
+    // Map operator names to PBIR Comparison kinds
+    const opMap = {
+        Equals: 0, NotEquals: 1,
+        GreaterThan: 2, GreaterThanOrEqual: 3,
+        LessThan: 4, LessThanOrEqual: 5,
+    };
+    function buildCondition(op, val) {
+        // Unary operators (no value needed)
+        if (op === "IsBlank") {
+            return { Not: { Expression: { Exists: { Expression: colExpr } } } };
+        }
+        if (op === "IsNotBlank") {
+            return { Exists: { Expression: colExpr } };
+        }
+        // String operators
+        if (op === "Contains" || op === "DoesNotContain" || op === "StartsWith" || op === "DoesNotStartWith") {
+            const strVal = typeof val === "string" ? val : String(val ?? "");
+            const containsExpr = {
+                Contains: { Left: colExpr, Right: { Literal: { Value: `'${strVal}'` } } },
+            };
+            if (op === "DoesNotContain")
+                return { Not: { Expression: containsExpr } };
+            if (op === "StartsWith") {
+                return { Contains: { Left: colExpr, Right: { Literal: { Value: `'${strVal}'` } }, Kind: 1 } };
+            }
+            if (op === "DoesNotStartWith") {
+                return { Not: { Expression: { Contains: { Left: colExpr, Right: { Literal: { Value: `'${strVal}'` } }, Kind: 1 } } } };
+            }
+            return containsExpr;
+        }
+        // Comparison operators
+        const kind = opMap[op];
+        if (kind === undefined)
+            throw new Error(`Unknown operator: ${op}`);
+        const litValue = typeof val === "number" ? `${val}D` : `'${val}'`;
+        return {
+            Comparison: {
+                ComparisonKind: kind,
+                Left: colExpr,
+                Right: { Literal: { Value: litValue } },
+            },
+        };
+    }
+    let whereCondition;
+    if (logicalOperator && operator2) {
+        const cond1 = buildCondition(operator, value);
+        const cond2 = buildCondition(operator2, value2);
+        whereCondition = logicalOperator === "And"
+            ? { And: { Left: cond1, Right: cond2 } }
+            : { Or: { Left: cond1, Right: cond2 } };
+    }
+    else {
+        whereCondition = buildCondition(operator, value);
+    }
+    const filter = {
+        Version: 2,
+        From: [{ Name: src, Entity: entity, Type: 0 }],
+        Where: [{ Condition: whereCondition }],
+    };
+    return { name: (0, pbir_js_1.generateId)(), field, type: "Advanced", filter, howCreated: "User" };
+}
 function registerFilterTools(server, ctx) {
     // ============================================================
     // TOOL: list_filters
@@ -178,11 +251,11 @@ function registerFilterTools(server, ctx) {
     // ============================================================
     // TOOL: add_page_filter
     // ============================================================
-    server.tool("add_page_filter", "Add a filter to a page or visual. Omit visualId for page-level (affects all visuals). Provide visualId for visual-level. NOTE: topN filters only work at visual level — always provide visualId when filterType is topN. Types: categorical (specific values), topN (top/bottom N by measure), relativeDate (rolling date window).", {
+    server.tool("add_page_filter", "Add a filter to a page or visual. Omit visualId for page-level (affects all visuals). Provide visualId for visual-level. NOTE: topN filters only work at visual level — always provide visualId when filterType is topN. Types: categorical (specific values), topN (top/bottom N by measure), relativeDate (rolling date window), advanced (comparison operators like GreaterThan, Contains, IsBlank — supports compound And/Or conditions).", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().optional().describe("Visual ID — omit for page-level, required for topN"),
         filterType: zod_1.z
-            .enum(["categorical", "topN", "relativeDate"])
+            .enum(["categorical", "topN", "relativeDate", "advanced"])
             .describe("Type of filter to add. topN requires visualId."),
         // Field to filter
         entity: zod_1.z.string().describe("Table name of the filter field"),
@@ -217,7 +290,13 @@ function registerFilterTools(server, ctx) {
             .optional()
             .default("last")
             .describe("relativeDate: last (past) or next (future)"),
-    }, async ({ pageId, visualId, filterType, entity, property, values, n, topNDirection, orderByEntity, orderByProperty, orderByIsMeasure, period, count, dateDirection, }) => {
+        // Advanced options
+        operator: zod_1.z.string().optional().describe("advanced: comparison operator (Equals, NotEquals, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Contains, DoesNotContain, StartsWith, DoesNotStartWith, IsBlank, IsNotBlank)"),
+        value: zod_1.z.union([zod_1.z.string(), zod_1.z.number()]).optional().describe("advanced: comparison value"),
+        logicalOperator: zod_1.z.enum(["And", "Or"]).optional().describe("advanced: compound condition connector"),
+        operator2: zod_1.z.string().optional().describe("advanced: second operator for compound conditions"),
+        value2: zod_1.z.union([zod_1.z.string(), zod_1.z.number()]).optional().describe("advanced: second comparison value"),
+    }, async ({ pageId, visualId, filterType, entity, property, values, n, topNDirection, orderByEntity, orderByProperty, orderByIsMeasure, period, count, dateDirection, operator, value, logicalOperator, operator2, value2, }) => {
         if (filterType === "topN" && !visualId) {
             return {
                 content: [{ type: "text", text: JSON.stringify({ success: false, error: "topN filters must be applied at visual level — provide visualId" }) }],
@@ -234,6 +313,14 @@ function registerFilterTools(server, ctx) {
                 };
             }
             newFilter = buildTopNFilter(entity, property, n, topNDirection ?? "Top", orderByEntity, orderByProperty, orderByIsMeasure ?? false);
+        }
+        else if (filterType === "advanced") {
+            if (!operator) {
+                return {
+                    content: [{ type: "text", text: JSON.stringify({ success: false, error: "advanced requires: operator" }) }],
+                };
+            }
+            newFilter = buildAdvancedFilter(entity, property, operator, value, logicalOperator, operator2, value2);
         }
         else {
             if (!period || !count) {

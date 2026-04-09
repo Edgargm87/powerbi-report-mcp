@@ -1,3 +1,4 @@
+<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
 # Token Comparison — MCP vs CLI vs Manual
 
 All figures approximate. Based on Claude Sonnet ($3/M input, $15/M output).

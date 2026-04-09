@@ -1,3 +1,4 @@
+<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
 # Contributing to powerbi-report-mcp
 
 Thanks for your interest in contributing to the Power BI Report MCP server. This guide covers everything you need to get started, add features, and test your changes.

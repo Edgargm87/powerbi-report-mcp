@@ -60,6 +60,8 @@ export interface FilterItem {
   field: FieldRef;
   type: "Categorical" | "Advanced" | "TopN" | "RelativeDate";
   filter?: Record<string, unknown>;
+  /** Marks the filter as a drillthrough "all" filter. */
+  isAllFilter?: boolean;
 }
 
 export interface VisualDefinition {
@@ -95,9 +97,15 @@ export interface PageDefinition {
   width: number;
   /** "HiddenInViewMode" = hidden from page nav. Omit for visible (default). */
   visibility?: string;
+  /** Page type — "Tooltip" for tooltip pages. Omit for standard pages. */
+  type?: string;
+  /** Page-level config — e.g. { visibility: "HiddenInViewMode" } for tooltip pages. */
+  config?: Record<string, unknown>;
   filterConfig?: {
     filters: FilterItem[];
   };
+  /** Cross-filter/cross-highlight interactions between visuals on this page. */
+  visualInteractions?: Array<{ source: string; target: string; type: string }>;
 }
 
 export interface BookmarkDefinition {
@@ -394,6 +402,28 @@ export class PbirProject {
   deleteRegisteredResource(filename: string): void {
     const filePath = path.join(this.registeredResourcesPath, filename);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  }
+
+  // --- Extension measures (reportExtensions.json) ---
+
+  get reportExtensionsPath(): string {
+    return path.join(this.definitionPath, "reportExtensions.json");
+  }
+
+  getReportExtensions(): any | null {
+    if (!fs.existsSync(this.reportExtensionsPath)) return null;
+    return this.readJson(this.reportExtensionsPath);
+  }
+
+  saveReportExtensions(extensions: any): void {
+    // CRITICAL: delete file if no entities/measures to avoid PBI Desktop crash
+    if (!extensions?.entities?.length) {
+      if (fs.existsSync(this.reportExtensionsPath)) {
+        fs.unlinkSync(this.reportExtensionsPath);
+      }
+      return;
+    }
+    this.writeJson(this.reportExtensionsPath, extensions);
   }
 }
 

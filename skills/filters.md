@@ -1,3 +1,4 @@
+<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
 # Skill: Filters — Page & Visual Filters
 
 ## Tools

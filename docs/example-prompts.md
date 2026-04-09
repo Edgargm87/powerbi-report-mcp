@@ -1,3 +1,4 @@
+<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
 # Example Prompt Library
 
 A collection of real-world prompts you can use (or adapt) with the powerbi-report-mcp server. Each example shows the natural language prompt, what happens behind the scenes, and which tools get called.

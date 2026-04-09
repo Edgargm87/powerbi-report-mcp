@@ -246,4 +246,68 @@ function registerThemeTools(server, ctx) {
             content: [{ type: "text", text: JSON.stringify({ themeFiles: themes }, null, 2) }],
         };
     });
+    // ============================================================
+    // TOOL: audit_theme_compliance
+    // ============================================================
+    server.tool("audit_theme_compliance", "Audit visuals on a page for formatting overrides that may conflict with the report theme. Reports which visuals have visual-level objects or visualContainerObjects that override theme defaults. Use this to find stale overrides after changing themes.", {
+        pageId: zod_1.z.string().describe("The page ID to audit"),
+        verbose: zod_1.z.boolean().optional().default(false).describe("If true, list the specific override categories per visual"),
+    }, async ({ pageId, verbose }) => {
+        const visualIds = ctx.project.listVisualIds(pageId);
+        const results = [];
+        let overrideCount = 0;
+        for (const vid of visualIds) {
+            const visual = ctx.project.getVisual(pageId, vid);
+            const vType = visual.visual?.visualType || "unknown";
+            // Get title if present
+            const titleObj = visual.visual?.visualContainerObjects?.title;
+            let titleText = null;
+            if (Array.isArray(titleObj) && titleObj[0]?.properties?.text?.expr?.Literal?.Value) {
+                titleText = titleObj[0].properties.text.expr.Literal.Value.replace(/^'|'$/g, "");
+            }
+            const objects = visual.visual?.objects || {};
+            const containerObjects = visual.visual?.visualContainerObjects || {};
+            // Filter out auto-generated categories that are expected (not overrides)
+            // data, selection are slicer config, not style overrides
+            // general is often just textbox content
+            const ignoredObjectCats = new Set(["data", "selection", "general"]);
+            const objectCats = Object.keys(objects).filter((k) => !ignoredObjectCats.has(k));
+            // title is commonly set per-visual (expected), so only flag other container overrides
+            const ignoredContainerCats = new Set(["title"]);
+            const containerCats = Object.keys(containerObjects).filter((k) => !ignoredContainerCats.has(k));
+            const hasOverrides = objectCats.length > 0 || containerCats.length > 0;
+            if (hasOverrides)
+                overrideCount++;
+            results.push({
+                visualId: vid,
+                visualType: vType,
+                title: titleText,
+                hasObjectOverrides: objectCats.length > 0,
+                hasContainerOverrides: containerCats.length > 0,
+                ...(verbose ? { objectCategories: objectCats, containerCategories: containerCats } : { objectCategories: [], containerCategories: [] }),
+            });
+        }
+        const compliant = results.filter((r) => !r.hasObjectOverrides && !r.hasContainerOverrides);
+        const nonCompliant = results.filter((r) => r.hasObjectOverrides || r.hasContainerOverrides);
+        return {
+            content: [{
+                    type: "text",
+                    text: JSON.stringify({
+                        success: true,
+                        pageId,
+                        totalVisuals: results.length,
+                        compliantVisuals: compliant.length,
+                        overrideVisuals: overrideCount,
+                        ...(verbose ? { details: nonCompliant } : {
+                            summary: nonCompliant.map((r) => ({
+                                visualId: r.visualId,
+                                type: r.visualType,
+                                title: r.title,
+                                overrides: [...r.objectCategories, ...r.containerCategories],
+                            }))
+                        }),
+                    }, null, 2),
+                }],
+        };
+    });
 }

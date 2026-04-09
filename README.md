@@ -1,3 +1,4 @@
+<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
 <p align="center">
   <h1 align="center">Power BI Report MCP Server</h1>
   <p align="center">
@@ -7,11 +8,11 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/version-0.4.9-green.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.5.0-green.svg" alt="Version">
   <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg" alt="Node.js">
   <img src="https://img.shields.io/badge/MCP-1.12-purple.svg" alt="MCP SDK">
   <img src="https://img.shields.io/badge/Power%20BI-PBIR-yellow.svg" alt="PBIR Format">
-  <img src="https://img.shields.io/badge/tools-42-orange.svg" alt="42 Tools">
+  <img src="https://img.shields.io/badge/tools-47-orange.svg" alt="47 Tools">
 </p>
 
 <p align="center">
@@ -208,9 +209,9 @@ graph TD
 
     LT[load_tools -- always available]
 
-    subgraph ONDEMAND["32 On-Demand Tools -- activate mid-session"]
+    subgraph ONDEMAND["37 On-Demand Tools -- activate mid-session"]
         C1[delete_page] --- C2[rename_page] --- C3[duplicate_page] --- C4[move_visual] --- C5[delete_visual]
-        D1[set_datapoint_colors] --- D2[set_conditional_format] --- D3[add_page_filter] --- D4[list_filters] --- D5[...]
+        D1[set_datapoint_colors] --- D2[set_conditional_format] --- D3[add_page_filter] --- D4[set_visual_sort] --- D5[...]
     end
 
     DEFAULT --> LT --> ONDEMAND
@@ -223,7 +224,7 @@ graph TD
 | Mode | Tools | Token Overhead | Use Case |
 |------|-------|----------------|----------|
 | `default` | 10 + `load_tools` | **~2,900 tokens** | Production / shared machines |
-| `MCP_TOOLS=all` | 42 + `load_tools` | ~13,000 tokens | Dev machine / full access |
+| `MCP_TOOLS=all` | 47 + `load_tools` | ~14,000 tokens | Dev machine / full access |
 
 Load all tools at startup with:
 
@@ -251,10 +252,10 @@ Load all tools at startup with:
 | `bulk_bind` | Rebind multiple visuals in one call |
 | `load_tools` | List and activate on-demand tools |
 
-### On-Demand Tools (32)
+### On-Demand Tools (37)
 
 <details>
-<summary><b>Report & Page Management</b> — 13 tools</summary>
+<summary><b>Report & Page Management</b> — 16 tools</summary>
 
 | Tool | Description |
 |------|-------------|
@@ -271,6 +272,9 @@ Load all tools at startup with:
 | `update_page_size` | Change page dimensions |
 | `set_page_visibility` | Show/hide from navigation |
 | `auto_layout` | Auto-arrange visuals in a grid |
+| `set_filter_pane` | Show/hide and expand/collapse the filter pane |
+| `set_visual_interaction` | Set cross-filter/highlight interaction between visuals |
+| `manage_extension_measures` | Add, list, or remove report-level DAX measures |
 </details>
 
 <details>
@@ -286,14 +290,16 @@ Load all tools at startup with:
 </details>
 
 <details>
-<summary><b>Formatting & Colors</b> — 4 tools</summary>
+<summary><b>Formatting & Colors</b> — 6 tools</summary>
 
 | Tool | Description |
 |------|-------------|
 | `set_visual_title` | Set title text, font, alignment |
 | `set_datapoint_colors` | Per-series or per-category colors |
 | `set_conditional_format` | Rules-based or gradient formatting |
+| `set_visual_sort` | Set or change sort order (column/measure, ascending/descending) |
 | `apply_theme` | Apply a preset theme to a page |
+| `audit_theme_compliance` | Scan visuals for formatting overrides conflicting with theme |
 </details>
 
 <details>
@@ -313,7 +319,7 @@ Load all tools at startup with:
 | Tool | Description |
 |------|-------------|
 | `list_filters` | List page or visual filters |
-| `add_page_filter` | Add categorical, TopN, or relative date filter |
+| `add_page_filter` | Add categorical, TopN, relative date, or advanced filter |
 | `remove_filter` | Remove a filter by name |
 | `clear_filters` | Remove all filters |
 </details>
@@ -406,6 +412,7 @@ Combo charts          = Use "ColumnY" + "LineY", NOT "Y" + "Y2"
 ## Formatting
 
 ```
+format_visual(target="auto")          → auto-routes to container or visual (default)
 format_visual(target="container")     → title, background, border, padding, shadow
 format_visual(target="visual")        → axes, legend, labels, line styles, data points
 ```
@@ -497,11 +504,11 @@ powerbi-report-mcp/
 │   ├── pbir.ts               # PbirProject — PBIR file I/O abstraction
 │   ├── context.ts            # ServerContext interface
 │   ├── tools/
-│   │   ├── report.ts         # Page & report management (16 tools)
+│   │   ├── report.ts         # Page & report management (19 tools)
 │   │   ├── visuals.ts        # Visual CRUD (8 tools)
-│   │   ├── format.ts         # Formatting & colors (5 tools)
+│   │   ├── format.ts         # Formatting, sort & colors (6 tools)
 │   │   ├── bindings.ts       # Data binding (1 tool)
-│   │   ├── themes.ts         # Report themes (5 tools)
+│   │   ├── themes.ts         # Report themes (6 tools)
 │   │   ├── filters.ts        # Page/visual filters (4 tools)
 │   │   └── bulk.ts           # Bulk operations (3 tools)
 │   └── helpers/
@@ -566,7 +573,7 @@ MyProject.Report/
 | Mode | Tools Loaded | Tokens/Turn | Cost per 10-Page Report |
 |------|-------------|-------------|------------------------|
 | **Default** | 10 | ~2,900 | $0.01 – $0.45 |
-| **All** | 42 | ~13,000 | $0.02 – $2.25 |
+| **All** | 47 | ~14,000 | $0.02 – $2.50 |
 
 <details>
 <summary><b>Detailed API cost breakdown (April 2026 pricing)</b></summary>
@@ -617,7 +624,8 @@ Use `add_visual` batch mode + inline `title`, `dataColors`, `containerFormat` to
 |-----|-------------|
 | **[docs/quickstart.md](docs/quickstart.md)** | 5-minute setup guide |
 | **[docs/example-prompts.md](docs/example-prompts.md)** | 15 example prompts |
-| **[docs/visual-types.md](docs/visual-types.md)** | Visual type reference |
+| **[docs/visual-types.md](docs/visual-types.md)** | Visual type reference + formatting containers per type |
+| **[docs/wireframes.md](docs/wireframes.md)** | Layout guide — zones, spacing, 3 sample layouts with exact positions |
 | **[docs/pbir-gotchas.md](docs/pbir-gotchas.md)** | PBIR schema discoveries |
 | **[ARCHITECTURE.md](ARCHITECTURE.md)** | Codebase architecture |
 | **[CONTRIBUTING.md](CONTRIBUTING.md)** | How to contribute |

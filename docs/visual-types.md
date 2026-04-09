@@ -1,3 +1,4 @@
+<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
 # Visual Types Reference
 
 Comprehensive reference for all visual types supported by `powerbi-report-mcp`. Use this to look up exact type strings, data buckets, and known quirks.
@@ -270,3 +271,314 @@ Series creates **multiple pie/donut rings** (small multiples behavior). Usually 
 ```
 
 This produces a stacked bar chart where each bar represents a Region, and the colored segments within each bar represent Product Categories, with the bar length showing Sum of Revenue.
+
+---
+
+## 6. Formatting Reference
+
+The `format_visual` tool is pass-through: any category/property combination you specify is written directly into the visual's formatting objects. This means any valid Power BI formatting category and property works -- but using the **wrong name fails silently**. Power BI does not error on unrecognized properties; it simply ignores them. Your formatting looks like it applied, but nothing changes on the canvas.
+
+This section documents the correct names so you do not have to guess.
+
+---
+
+### Cross-Cutting Gotchas
+
+These are the most dangerous naming inconsistencies across visual types. Getting any of these wrong results in silent failure.
+
+| Gotcha | Detail |
+|--------|--------|
+| `textSize` vs `fontSize` | Classic slicer uses `textSize` in `items` and `header`. Everything else uses `fontSize`. Exception: stackedAreaChart's `seriesLabels` also uses `textSize`. |
+| `color` vs `fontColor` vs `labelColor` | Legacy card/multiRowCard use `color`. New cardVisual uses `fontColor`. Axis containers use `labelColor`. |
+| `backColor` vs `backgroundColor` | tableEx/pivotTable use `backColor`. Scorecard uses `backgroundColor`. |
+| No `dataPoint` on waterfall | Use `sentimentColors` with increaseFill, decreaseFill, totalFill, otherFill. |
+| No `labels` on scatter | Use `categoryLabels` instead. |
+| Combo chart dual axis | Secondary axis properties use `sec` prefix within `valueAxis` (secShow, secFontSize, secLabelColor). |
+| Theme key `pivotTable` not `matrix` | The matrix visual's internal type name is `pivotTable`. |
+| KPI `trendline` not `trendLine` | Lowercase L. |
+| Pie/donut label position | PascalCase required: `Outside`, `Inside`, `BestFit`. Lowercase silently ignored. |
+| Gauge `calloutValue` | Has NO `fontSize` property. Central number font size is not controllable via formatting. |
+| Action button states | State keys: `*` (default), `hover`, `press`, `selected`, `disabled`. Omitted states inherit from `*`. |
+| Color objects | All color properties require `{"solid":{"color":"#hex"}}` format. format_visual handles this automatically -- pass plain `#hex` strings. |
+
+---
+
+### Container Names by Visual Type
+
+Formatting containers are the `category` values you pass to `format_visual`. Each visual type supports a specific set of containers. Using a container name that does not belong to a visual type fails silently.
+
+#### Bar / Column family
+
+**Applies to:** `barChart`, `clusteredBarChart`, `columnChart`, `clusteredColumnChart`, `hundredPercentStackedBarChart`, `hundredPercentStackedColumnChart`, `ribbonChart`
+
+| Container | Notes |
+|-----------|-------|
+| `categoryAxis` | In bar charts (horizontal), this is the **Y-axis**. In column charts (vertical), this is the **X-axis**. |
+| `valueAxis` | In bar charts (horizontal), this is the **X-axis**. In column charts (vertical), this is the **Y-axis**. |
+| `legend` | |
+| `labels` | Data labels on each bar/column segment. |
+| `dataPoint` | Fill colors for series. |
+| `totals` | Stacked types only (`barChart`, `columnChart`, `hundredPercentStackedBarChart`, `hundredPercentStackedColumnChart`). |
+| `ribbonBands` | `ribbonChart` only. |
+
+#### Line / Area family
+
+**Applies to:** `lineChart`, `areaChart`, `stackedAreaChart`, `hundredPercentStackedAreaChart`
+
+| Container | Notes |
+|-----------|-------|
+| `categoryAxis` | |
+| `valueAxis` | |
+| `legend` | |
+| `labels` | |
+| `lineStyles` | strokeWidth, lineStyle (solid, dashed, dotted). |
+| `markers` | markerShape, markerSize. |
+| `seriesLabels` | Stacked types only. Uses `textSize` **NOT** `fontSize`. |
+| `totals` | Stacked types only. |
+
+#### Combo charts
+
+**Applies to:** `lineClusteredColumnComboChart`, `lineStackedColumnComboChart`
+
+| Container | Notes |
+|-----------|-------|
+| `categoryAxis` | |
+| `valueAxis` | Dual axis: secondary axis properties use `sec` prefix (secShow, secFontSize, secLabelColor). |
+| `legend` | |
+| `labels` | |
+| `lineStyles` | |
+| `markers` | |
+| `totals` | `lineStackedColumnComboChart` only. |
+
+#### Pie / Donut
+
+**Applies to:** `pieChart`, `donutChart`
+
+| Container | Notes |
+|-----------|-------|
+| `labels` | `position`: `Outside`, `Inside`, `BestFit` -- **PascalCase required**. `labelStyle`: `Category`, `Data`, `Percent of total`. |
+| `legend` | |
+| `dataPoint` | |
+| `slices` | `donutChart` only. `innerRadiusRatio` controls hole size. |
+
+#### Scatter
+
+**Applies to:** `scatterChart`
+
+| Container | Notes |
+|-----------|-------|
+| `categoryAxis` | |
+| `valueAxis` | |
+| `legend` | |
+| `categoryLabels` | **NOT** `labels`. Using `labels` fails silently. |
+| `markers` | |
+| `dataPoint` | |
+
+#### Waterfall
+
+**Applies to:** `waterfallChart`
+
+| Container | Notes |
+|-----------|-------|
+| `categoryAxis` | |
+| `valueAxis` | |
+| `legend` | |
+| `labels` | |
+| `sentimentColors` | **NOT** `dataPoint`. Properties: `increaseFill`, `decreaseFill`, `totalFill`, `otherFill`. |
+
+#### Funnel
+
+**Applies to:** `funnel`
+
+| Container | Notes |
+|-----------|-------|
+| `labels` | `funnelLabelStyle` controls label format. |
+| `categoryAxis` | |
+| `percentBarLabel` | |
+| `dataPoint` | |
+
+#### Gauge
+
+**Applies to:** `gauge`
+
+| Container | Notes |
+|-----------|-------|
+| `calloutValue` | **NO `fontSize` property.** Central number font size is not controllable via formatting. |
+| `labels` | |
+| `dataPoint` | `fill` = arc color, `target` = target line color. |
+
+#### Treemap
+
+**Applies to:** `treemap`
+
+| Container | Notes |
+|-----------|-------|
+| `legend` | |
+| `labels` | |
+| `dataPoint` | Supports `fillRule` for gradient coloring. |
+
+#### KPI
+
+**Applies to:** `kpi`
+
+| Container | Notes |
+|-----------|-------|
+| `indicator` | |
+| `trendline` | **Lowercase L** -- not `trendLine`. |
+| `goals` | |
+| `status` | Properties: `goodColor`, `neutralColor`, `badColor`. |
+
+#### Cards
+
+**`card` (legacy)**
+
+| Container | Notes |
+|-----------|-------|
+| `labels` | Uses `color` -- not `fontColor`. |
+| `categoryLabels` | |
+
+**`cardVisual` (new)**
+
+| Container | Notes |
+|-----------|-------|
+| `value` | Uses `fontColor` -- not `color`. |
+| `label` | |
+| `cardCalloutArea` | |
+
+**`multiRowCard`**
+
+| Container | Notes |
+|-----------|-------|
+| `cardTitle` | |
+| `dataLabels` | Uses `color` -- not `fontColor`. |
+| `card` | `barShow` and other card-level properties. |
+
+#### Slicers
+
+**`slicer` (classic)**
+
+| Container | Notes |
+|-----------|-------|
+| `items` | Uses `textSize` -- **NOT** `fontSize`. |
+| `header` | Uses `textSize` -- **NOT** `fontSize`. |
+| `searchBox` | |
+| `selection` | |
+| `data` | |
+| `slider` | |
+
+**`advancedSlicerVisual` / `listSlicer`**
+
+| Container | Notes |
+|-----------|-------|
+| `label` | |
+| `value` | |
+| `layout` | |
+| `selection` | |
+| `selectionIcon` | |
+| `accentBar` | |
+| `outline` | Uses `fontSize` (standard). |
+
+#### Tables
+
+**`tableEx`**
+
+| Container | Notes |
+|-----------|-------|
+| `columnHeaders` | Uses `backColor` / `fontColor`. |
+| `values` | Uses `backColor` / `fontColor`. |
+| `total` | |
+| `grid` | |
+
+**`pivotTable`**
+
+| Container | Notes |
+|-----------|-------|
+| `columnHeaders` | Uses `backColor` / `fontColor`. |
+| `rowHeaders` | |
+| `values` | Uses `backColor` / `fontColor`. |
+| `total` | |
+| `grid` | |
+
+**`scorecard`**
+
+| Container | Notes |
+|-----------|-------|
+| `header` | Uses `backgroundColor` / `foregroundColor`. |
+| `columnHeaders` | |
+| `scorecard` | |
+| `goals` | |
+
+#### Shapes / Text / Buttons
+
+**`shape`**
+
+| Container | Notes |
+|-----------|-------|
+| `shape` | |
+| `fill` | |
+| `outline` | |
+| `rotation` | |
+
+**`textbox`**
+
+| Container | Notes |
+|-----------|-------|
+| `text` | Uses color object for `text.color`. |
+
+**`actionButton`**
+
+| Container | Notes |
+|-----------|-------|
+| `fill` | Supports state keys: `*` (default), `hover`, `press`, `selected`, `disabled`. |
+| `text` | Supports state keys. |
+| `outline` | Supports state keys. |
+| `shape` | |
+| `icon` | |
+
+**`image`**
+
+| Container | Notes |
+|-----------|-------|
+| `image` | Properties: `fit`, `transparency`, `cornerRadius`. |
+
+---
+
+### Common Formatting Recipes
+
+Quick copy-paste recipes showing the correct `category` and `properties` for common formatting tasks.
+
+**Hide axis labels:**
+
+```json
+{ "category": "categoryAxis", "properties": { "show": false } }
+```
+
+**Style legend:**
+
+```json
+{ "category": "legend", "properties": { "show": true, "position": "Top", "fontSize": 10, "fontFamily": "Segoe UI" } }
+```
+
+**Data labels on bar chart:**
+
+```json
+{ "category": "labels", "properties": { "show": true, "fontSize": 9, "color": "#333333", "labelDisplayUnits": 1000 } }
+```
+
+**Slicer item styling** (note: `textSize` not `fontSize`):
+
+```json
+{ "category": "items", "properties": { "textSize": 10, "fontColor": "#333333" } }
+```
+
+**Table header styling:**
+
+```json
+{ "category": "columnHeaders", "properties": { "fontSize": 11, "fontFamily": "Segoe UI Semibold", "fontColor": "#FFFFFF", "backColor": "#1B2A4A" } }
+```
+
+**Waterfall colors:**
+
+```json
+{ "category": "sentimentColors", "properties": { "increaseFill": "#107C10", "decreaseFill": "#D83B01", "totalFill": "#0078D4" } }
+```

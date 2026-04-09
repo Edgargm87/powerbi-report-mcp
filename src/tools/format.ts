@@ -5,6 +5,12 @@ import { FormatCategorySchema, DataColorSchema, NO_DATA_VISUAL_TYPES } from "../
 import { THEME_PRESETS } from "../helpers/defaults.js";
 import type { ServerContext } from "../context.js";
 
+// Categories that belong in visualContainerObjects (container chrome)
+const CONTAINER_CATEGORIES = new Set([
+  "title", "subTitle", "background", "border", "padding",
+  "dropShadow", "visualHeader", "visualHeaderTooltip",
+]);
+
 export function registerFormatTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
   // TOOL: set_visual_title
@@ -85,27 +91,43 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "format_visual",
-    "Format visual properties. target='visual' for axes/legend/labels/lineStyles/etc. target='container' for title/background/border/padding/dropShadow/visualHeader. Colors starting with # auto-wrap. Numbers use D suffix.",
+    "Format visual properties. Auto-routes categories: title/background/border/padding/dropShadow/visualHeader → visualContainerObjects, everything else → objects. Override with target='visual' or target='container'.",
     {
       pageId: z.string().describe("The page ID"),
       visualId: z.string().describe("The visual ID"),
       formatting: z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, z.array(FormatCategorySchema))
         .describe("Array of formatting categories and their properties to set"),
       target: z
-        .enum(["visual", "container"])
+        .enum(["visual", "container", "auto"])
         .optional()
-        .default("visual")
+        .default("auto")
         .describe(
-          "'visual' sets visual.objects, 'container' sets visual.visualContainerObjects"
+          "'auto' (default) routes container categories (title/background/border/padding/dropShadow/visualHeader) to visualContainerObjects and everything else to objects. Use 'visual' or 'container' to force."
         ),
     },
     async ({ pageId, visualId, formatting, target }) => {
       const visual = ctx.project.getVisual(pageId, visualId);
-      const targetObj =
-        target === "container"
-          ? (visual.visual.visualContainerObjects ??= {})
-          : (visual.visual.objects ??= {});
-      applyFormattingToTarget(targetObj as Record<string, unknown>, formatting);
+
+      if (target === "auto") {
+        // Split formatting into container vs visual categories
+        const containerFmt = formatting.filter((f) => CONTAINER_CATEGORIES.has(f.category));
+        const visualFmt = formatting.filter((f) => !CONTAINER_CATEGORIES.has(f.category));
+        if (containerFmt.length > 0) {
+          const containerObj = (visual.visual.visualContainerObjects ??= {});
+          applyFormattingToTarget(containerObj as Record<string, unknown>, containerFmt);
+        }
+        if (visualFmt.length > 0) {
+          const visualObj = (visual.visual.objects ??= {});
+          applyFormattingToTarget(visualObj as Record<string, unknown>, visualFmt);
+        }
+      } else {
+        const targetObj =
+          target === "container"
+            ? (visual.visual.visualContainerObjects ??= {})
+            : (visual.visual.objects ??= {});
+        applyFormattingToTarget(targetObj as Record<string, unknown>, formatting);
+      }
+
       ctx.project.saveVisual(pageId, visualId, visual);
       return {
         content: [
@@ -422,6 +444,99 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
             text: JSON.stringify({ success: true, pageId, theme, visualsFormatted: formatted }),
           },
         ],
+      };
+    }
+  );
+
+  // ============================================================
+  // TOOL: set_visual_sort
+  // ============================================================
+  server.tool(
+    "set_visual_sort",
+    "Set the sort order of a visual. Overrides the default auto-sort. Use Table[Column] shorthand for field references.",
+    {
+      pageId: z.string().describe("The page ID"),
+      visualId: z.string().describe("The visual ID"),
+      sort: z.array(z.object({
+        field: z.string().describe("Field to sort by in Table[Column] format (e.g. 'Sales[Revenue]')"),
+        type: z.enum(["column", "measure", "aggregation"]).default("column")
+          .describe("Field type: column, measure, or aggregation"),
+        aggregation: z.string().optional().describe("Aggregation function if type=aggregation (Sum, Avg, Count, Min, Max)"),
+        direction: z.enum(["Ascending", "Descending"]).default("Descending")
+          .describe("Sort direction"),
+      })).describe("Sort fields in priority order"),
+      isDefaultSort: z.boolean().optional().default(false)
+        .describe("Whether this is the default sort (true = can be overridden by user)"),
+    },
+    async ({ pageId, visualId, sort, isDefaultSort }) => {
+      const visual = ctx.project.getVisual(pageId, visualId);
+
+      // Import parseFieldSpec to reuse the field parsing logic
+      // We need to build FieldRef objects from the sort spec
+      const sortEntries = sort.map((s) => {
+        // Parse field shorthand
+        const match = s.field.match(/^(.+)\[(.+)\]$/);
+        if (!match) {
+          throw new Error(`Invalid field: "${s.field}". Expected Table[Column] format.`);
+        }
+        const entity = match[1].trim();
+        const property = match[2].trim();
+
+        let field: any;
+        if (s.type === "measure") {
+          field = {
+            Measure: {
+              Expression: { SourceRef: { Entity: entity } },
+              Property: property,
+            },
+          };
+        } else if (s.type === "aggregation") {
+          const aggMap: Record<string, number> = { Sum: 0, Avg: 1, Count: 2, Min: 3, Max: 4, CountNonNull: 5, Median: 6, StandardDeviation: 7, Variance: 8 };
+          const func = aggMap[s.aggregation || "Sum"] ?? 0;
+          field = {
+            Aggregation: {
+              Expression: {
+                Column: {
+                  Expression: { SourceRef: { Entity: entity } },
+                  Property: property,
+                },
+              },
+              Function: func,
+            },
+          };
+        } else {
+          field = {
+            Column: {
+              Expression: { SourceRef: { Entity: entity } },
+              Property: property,
+            },
+          };
+        }
+
+        return { field, direction: s.direction };
+      });
+
+      // Set the sort definition on the visual's query
+      if (!visual.visual.query) {
+        throw new Error("Visual has no query — cannot set sort on visuals without data bindings.");
+      }
+
+      visual.visual.query.sortDefinition = {
+        sort: sortEntries,
+        ...(isDefaultSort ? { isDefaultSort: true } : {}),
+      };
+
+      ctx.project.saveVisual(pageId, visualId, visual);
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({
+            success: true,
+            pageId,
+            visualId,
+            sortFields: sort.map((s) => `${s.field} ${s.direction}`),
+          }),
+        }],
       };
     }
   );

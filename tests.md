@@ -1,3 +1,4 @@
+<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
 # Test Suite — powerbi-report-mcp
 
 Run against the training report (`training.Report`) using Claude Sonnet 4.6 via MCP.

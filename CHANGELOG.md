@@ -1,4 +1,35 @@
+<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
 # Changelog — powerbi-report-mcp
+
+---
+
+## [0.5.0] — 2026-04-09
+
+### Added
+- **`set_visual_sort`** tool — set or change sort order on any visual (column, measure, or aggregation; Ascending/Descending)
+- **`set_visual_interaction`** tool — configure cross-filter/highlight interactions between visuals (Filter/Highlight/NoFilter), stored in page `visualInteractions`
+- **`set_filter_pane`** tool — show/hide and expand/collapse the report filter pane (`report.objects.outspacePane`)
+- **`manage_extension_measures`** tool — add, list, or remove report-level DAX extension measures (`reportExtensions.json`); auto-deletes file when empty to prevent PBI Desktop crash
+- **`audit_theme_compliance`** tool — scan all visuals on a page for formatting overrides that conflict with the active theme; verbose mode shows specific override categories
+- **Advanced filter support** in `add_page_filter` — 12 operators (Equals, NotEquals, GreaterThan, Contains, IsBlank, etc.) with compound And/Or logical operators
+- **Tooltip pages** — `create_page` now accepts `type: "tooltip"` (320×240, ActualSize, HiddenInViewMode)
+- **Drillthrough pages** — `create_page` now accepts `drillthrough: { entity, property }` with categorical `isAllFilter` filter
+- **`format_visual` auto-routing** — new `target: "auto"` default automatically splits formatting into container vs visual categories (title/background/border → `visualContainerObjects`, everything else → `objects`)
+- **3 wireframe test pages** in training report: WF-A Dashboard (11 visuals), WF-B Analysis (10 visuals), WF-C KPI Summary (8 visuals)
+- **`docs/wireframes.md`** — comprehensive layout guide with 3 sample layouts, exact pixel positions, spacing rules, precomputed column splits
+- **`docs/visual-types.md`** — added cross-cutting formatting gotchas table (12 naming traps), container names by visual type (14 families), 6 common formatting recipes
+- **`docs/pbir-gotchas.md`** — B15: empty reportExtensions.json crash, B16: reportVersionAtImport read-only, B17: auto-generated files (mobileState.json) must not be edited
+- `CONTAINER_CATEGORIES` set in format.ts for reliable auto-routing: title, subTitle, background, border, padding, dropShadow, visualHeader, visualHeaderTooltip
+- `PbirProject` gains `reportExtensionsPath`, `getReportExtensions()`, `saveReportExtensions()` (auto-delete when empty)
+- `PageDefinition` gains `type`, `config`, `visualInteractions` fields
+- `FilterItem` gains `isAllFilter` field
+- `update_report_settings` allowlist extended: `persistentFilters`, `keyboardNavigationEnabled`
+
+### Changed
+- `format_visual` target default changed from `"visual"` to `"auto"` — backwards compatible, auto splits formatting categories
+- `create_page` description updated to reflect tooltip/drillthrough support
+- Total tools: **47** (+ `load_tools`) — 10 default, 37 on-demand
+- Version bumped to 0.5.0
 
 ---
 

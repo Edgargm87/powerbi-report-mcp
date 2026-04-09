@@ -1,3 +1,4 @@
+<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
 # 5-Minute Quickstart
 
 Go from zero to a working Power BI report page in 5 minutes using an AI assistant and the powerbi-report-mcp server.

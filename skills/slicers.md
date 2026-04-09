@@ -1,3 +1,4 @@
+<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
 # Skill: Slicers — Filters & Selection Controls
 
 ## The 4 Slicer Visual Types

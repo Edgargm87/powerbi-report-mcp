@@ -69,7 +69,7 @@ const ALL_TOOLS = {
     set_report: "Connect to a different Power BI report",
     get_report: "Get report metadata",
     list_pages: "List all pages (DEFAULT)",
-    create_page: "Create a new page (DEFAULT)",
+    create_page: "Create a new page — supports standard, tooltip, and drillthrough types (DEFAULT)",
     rename_page: "Rename a page",
     delete_page: "Delete a page",
     reorder_pages: "Reorder pages",
@@ -82,6 +82,9 @@ const ALL_TOOLS = {
     duplicate_page: "Duplicate an entire page",
     get_page_summary: "Get a detailed page summary",
     reload_report: "Reload report from disk",
+    set_filter_pane: "Show or hide the report filter pane",
+    set_visual_interaction: "Set cross-filter/highlight interaction between visuals",
+    manage_extension_measures: "Add, list, or remove report-level DAX measures",
     // Visuals
     list_visuals: "List visuals on a page (DEFAULT)",
     get_visual: "Inspect a visual's full config (DEFAULT)",
@@ -96,6 +99,7 @@ const ALL_TOOLS = {
     set_visual_title: "Set a visual's title",
     set_datapoint_colors: "Set data point colors",
     set_conditional_format: "Apply conditional formatting",
+    set_visual_sort: "Set or change the sort order of a visual",
     apply_theme: "Apply a theme JSON to the report",
     // Themes
     set_report_theme: "Set the report theme (DEFAULT)",
@@ -103,6 +107,7 @@ const ALL_TOOLS = {
     remove_report_theme: "Remove the custom theme",
     diff_report_theme: "Diff current vs default theme",
     list_report_themes: "List available themes",
+    audit_theme_compliance: "Audit visuals for formatting overrides conflicting with theme",
     // Bindings
     update_visual_bindings: "Update data bindings (DEFAULT)",
     // Bulk
@@ -195,7 +200,7 @@ async function main() {
     }
     const server = new mcp_js_1.McpServer({
         name: "powerbi-report-mcp",
-        version: "0.4.9",
+        version: "0.5.0",
     });
     // Determine tool loading mode
     const loadAll = (process.env.MCP_TOOLS || "").toLowerCase() === "all";
@@ -299,7 +304,7 @@ async function main() {
     const transport = new stdio_js_1.StdioServerTransport();
     console.error("Power BI Report MCP Server starting...");
     console.error(`Report path: ${reportPath || "none (use set_report to connect)"}`);
-    console.error(`Version: 0.4.9`);
+    console.error(`Version: 0.5.0`);
     console.error(`Tools mode: ${loadAll ? "all" : "default"} (${activeTools.size} active, ${deferredTools.size} on-demand)`);
     console.error(loadAll ? "" : "Tip: Set MCP_TOOLS=all to load all tools at startup, or use the load_tools tool.");
     await server.connect(transport);
@@ -315,16 +320,22 @@ You are working with Power BI reports in the PBIR (Power BI Report) format — a
 ├── definition/
 │   ├── report.json          # Report settings, themes, visual styles
 │   ├── version.json         # Format version
-│   └── pages/
-│       ├── pages.json       # Page order and active page
-│       └── {pageId}/
-│           ├── page.json    # Page display name, size, options
-│           └── visuals/
-│               └── {visualId}/
-│                   └── visual.json  # Visual type, position, data bindings, filters
-├── definition.pbir          # Reference to the semantic model
+│   ├── pages/
+│   │   ├── pages.json       # Page order and active page
+│   │   └── {pageId}/
+│   │       ├── page.json    # Page display name, size, options
+│   │       └── visuals/
+│   │           └── {visualId}/
+│   │               └── visual.json  # Visual type, position, data bindings, filters
+│   └── reportExtensions.json # Extension measures (report-level DAX) — DELETE if empty
+├── CustomVisuals/           # Private custom visuals (optional)
+├── definition.pbir          # Reference to the semantic model (byPath for local PBIP, byConnection for remote/thin report)
 └── StaticResources/         # Themes and static assets
 \`\`\`
+
+**definition.pbir** has two connection variants:
+- \`byPath\` — local PBIP project, references a relative path like \`../MyModel.SemanticModel\`
+- \`byConnection\` — remote/thin report with a connection string to a published dataset
 
 ## Visual Types — Power BI Naming Convention
 Power BI uses non-obvious names for column/bar charts. Always use the correct visualType:
@@ -377,6 +388,29 @@ Instead of passing separate entity and property, you can use the shorthand notat
 { "field": "financials[Gross Sales]", "type": "aggregation", "aggregation": "Sum" }
 \`\`\`
 Both formats are equivalent and can be mixed in the same bindings array.
+
+## Layout Rules
+- Visual gap: **5px** between all visuals (horizontal and vertical)
+- Page margins: **20px** left/right
+- Banner: shape at (0, 0, 1280, 52), full width, no margins
+- First content row starts at y=57 (banner 52 + gap 5)
+- See docs/wireframes.md for sample layouts with exact positions
+
+## Formatting Gotchas
+- Classic slicer uses \`textSize\`, not \`fontSize\` (in \`items\` and \`header\` containers)
+- Legacy card uses \`color\`, new cardVisual uses \`fontColor\`, axes use \`labelColor\`
+- Waterfall has no \`dataPoint\` — use \`sentimentColors\` (increaseFill/decreaseFill/totalFill)
+- Scatter has no \`labels\` — use \`categoryLabels\`
+- Pie/donut label position is PascalCase: \`Outside\`, \`Inside\`, \`BestFit\`
+- Combo chart secondary axis: \`sec\` prefix in \`valueAxis\` (secShow, secFontSize)
+- See docs/visual-types.md for full formatting reference per visual type
+
+## Unsupported Features
+- **Visual interactions** — use \`set_visual_interaction\` to control cross-filter/cross-highlight between visuals (\`visualInteractions\` in page.json).
+- **Sort definitions** — \`sortDefinition\` in visual query controls default sort order. Not yet exposed as a tool.
+- **Extension measures** — use \`manage_extension_measures\` to add/list/remove report-level DAX measures (\`reportExtensions.json\`). WARNING: file is auto-deleted when empty — empty \`entities: []\` crashes PBI Desktop.
+- **Bookmarks** — \`definition/bookmarks/\` stores report bookmarks for toggle visibility and filter state. Parked — not exposed as tools.
+- **Filter pane visibility** — use \`set_filter_pane\` to show/hide the filter pane (\`objects.outspacePane\` in report.json).
 
 ## Tips
 - Use auto_layout to quickly arrange visuals in a grid

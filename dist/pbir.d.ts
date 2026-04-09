@@ -58,6 +58,8 @@ export interface FilterItem {
     field: FieldRef;
     type: "Categorical" | "Advanced" | "TopN" | "RelativeDate";
     filter?: Record<string, unknown>;
+    /** Marks the filter as a drillthrough "all" filter. */
+    isAllFilter?: boolean;
 }
 export interface VisualDefinition {
     $schema: string;
@@ -91,9 +93,19 @@ export interface PageDefinition {
     width: number;
     /** "HiddenInViewMode" = hidden from page nav. Omit for visible (default). */
     visibility?: string;
+    /** Page type — "Tooltip" for tooltip pages. Omit for standard pages. */
+    type?: string;
+    /** Page-level config — e.g. { visibility: "HiddenInViewMode" } for tooltip pages. */
+    config?: Record<string, unknown>;
     filterConfig?: {
         filters: FilterItem[];
     };
+    /** Cross-filter/cross-highlight interactions between visuals on this page. */
+    visualInteractions?: Array<{
+        source: string;
+        target: string;
+        type: string;
+    }>;
 }
 export interface BookmarkDefinition {
     $schema: string;
@@ -160,6 +172,9 @@ export declare class PbirProject {
     readRegisteredResource(filename: string): unknown | null;
     listRegisteredResources(): string[];
     deleteRegisteredResource(filename: string): void;
+    get reportExtensionsPath(): string;
+    getReportExtensions(): any | null;
+    saveReportExtensions(extensions: any): void;
 }
 export declare function columnRef(entity: string, property: string): FieldRef;
 export declare function aggregationRef(entity: string, property: string, func?: number): FieldRef;

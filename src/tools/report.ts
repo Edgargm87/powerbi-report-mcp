@@ -3,7 +3,7 @@ import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
 import { execSync } from "child_process";
-import { generateId } from "../pbir.js";
+import { generateId, columnRef } from "../pbir.js";
 import type { PageDefinition } from "../pbir.js";
 import type { ServerContext } from "../context.js";
 
@@ -72,27 +72,59 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "create_page",
-    "Create a new page in the report",
+    "Create a new page in the report. Supports standard, tooltip, and drillthrough page types.",
     {
       displayName: z.string().describe("Display name for the page"),
-      width: z.number().optional().default(1280).describe("Page width (default 1280)"),
-      height: z.number().optional().default(720).describe("Page height (default 720)"),
+      type: z.enum(["standard", "tooltip"]).optional().default("standard")
+        .describe("Page type — tooltip pages are small overlay pages (320x240) hidden from nav"),
+      width: z.number().optional().describe("Page width (default 1280, or 320 for tooltip)"),
+      height: z.number().optional().describe("Page height (default 720, or 240 for tooltip)"),
       displayOption: z
         .enum(["FitToPage", "FitToWidth", "ActualSize"])
         .optional()
-        .default("FitToPage"),
+        .describe("Display option (default FitToPage, or ActualSize for tooltip)"),
+      drillthrough: z.object({
+        entity: z.string().describe("Table name for the drillthrough field"),
+        property: z.string().describe("Column name for the drillthrough field"),
+      }).optional().describe("Drillthrough field — makes this a drillthrough page filtered by this field"),
     },
-    async ({ displayName, width, height, displayOption }) => {
+    async ({ displayName, type, width, height, displayOption, drillthrough }) => {
+      const isTooltip = type === "tooltip";
+
+      // Apply tooltip defaults when not explicitly overridden
+      const resolvedWidth = width ?? (isTooltip ? 320 : 1280);
+      const resolvedHeight = height ?? (isTooltip ? 240 : 720);
+      const resolvedDisplayOption = displayOption ?? (isTooltip ? "ActualSize" : "FitToPage");
+
       const pageId = generateId();
       const page: PageDefinition = {
         $schema:
           "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/page/2.1.0/schema.json",
         name: pageId,
         displayName,
-        displayOption,
-        height,
-        width,
+        displayOption: resolvedDisplayOption,
+        height: resolvedHeight,
+        width: resolvedWidth,
       };
+
+      // Tooltip page: set type and config for hidden tooltip behavior
+      if (isTooltip) {
+        page.type = "Tooltip";
+        page.config = { visibility: "HiddenInViewMode" };
+      }
+
+      // Drillthrough: add a categorical filter with isAllFilter
+      if (drillthrough) {
+        const field = columnRef(drillthrough.entity, drillthrough.property);
+        page.filterConfig = {
+          filters: [{
+            name: generateId(),
+            field,
+            type: "Categorical",
+            isAllFilter: true,
+          }],
+        };
+      }
 
       ctx.project.savePage(pageId, page);
 
@@ -102,7 +134,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
 
       return {
         content: [
-          { type: "text", text: JSON.stringify({ success: true, pageId, displayName }, null, 2) },
+          { type: "text", text: JSON.stringify({ success: true, pageId, displayName, type: isTooltip ? "tooltip" : "standard", drillthrough: !!drillthrough }, null, 2) },
         ],
       };
     }
@@ -240,11 +272,13 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     "hideVisualContainerHeader",
     "useNewFilterPaneExperience",
     "optOutNewFilterPaneExperience",
+    "persistentFilters",
+    "keyboardNavigationEnabled",
   ]);
 
   server.tool(
     "update_report_settings",
-    "Update report-level settings (merges with existing settings). Valid keys: useStylableVisualContainerHeader, exportDataMode, defaultDrillFilterOtherVisuals, allowChangeFilterTypes, useEnhancedTooltips, useDefaultAggregateDisplayName.",
+    "Update report-level settings (merges with existing settings). Valid keys: useStylableVisualContainerHeader (boolean, modern visual headers), useEnhancedTooltips (boolean), exportDataMode (0=summarized, 1=summarized+underlying), persistentFilters (boolean, save filter selections), keyboardNavigationEnabled (boolean), defaultDrillFilterOtherVisuals, allowChangeFilterTypes, useDefaultAggregateDisplayName.",
     {
       settings: z
         .record(z.string(), z.unknown())
@@ -522,6 +556,175 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         const msg = err instanceof Error ? err.message : String(err);
         return { content: [{ type: "text", text: JSON.stringify({ success: false, error: msg }) }] };
       }
+    }
+  );
+
+  // ============================================================
+  // TOOL: set_filter_pane
+  // ============================================================
+  server.tool(
+    "set_filter_pane",
+    "Show or hide the filter pane in the report. Controls whether the filter pane is visible and/or expanded when users view the report.",
+    {
+      visible: z.boolean().describe("Whether the filter pane is visible"),
+      expanded: z.boolean().optional().default(true).describe("Whether the filter pane is expanded (default true)"),
+    },
+    async ({ visible, expanded }) => {
+      const report = ctx.project.getReport();
+
+      if (!report.objects) report.objects = {};
+      report.objects.outspacePane = [{
+        properties: {
+          visible: { expr: { Literal: { Value: visible ? "true" : "false" } } },
+          expanded: { expr: { Literal: { Value: expanded ? "true" : "false" } } },
+        },
+      }];
+
+      ctx.project.saveReport(report);
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({ success: true, filterPane: { visible, expanded } }),
+        }],
+      };
+    }
+  );
+
+  // ============================================================
+  // TOOL: manage_extension_measures
+  // ============================================================
+  server.tool(
+    "manage_extension_measures",
+    "Add, list, or remove extension measures (report-level DAX). Extension measures allow thin reports to define DAX calculations without modifying the semantic model. WARNING: empty reportExtensions.json crashes PBI Desktop — this tool auto-deletes the file when empty.",
+    {
+      operation: z.enum(["list", "add", "remove"]).describe("Operation to perform"),
+      // For add
+      tableName: z.string().optional().default("_Measures").describe("Extension table name (default '_Measures')"),
+      measureName: z.string().optional().describe("add/remove: measure name"),
+      expression: z.string().optional().describe("add: DAX expression"),
+      dataType: z.string().optional().default("Text").describe("add: data type (Text, Double, Int64, Boolean, DateTime)"),
+      // For remove
+    },
+    async ({ operation, tableName, measureName, expression, dataType }) => {
+      if (operation === "list") {
+        const ext = ctx.project.getReportExtensions();
+        if (!ext?.entities?.length) {
+          return { content: [{ type: "text", text: JSON.stringify({ success: true, measures: [], count: 0 }) }] };
+        }
+        const measures = ext.entities.flatMap((e: any) =>
+          (e.measures || []).map((m: any) => ({ table: e.name, name: m.name, expression: m.expression, dataType: m.dataType }))
+        );
+        return { content: [{ type: "text", text: JSON.stringify({ success: true, measures, count: measures.length }) }] };
+      }
+
+      if (operation === "add") {
+        if (!measureName || !expression) {
+          return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "add requires: measureName, expression" }) }] };
+        }
+
+        let ext = ctx.project.getReportExtensions();
+        if (!ext) {
+          ext = {
+            "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/reportExtension/1.0.0/schema.json",
+            name: "extension",
+            entities: [],
+          };
+        }
+
+        // Find or create the entity (table)
+        let entity = ext.entities.find((e: any) => e.name === tableName);
+        if (!entity) {
+          entity = { name: tableName, measures: [] };
+          ext.entities.push(entity);
+        }
+        if (!entity.measures) entity.measures = [];
+
+        // Remove existing measure with same name (update)
+        entity.measures = entity.measures.filter((m: any) => m.name !== measureName);
+
+        entity.measures.push({
+          name: measureName,
+          expression,
+          dataType: dataType || "Text",
+        });
+
+        ctx.project.saveReportExtensions(ext);
+        return { content: [{ type: "text", text: JSON.stringify({ success: true, operation: "add", table: tableName, measure: measureName }) }] };
+      }
+
+      if (operation === "remove") {
+        if (!measureName) {
+          return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "remove requires: measureName" }) }] };
+        }
+
+        const ext = ctx.project.getReportExtensions();
+        if (!ext?.entities?.length) {
+          return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "No extension measures exist" }) }] };
+        }
+
+        let removed = false;
+        for (const entity of ext.entities) {
+          const before = entity.measures?.length ?? 0;
+          if (entity.measures) {
+            entity.measures = entity.measures.filter((m: any) => m.name !== measureName);
+            if (entity.measures.length < before) removed = true;
+          }
+        }
+
+        // Clean up empty entities
+        ext.entities = ext.entities.filter((e: any) => e.measures?.length > 0);
+
+        // Save (auto-deletes file if empty)
+        ctx.project.saveReportExtensions(ext);
+        return { content: [{ type: "text", text: JSON.stringify({ success: true, operation: "remove", measure: measureName, removed }) }] };
+      }
+
+      return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "Unknown operation" }) }] };
+    }
+  );
+
+  // ============================================================
+  // TOOL: set_visual_interaction
+  // ============================================================
+  server.tool(
+    "set_visual_interaction",
+    "Set cross-filter interaction between visuals on a page. Controls whether selecting data in one visual filters, highlights, or has no effect on another visual.",
+    {
+      pageId: z.string().describe("The page ID"),
+      source: z.string().describe("Source visual ID (the one being clicked/selected)"),
+      target: z.string().describe("Target visual ID (the one being affected)"),
+      type: z.enum(["Filter", "Highlight", "NoFilter"]).describe("Interaction type: Filter (cross-filter), Highlight (cross-highlight), NoFilter (no interaction)"),
+    },
+    async ({ pageId, source, target, type }) => {
+      const page = ctx.project.getPage(pageId);
+
+      // Initialize visualInteractions array if not present
+      if (!page.visualInteractions) {
+        page.visualInteractions = [];
+      }
+
+      // Find existing interaction between this source and target
+      const existingIdx = page.visualInteractions.findIndex(
+        (vi: any) => vi.source === source && vi.target === target
+      );
+
+      const interaction = { source, target, type };
+
+      if (existingIdx >= 0) {
+        // Update existing
+        page.visualInteractions[existingIdx] = interaction;
+      } else {
+        // Add new
+        page.visualInteractions.push(interaction);
+      }
+
+      ctx.project.savePage(pageId, page);
+      return {
+        content: [{
+          type: "text",
+          text: JSON.stringify({ success: true, pageId, source, target, interactionType: type }),
+        }],
+      };
     }
   );
 }
