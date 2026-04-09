@@ -1,38 +1,99 @@
-# Power BI Report MCP Server
+<p align="center">
+  <h1 align="center">Power BI Report MCP Server</h1>
+  <p align="center">
+    Build Power BI reports with natural language — through any AI assistant.
+  </p>
+</p>
 
-**Version 0.4.9** — An agent-agnostic MCP (Model Context Protocol) server that lets any AI assistant programmatically create, edit, and format Power BI reports in PBIR format. Zero vendor lock-in — works with Claude, OpenAI, GitHub Copilot, Cursor, Windsurf, Continue.dev, and any MCP-compatible client.
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
+  <img src="https://img.shields.io/badge/version-0.4.9-green.svg" alt="Version">
+  <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg" alt="Node.js">
+  <img src="https://img.shields.io/badge/MCP-1.12-purple.svg" alt="MCP SDK">
+  <img src="https://img.shields.io/badge/Power%20BI-PBIR-yellow.svg" alt="PBIR Format">
+  <img src="https://img.shields.io/badge/tools-42-orange.svg" alt="42 Tools">
+</p>
+
+<p align="center">
+  <code>Claude</code> &middot; <code>OpenAI</code> &middot; <code>GitHub Copilot</code> &middot; <code>Cursor</code> &middot; <code>Windsurf</code> &middot; <code>Continue.dev</code> &middot; <code>Cline</code> &middot; <code>Any MCP Client</code>
+</p>
+
+---
+
+> **"Create an executive summary page with 6 KPI cards, a revenue trend line chart, and a bar chart by country"**
+>
+> One prompt. One batch call. Full page in Power BI Desktop.
+
+---
+
+## What is this?
+
+The first open-source **MCP server for Power BI report authoring**. It connects any AI assistant to Power BI's PBIR (Power BI Report) file format, turning natural language into real report pages — cards, charts, tables, themes, filters, and formatting.
+
+No REST API keys. No Power BI service. Just local files + your AI assistant.
+
+```
+You: "Build me a sales dashboard with KPIs, trend charts, and a detail table"
+
+AI:  create_page → add_visual (batch: 12 visuals) → set_report_theme → done.
+     Open in Power BI Desktop. ✓
+```
+
+---
+
+## Why MCP?
+
+**MCP (Model Context Protocol)** is an open standard that lets AI assistants call external tools. Instead of the AI generating code for you to run, it directly executes operations through the MCP server.
+
+```
+┌──────────────────┐     stdio      ┌──────────────────────┐     file I/O     ┌─────────────────┐
+│   AI Assistant    │◄──────────────►│  powerbi-report-mcp  │◄───────────────►│  .Report folder  │
+│                   │   MCP JSON     │                      │   visual.json    │  (PBIR format)   │
+│  Claude, GPT,     │                │  42 tools            │   page.json      │                   │
+│  Copilot, etc.    │                │  Zod validation      │   report.json    │  Open in PBI      │
+└──────────────────┘                └──────────────────────┘                  │  Desktop          │
+                                                                              └─────────────────┘
+```
+
+**Zero vendor lock-in** — built on `@modelcontextprotocol/sdk` + `zod`. No Anthropic, OpenAI, or Microsoft SDK imports.
+
+---
+
+## How It Compares
+
+| | **This MCP Server** | **Manual PBI Desktop** | **Power BI REST API** | **pbi-tools** |
+|---|---|---|---|---|
+| **Input** | Natural language | Mouse clicks | REST calls + auth | CLI commands |
+| **Speed** | 10-page report in minutes | Hours | Hours (code-heavy) | Minutes (extract/deploy) |
+| **Auth required** | None (local files) | None | Azure AD + Service Principal | None |
+| **AI-native** | Yes (MCP) | No | No | No |
+| **Format** | PBIR (file-based) | PBIX (binary) | Cloud-only | PBIX ↔ folder |
+| **Creates visuals** | Yes | Yes | Limited | No (metadata only) |
+| **Themes & formatting** | Yes | Yes | Limited | No |
+| **Filters** | Yes | Yes | Yes | No |
+| **Works offline** | Yes | Yes | No | Yes |
 
 ---
 
 ## Quick Start
 
-### 1. Build the server
+> Full walkthrough: **[docs/quickstart.md](docs/quickstart.md)**
+
+### 1. Install
 
 ```bash
+git clone https://github.com/jonathan-pap/powerbi-report-mcp.git
 cd powerbi-report-mcp
 npm install
 npm run build
 ```
 
-> **Deploying on another machine?** The `dist/` folder is committed — no build step needed. Just clone and run:
-> ```bash
-> npm install        # restore node_modules only
-> node dist/index.js # run directly — no build required
-> ```
-
 ### 2. Configure your MCP client
 
-**Claude Desktop (Windows)**
-`%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json`
+<details>
+<summary><b>Claude Desktop</b></summary>
 
-**Claude Code**
-`.claude/settings.json` or `claude mcp add`
-
-**Cursor**
-`~/.cursor/mcp.json` or `.cursor/mcp.json` in project root
-
-**Cline (VS Code)**
-Settings → Cline → MCP Servers
+File: `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json`
 
 ```json
 {
@@ -44,185 +105,232 @@ Settings → Cline → MCP Servers
   }
 }
 ```
+</details>
 
-> The report path is **no longer required** in config. Use the `set_report` tool at runtime to connect to any report. You can still pass a path as a second argument as a default.
+<details>
+<summary><b>Claude Code</b></summary>
 
-#### Tool Loading Modes
+```bash
+claude mcp add powerbi-report-mcp node dist/index.js
+```
+</details>
 
-By default, only **9 core tools** are loaded to reduce token overhead (~2,700 tokens vs ~14,600). The LLM can activate additional tools on-demand via the `load_tools` meta-tool.
+<details>
+<summary><b>Cursor</b></summary>
 
-To load **all tools** at startup (e.g. on your dev machine), add an `env` block:
+File: `~/.cursor/mcp.json`
 
 ```json
 {
   "mcpServers": {
     "powerbi-report-mcp": {
       "command": "node",
-      "args": ["C:\\path\\to\\powerbi-report-mcp\\dist\\index.js"],
-      "env": { "MCP_TOOLS": "all" }
+      "args": ["C:\\path\\to\\powerbi-report-mcp\\dist\\index.js"]
     }
   }
 }
 ```
+</details>
 
-| Mode | Active Tools | Token Overhead | Use Case |
-|------|-------------|----------------|----------|
-| **Default** (no env) | 10 + `load_tools` | ~2,900 | Other machines, faster responses |
-| **`MCP_TOOLS=all`** | 42 + `load_tools` | ~13,000 | Dev machine, full access |
+<details>
+<summary><b>GitHub Copilot (VS Code)</b></summary>
 
-### 3. Connect to a report
+File: `.vscode/mcp.json`
+
+```json
+{
+  "mcpServers": {
+    "powerbi-report-mcp": {
+      "command": "node",
+      "args": ["C:\\path\\to\\powerbi-report-mcp\\dist\\index.js"]
+    }
+  }
+}
+```
+</details>
+
+<details>
+<summary><b>Other MCP clients</b></summary>
+
+Any client that supports MCP over stdio. Use `mcp-proxy` for HTTP/SSE bridges.
+</details>
+
+### 3. Connect and build
 
 ```
 Connect to C:\Projects\Sales.Report
+Create a page called "Overview" with 4 KPI cards and a bar chart by country
 ```
 
-Or pass a default path in the config args:
+### 4. Open in Power BI Desktop
+
+Open the `.pbip` file — or if already open, press `Ctrl+Shift+F5` to refresh.
+
+---
+
+## Smart Tool Loading
+
+By default, only **10 core tools** are loaded to keep token overhead low. The LLM activates more tools on-demand via `load_tools`.
+
+```
+┌─────────────────────────────────────────────────┐
+│              10 Default Tools                    │
+│                                                  │
+│  set_report  ·  list_pages  ·  list_visuals     │
+│  create_page ·  add_visual  ·  get_visual       │
+│  format_visual · update_visual_bindings          │
+│  set_report_theme · bulk_bind                    │
+│                                                  │
+│  + load_tools (always available)                 │
+├─────────────────────────────────────────────────┤
+│         32 On-Demand Tools                       │
+│  (activated mid-session via load_tools)          │
+│                                                  │
+│  delete_page · rename_page · duplicate_page      │
+│  move_visual · delete_visual · duplicate_visual  │
+│  set_datapoint_colors · set_conditional_format   │
+│  add_page_filter · list_filters · ...            │
+└─────────────────────────────────────────────────┘
+```
+
+| Mode | Tools | Token Overhead | Use Case |
+|------|-------|----------------|----------|
+| `default` | 10 + `load_tools` | **~2,900 tokens** | Production / shared machines |
+| `MCP_TOOLS=all` | 42 + `load_tools` | ~13,000 tokens | Dev machine / full access |
+
+Load all tools at startup with:
+
 ```json
-"args": ["C:\\path\\to\\dist\\index.js", "C:\\Projects\\Sales.Report"]
+"env": { "MCP_TOOLS": "all" }
 ```
 
-### 4. Restart your MCP client
-
-After changing config or rebuilding, restart the client to pick up the new MCP process.
-
 ---
 
-## Tools Reference
+## Tool Reference
 
-### Default Tools (loaded at startup — 9 tools)
+### Default Tools
 
-These tools are always available and cover ~90% of report-building workflows:
-
-| Tool | Category | Description |
-|------|----------|-------------|
-| `set_report` | Report | Connect to a report at runtime — switch without restarting |
-| `list_pages` | Report | List all pages (slim mode — id, name, visualCount, hidden) |
-| `list_visuals` | Visuals | List all visuals on a page (slim mode — id, type, x, y, w, h, title) |
-| `create_page` | Report | Create a new page (name, width, height, display option) |
-| `add_visual` | Visuals | Add one or many visuals with data bindings, formatting, and colors in one call |
-| `get_visual` | Visuals | Get visual details (slim mode — type/position/bindings/title; `slim=false` for full JSON) |
-| `format_visual` | Format | Apply any formatting (axes, legend, labels, borders, background, etc.) |
-| `update_visual_bindings` | Binding | Replace data bindings on an existing visual |
-| `set_report_theme` | Themes | Apply a custom JSON theme to the whole report |
-| `bulk_bind` | Bulk | Rebind multiple visuals in one call |
-| `load_tools` | Meta | List and activate on-demand tools mid-session |
-
-### On-Demand Tools (activate via `load_tools`)
-
-Call `load_tools()` to list available tools, or `load_tools(["tool_name"])` to activate specific ones.
-
-**Report Management**
 | Tool | Description |
 |------|-------------|
-| `get_report` | Show which report is currently connected |
-| `reload_report` | Close and reopen the report in Power BI Desktop |
-| `get_report_settings` | Read report-level settings and theme config |
-| `update_report_settings` | Merge new settings into the report |
-| `get_page_summary` | All pages + their visuals in one call |
-| `delete_page` | Delete a page and all its visuals |
-| `rename_page` | Rename an existing page |
-| `duplicate_page` | Clone an entire page including all visuals |
-| `reorder_pages` | Set the page order |
-| `set_active_page` | Set which page opens by default |
-| `update_page_size` | Change page dimensions and display mode |
-| `set_page_visibility` | Show or hide a page from the navigation pane |
-| `auto_layout` | Arrange all visuals into an automatic grid |
+| `set_report` | Connect to a `.Report` folder at runtime |
+| `list_pages` | List all pages (id, name, visual count) |
+| `list_visuals` | List visuals on a page (id, type, position, title) |
+| `create_page` | Create a new page |
+| `add_visual` | Add one or many visuals with bindings, formatting, colors |
+| `get_visual` | Inspect a visual's config and bindings |
+| `format_visual` | Format axes, legend, labels, borders, background |
+| `update_visual_bindings` | Replace data bindings on a visual |
+| `set_report_theme` | Apply a custom JSON theme to the whole report |
+| `bulk_bind` | Rebind multiple visuals in one call |
+| `load_tools` | List and activate on-demand tools |
 
-**Visual Management**
+### On-Demand Tools (32)
+
+<details>
+<summary><b>Report & Page Management</b> — 13 tools</summary>
+
 | Tool | Description |
 |------|-------------|
-| `delete_visual` | Remove a visual from a page |
-| `duplicate_visual` | Clone a visual (optionally to another page) |
-| `move_visual` | Reposition and resize a visual |
-| `change_visual_type` | Swap visual type while keeping data bindings |
-| `get_visual_types` | List all supported visual types and their data buckets |
+| `get_report` | Show connected report path |
+| `reload_report` | Reopen report in PBI Desktop |
+| `get_report_settings` | Read report-level settings |
+| `update_report_settings` | Merge new report settings |
+| `get_page_summary` | All pages + visuals in one call |
+| `delete_page` | Delete a page and its visuals |
+| `rename_page` | Rename a page |
+| `duplicate_page` | Clone a page with all visuals |
+| `reorder_pages` | Set page order |
+| `set_active_page` | Set default page on open |
+| `update_page_size` | Change page dimensions |
+| `set_page_visibility` | Show/hide from navigation |
+| `auto_layout` | Auto-arrange visuals in a grid |
+</details>
 
-**Formatting**
+<details>
+<summary><b>Visual Management</b> — 5 tools</summary>
+
 | Tool | Description |
 |------|-------------|
-| `set_visual_title` | Set title text, font, size, alignment, visibility |
-| `set_datapoint_colors` | Set per-series or per-category data point colors with optional transparency |
-| `set_conditional_format` | Rules-based or gradient conditional formatting on background/title color |
-| `apply_theme` | Apply a named theme preset to all visuals on a page |
+| `delete_visual` | Remove a visual |
+| `duplicate_visual` | Clone a visual |
+| `move_visual` | Reposition and resize |
+| `change_visual_type` | Swap type, keep bindings |
+| `get_visual_types` | List all visual types and buckets |
+</details>
 
-**Themes**
+<details>
+<summary><b>Formatting & Colors</b> — 4 tools</summary>
+
 | Tool | Description |
 |------|-------------|
-| `get_report_theme` | Get the current base and custom theme with full JSON content |
-| `remove_report_theme` | Unlink the custom theme (revert to default) |
-| `list_report_themes` | List all theme files stored in StaticResources |
-| `diff_report_theme` | Compare a proposed theme JSON against the current |
+| `set_visual_title` | Set title text, font, alignment |
+| `set_datapoint_colors` | Per-series or per-category colors |
+| `set_conditional_format` | Rules-based or gradient formatting |
+| `apply_theme` | Apply a preset theme to a page |
+</details>
 
-**Filters**
+<details>
+<summary><b>Themes</b> — 4 tools</summary>
+
 | Tool | Description |
 |------|-------------|
-| `list_filters` | List filters on a page or visual (slim mode — field as `Table[Column]` string) |
-| `add_page_filter` | Add a categorical, TopN, or relative date filter to a page |
+| `get_report_theme` | Get current theme JSON |
+| `remove_report_theme` | Revert to default theme |
+| `list_report_themes` | List stored theme files |
+| `diff_report_theme` | Compare proposed vs current theme |
+</details>
+
+<details>
+<summary><b>Filters</b> — 4 tools</summary>
+
+| Tool | Description |
+|------|-------------|
+| `list_filters` | List page or visual filters |
+| `add_page_filter` | Add categorical, TopN, or relative date filter |
 | `remove_filter` | Remove a filter by name |
-| `clear_filters` | Remove all filters from a page or visual |
+| `clear_filters` | Remove all filters |
+</details>
 
-**Bulk Operations**
+<details>
+<summary><b>Bulk Operations</b> — 2 tools</summary>
+
 | Tool | Description |
 |------|-------------|
-| `bulk_delete_visuals` | Delete multiple visuals in one call |
-| `bulk_update_format` | Format multiple visuals in one call |
-
-Field shorthand: `"field": "Table[Column]"` — or use explicit `entity` + `property`.
-Field types: **column** (raw), **aggregation** (Sum/Avg/Count/Min/Max/Median/etc.), **measure** (DAX measure)
-
-### Disabled Tools (parked)
-
-These tools are not registered in any mode pending further investigation:
-
-| Tool | Status | Notes |
-|------|--------|-------|
-| `list_visual_calculations` | Parked | `NativeVisualCalculation` format correct but not rendering programmatically |
-| `add_visual_calculation` | Parked | Same — visual calculations parked until PBI Desktop supports it |
-| `delete_visual_calculation` | Parked | Same |
-| `list_bookmarks` | Parked | Bookmark tools registered in code but not exposed |
-| `add_bookmark` | Parked | Same |
-| `rename_bookmark` | Parked | Same |
-| `delete_bookmark` | Parked | Same |
+| `bulk_delete_visuals` | Delete multiple visuals |
+| `bulk_update_format` | Format multiple visuals |
+</details>
 
 ---
 
-## Batch add_visual
+## Batch Mode — Build Pages Fast
 
-Create multiple visuals in a single tool call using the `visuals` array. Each visual supports inline `containerFormat`, `visualFormat`, and `dataColors`.
+Create an entire page in a single `add_visual` call:
 
 ```json
 {
   "pageId": "abc123",
   "visuals": [
     {
-      "visualType": "shape",
-      "x": 10, "y": 10, "width": 1260, "height": 40,
-      "shapeType": "rectangle",
-      "fillColor": "#1F3864",
-      "textContent": "Sales Dashboard",
-      "textColor": "#FFFFFF",
-      "textBold": true,
-      "textSize": 14,
-      "textAlign": "center"
+      "visualType": "shape", "shapeType": "rectangle",
+      "x": 0, "y": 0, "width": 1280, "height": 50,
+      "fillColor": "#1F3864", "textContent": "Sales Dashboard",
+      "textColor": "#FFFFFF", "textBold": true, "textSize": 20
     },
     {
       "visualType": "card",
       "x": 10, "y": 60, "width": 300, "height": 100,
-      "title": "Gross Sales",
+      "title": "Revenue",
       "bindings": [
-        { "bucket": "Values", "fields": [{ "field": "financials[Gross Sales]", "type": "aggregation", "aggregation": "Sum" }] }
+        { "bucket": "Fields", "fields": [{ "field": "Sales[Revenue]", "type": "measure" }] }
       ]
     },
     {
-      "visualType": "lineChart",
-      "x": 10, "y": 170, "width": 620, "height": 240,
-      "title": "Sales by Month",
+      "visualType": "clusteredBarChart",
+      "x": 10, "y": 170, "width": 620, "height": 260,
+      "title": "Revenue by Country",
       "bindings": [
-        { "bucket": "Category", "fields": [{ "field": "Date[Month]", "type": "column" }] },
-        { "bucket": "Y",        "fields": [{ "field": "Sales[Revenue]", "type": "measure" }] }
-      ],
-      "visualFormat": [
-        { "category": "categoryAxis", "properties": { "labelColor": "#333333" } }
+        { "bucket": "Category", "fields": [{ "field": "Store[Country]", "type": "column" }] },
+        { "bucket": "Y", "fields": [{ "field": "Sales[Revenue]", "type": "measure" }] }
       ],
       "dataColors": [{ "color": "#0078D4" }]
     }
@@ -230,64 +338,84 @@ Create multiple visuals in a single tool call using the `visuals` array. Each vi
 }
 ```
 
----
-
-## Conditional Formatting (`set_conditional_format`)
-
-Apply data-driven background or title color to a visual:
-
-**Rules-based** (green if profit > 0, red otherwise):
-```json
-{
-  "pageId": "abc123",
-  "visualId": "xyz",
-  "property": "background",
-  "formatType": "rules",
-  "entity": "financials",
-  "property2": "Profit",
-  "isMeasure": false,
-  "rules": [
-    { "comparisonKind": 1, "value": 0, "color": "#00B050" }
-  ],
-  "defaultColor": "#FF0000"
-}
-```
-
-**Gradient** (white → blue scale, with optional mid-point):
-```json
-{
-  "formatType": "gradient",
-  "entity": "financials", "property2": "Sales", "isMeasure": false,
-  "minColor": "#FF6B6B", "midColor": "#FFD93D", "maxColor": "#6BCB77"
-}
-```
-
-ComparisonKind: `0`=Equal, `1`=GT, `2`=GTE, `3`=LT, `4`=LTE, `5`=NotEqual
+> **One call creates the banner, KPI card, and chart — with data bindings, titles, and colors.**
 
 ---
 
-## Page-Level Filters (`add_page_filter`)
+## Supported Visual Types
 
-**Categorical** — include specific values:
-```json
-{ "pageId": "abc", "filterType": "categorical", "entity": "Store", "property": "Region", "values": ["East", "West"] }
+> Full reference: **[docs/visual-types.md](docs/visual-types.md)**
+
+### Naming Gotchas
+
+```
+barChart              = Stacked bar       (NOT clustered)
+columnChart           = Stacked column    (NOT clustered)
+clusteredBarChart     = Clustered bar     ✓
+clusteredColumnChart  = Clustered column  ✓
+stackedBarChart       = DOES NOT EXIST    ✗ (use barChart)
+scatterChart          = Uses "Details" bucket, NOT "Category"
+Combo charts          = Use "ColumnY" + "LineY", NOT "Y" + "Y2"
 ```
 
-**TopN** — top 10 products by revenue:
-```json
-{ "pageId": "abc", "filterType": "topN", "entity": "Product", "property": "Name", "n": 10, "topNDirection": "Top", "orderByEntity": "Sales", "orderByProperty": "Revenue", "orderByIsMeasure": true }
-```
+### Quick Reference
 
-**Relative date** — last 12 months:
-```json
-{ "pageId": "abc", "filterType": "relativeDate", "entity": "Date", "property": "Date", "period": "months", "count": 12, "dateDirection": "last" }
-```
+| Category | Types |
+|----------|-------|
+| **Bar/Column** | `barChart` · `clusteredBarChart` · `columnChart` · `clusteredColumnChart` · `hundredPercentStackedBarChart` · `hundredPercentStackedColumnChart` |
+| **Line/Area** | `lineChart` · `areaChart` · `stackedAreaChart` · `hundredPercentStackedAreaChart` |
+| **Combo** | `lineClusteredColumnComboChart` · `lineStackedColumnComboChart` |
+| **Pie/Donut** | `pieChart` · `donutChart` · `funnelChart` · `treemap` |
+| **Tables** | `tableEx` · `pivotTable` (matrix) |
+| **Cards** | `card` · `cardVisual` · `multiRowCard` · `kpi` · `gauge` |
+| **Slicers** | `slicer` (Basic/Dropdown) · `listSlicer` · `textSlicer` · `advancedSlicerVisual` |
+| **Maps** | `azureMap` · `map` · `filledMap` |
+| **Scatter** | `scatterChart` |
+| **Other** | `ribbonChart` · `waterfallChart` · `decompositionTreeVisual` |
+| **Decorative** | `textbox` · `shape` · `image` · `actionButton` · `pageNavigator` |
 
 ---
 
-## Report-Level Themes (`set_report_theme`)
+## Formatting
 
-Applies globally to all visuals — no individual visual files are touched:
+```
+format_visual(target="container")     → title, background, border, padding, shadow
+format_visual(target="visual")        → axes, legend, labels, line styles, data points
+```
+
+<details>
+<summary><b>Container properties</b> (visual chrome)</summary>
+
+| Category | Properties |
+|----------|-----------|
+| `title` | `text`, `show`, `fontSize`, `fontFamily`, `alignment`, `fontColor` |
+| `background` | `show`, `color`, `transparency` |
+| `border` | `show`, `color`, `width`, `radius` |
+| `padding` | `top`, `bottom`, `left`, `right` |
+| `dropShadow` | `show`, `position` |
+| `visualHeader` | `show` |
+</details>
+
+<details>
+<summary><b>Visual properties</b> (chart content)</summary>
+
+| Category | Properties | Applies To |
+|----------|-----------|-----------|
+| `categoryAxis` | `show`, `labelColor`, `fontSize` | Bar, column, line, combo |
+| `valueAxis` | `show`, `labelColor`, `fontSize` | Bar, column, line, combo |
+| `legend` | `show`, `position`, `labelColor` | Charts with Series |
+| `labels` | `show`, `color`, `fontSize` | Most charts |
+| `lineStyles` | `strokeWidth`, `lineChartType` | Line, area, combo |
+| `dataPoint` | `fillTransparency` | Most charts |
+</details>
+
+> Hex colors starting with `#` are automatically wrapped in PBIR format.
+
+---
+
+## Themes & Conditional Formatting
+
+### Report-Level Theme
 
 ```json
 {
@@ -299,132 +427,95 @@ Applies globally to all visuals — no individual visual files are touched:
 }
 ```
 
-Theme files are saved to `StaticResources/RegisteredResources/` and wired into `report.json` automatically.
+### Gradient Conditional Format
+
+```json
+{
+  "formatType": "gradient",
+  "entity": "Sales", "property2": "Revenue", "isMeasure": true,
+  "minColor": "#FF6B6B", "midColor": "#FFD93D", "maxColor": "#6BCB77"
+}
+```
+
+### Page Themes (presets)
+
+`dark` · `light` · `corporate` · `blue-purple`
 
 ---
 
-## Page Themes (`apply_theme`)
-
-Apply a preset to all visuals on one page:
-
-| Theme | Style |
-|-------|-------|
-| `dark` | Near-black background, GitHub-style blues/greens |
-| `light` | White background, soft blues |
-| `corporate` | White background, professional blues |
-| `blue-purple` | White background, indigo/violet palette |
+## Filters
 
 ```json
-{ "pageId": "abc123", "theme": "dark", "applyDataColors": true }
+// Categorical — include specific values
+{ "filterType": "categorical", "entity": "Store", "property": "Region", "values": ["East", "West"] }
+
+// TopN — top 10 products (visual-level only)
+{ "filterType": "topN", "entity": "Product", "property": "Name", "n": 10,
+  "topNDirection": "Top", "orderByEntity": "Sales", "orderByProperty": "Revenue",
+  "orderByIsMeasure": true, "visualId": "xyz" }
+
+// Relative date — last 12 months
+{ "filterType": "relativeDate", "entity": "Date", "property": "Date",
+  "period": "months", "count": 12, "dateDirection": "last" }
 ```
 
 ---
 
-## Supported Visual Types
+## Architecture
 
-### Charts
+```
+powerbi-report-mcp/
+├── src/
+│   ├── index.ts              # Server entry, smart tool loading, safe() wrapper
+│   ├── pbir.ts               # PbirProject — PBIR file I/O abstraction
+│   ├── context.ts            # ServerContext interface
+│   ├── tools/
+│   │   ├── report.ts         # Page & report management (16 tools)
+│   │   ├── visuals.ts        # Visual CRUD (8 tools)
+│   │   ├── format.ts         # Formatting & colors (5 tools)
+│   │   ├── bindings.ts       # Data binding (1 tool)
+│   │   ├── themes.ts         # Report themes (5 tools)
+│   │   ├── filters.ts        # Page/visual filters (4 tools)
+│   │   └── bulk.ts           # Bulk operations (3 tools)
+│   └── helpers/
+│       ├── createVisual.ts   # Visual creation engine
+│       ├── formatting.ts     # PBIR formatting builder
+│       └── defaults.ts       # Theme presets
+├── dist/                     # Compiled JS (committed for no-build deploy)
+├── pbi report/               # Sample report (financials model)
+├── docs/                     # Guides and references
+└── skills/                   # LLM skill documents
+```
 
-| Type | Data Buckets |
-|------|-------------|
-| `barChart` | Category, Y, Series, Gradient |
-| `stackedBarChart` | Category, Y, Series |
-| `clusteredBarChart` | Category, Y, Series, Gradient |
-| `hundredPercentStackedBarChart` | Category, Y, Series |
-| `columnChart` | Category, Y, Series, Gradient |
-| `clusteredColumnChart` | Category, Y, Series, Gradient |
-| `hundredPercentStackedColumnChart` | Category, Y, Series |
-| `lineChart` | Category, Y, Y2, Series |
-| `areaChart` | Category, Y, Y2, Series |
-| `stackedAreaChart` | Category, Y, Series |
-| `hundredPercentStackedAreaChart` | Category, Y, Series |
-| `lineClusteredColumnComboChart` | Category, ColumnY, LineY, Series |
-| `lineStackedColumnComboChart` | Category, ColumnY, LineY, Series |
-| `ribbonChart` | Category, Y, Series |
-| `waterfallChart` | Category, Y, Breakdown |
-| `scatterChart` | Details, X, Y, Size, Series |
-| `pieChart` | Category, Y, Series |
-| `donutChart` | Category, Y, Series |
-| `funnelChart` | Category, Y |
-| `treemap` | Group, Values, Details |
+> Full details: **[ARCHITECTURE.md](ARCHITECTURE.md)**
 
-### Maps
+### Data Flow
 
-| Type | Data Buckets |
-|------|-------------|
-| `azureMap` | Location, Size, Legend |
-| `map` | Category, Size, Series |
-| `filledMap` | Location, Legend, Values |
-
-### Tables & Matrices
-
-| Type | Data Buckets |
-|------|-------------|
-| `tableEx` | Values |
-| `pivotTable` | Rows, Columns, Values |
-
-### Cards & KPIs
-
-| Type | Data Buckets |
-|------|-------------|
-| `card` | Values |
-| `cardNew` | Values |
-| `cardVisual` | Data, Rows |
-| `multiRowCard` | Values |
-| `kpi` | Indicator, TrendLine, Goal |
-| `gauge` | Y, MinValue, MaxValue, TargetValue |
-
-### Slicers
-
-| Type | Data Buckets | Notes |
-|------|-------------|-------|
-| `slicer` | Values | `Basic` (list) or `Dropdown` mode |
-| `listSlicer` | Values | Always-expanded checkbox list |
-| `textSlicer` | Values | Free-text search box |
-| `advancedSlicerVisual` | Values | Range / between slicer |
-
-### Decorative & Navigation
-
-| Type | Notes |
-|------|-------|
-| `textbox` | Set text via `textContent` |
-| `shape` | rectangle, rectangleRounded, line, tab variants |
-| `basicShape` | |
-| `image` | |
-| `actionButton` | |
-| `pageNavigator` | |
-| `decompositionTreeVisual` | Buckets: Analyze, ExplainBy |
-
----
-
-## Formatting Reference
-
-### `target = "container"` — Visual Chrome
-
-| Category | Key Properties |
-|----------|---------------|
-| `title` | `text`, `show`, `fontSize`, `fontFamily`, `alignment`, `fontColor`, `titleWrap` |
-| `background` | `show`, `color` (hex), `transparency` (0–100) |
-| `border` | `show`, `color` (hex), `width`, `radius` |
-| `padding` | `top`, `bottom`, `left`, `right` |
-| `dropShadow` | `show`, `position` (`Outer`/`Inner`) |
-| `visualHeader` | `show` — hide the hover toolbar |
-
-### `target = "visual"` — Visual Content
-
-| Category | Key Properties | Applies To |
-|----------|---------------|-----------|
-| `categoryAxis` | `show`, `labelColor`, `fontSize`, `gridlineColor` | Bar, column, line, area, combo |
-| `valueAxis` | `show`, `labelColor`, `fontSize`, `gridlineColor` | Bar, column, line, area, combo |
-| `legend` | `show`, `position`, `labelColor`, `fontSize` | Charts with Series |
-| `labels` | `show`, `color`, `fontSize`, `labelDisplayUnits` | Most chart types |
-| `lineStyles` | `strokeWidth`, `lineChartType` (`curved`/`step`/`straight`) | Line, area, combo |
-| `dataPoint` | `fillTransparency` (0–100) | Most chart types |
-| `plotArea` | `transparency` | Charts |
-| `grid` | `fontSize` | Table, pivot |
-| `header` | `show`, `fontFamily`, `textSize` | Slicer |
-| `items` | `fontFamily`, `textSize` | Slicer |
-
-Hex colors starting with `#` are automatically wrapped in PBIR format.
+```
+User Prompt
+    │
+    ▼
+AI Assistant ──── MCP Request (JSON-RPC over stdio) ────► MCP Server
+                                                              │
+                                                         Tool Handler
+                                                              │
+                                                         Zod Validation
+                                                              │
+                                                         PbirProject
+                                                              │
+                                                    ┌─────────┴─────────┐
+                                                    ▼                   ▼
+                                              Read JSON            Write JSON
+                                              (visual.json)        (visual.json)
+                                                    │                   │
+                                                    ▼                   ▼
+                                              Return Response     File saved to
+                                              to AI Assistant     .Report folder
+                                                                       │
+                                                                       ▼
+                                                                  Open in PBI
+                                                                  Desktop
+```
 
 ---
 
@@ -433,186 +524,30 @@ Hex colors starting with `#` are automatically wrapped in PBIR format.
 ```
 MyProject.Report/
   definition/
-    report.json              # Report settings, theme config, resourcePackages
-    version.json             # Format version
+    report.json                 # Report settings, theme config
     pages/
-      pages.json             # Page order and active page
+      pages.json                # Page order and active page
       {pageId}/
-        page.json            # Page name, size, visibility, filters
+        page.json               # Page name, size, visibility
         visuals/
           {visualId}/
-            visual.json      # Visual type, position, bindings, formatting
-    bookmarks/
-      bookmarks.json         # Bookmark order
-      {bookmarkId}/
-        bookmark.json        # Bookmark state
+            visual.json         # Type, position, bindings, formatting
   StaticResources/
-    RegisteredResources/     # Custom theme JSON files
-  definition.pbir            # Semantic model reference
+    RegisteredResources/        # Custom theme JSON files
+  definition.pbir               # Semantic model reference
 ```
 
-Key rules:
-- `visualContainerObjects` (title, background, border) goes **inside** the `visual` object
-- `objects` (axes, legend, labels) also goes **inside** the `visual` object
-- Color format: `{ solid: { color: { expr: { Literal: { Value: "'#XXXXXX'" } } } } }`
-- Numbers use `D` suffix (handled automatically by the server)
-
 ---
 
-## Example: Build a Dashboard in Minimal Calls
+## Token Efficiency
 
-```
-1. set_report          → connect to target .Report
-2. create_page         → "Sales Dashboard" (1280×720)
-3. add_visual (batch)  → shapes (wireframe) first, then data visuals on top
-4. set_report_theme    → apply brand colors globally
-5. add_page_filter     → optional: last 12 months relative date filter
-6. reload_report       → open in Power BI Desktop
-```
+| Mode | Tools Loaded | Tokens/Turn | Cost per 10-Page Report |
+|------|-------------|-------------|------------------------|
+| **Default** | 10 | ~2,900 | $0.01 – $0.45 |
+| **All** | 42 | ~13,000 | $0.02 – $2.25 |
 
-A typical 10-visual dashboard can be built in **4–6 tool calls** using batch mode.
-
----
-
-## Tips
-
-- Always read the semantic model first (`powerbi-modeling-mcp`) to get exact table/column names before binding
-- Use `set_report` to switch between reports mid-session without restarting
-- Add wireframe shapes **before** data visuals so z-order is correct
-- Use `Table[Column]` shorthand in bindings: `"field": "financials[Gross Sales]"`
-- `duplicate_page` clones an entire page with all visuals — great for template pages
-- `set_report_theme` applies globally; `apply_theme` applies per-page presets
-- `format_visual` merges with existing formatting — safe to call incrementally
-- `set_page_visibility: hidden=true` for drillthrough pages
-- TopN filters are **visual-level only** — use the `visualId` param on `add_page_filter`
-- For category-based charts (bar/column/pie with no Series), use `categoryEntity` + `categoryProperty` on `set_datapoint_colors`
-- `barChart` = stacked bar, `clusteredBarChart` = clustered bar — there is no `stackedBarChart` type
-- Gradient conditional formatting uses `FillRule` in `objects.values` — not container background
-- All tools return `{ success: false, error: "..." }` on failure — the server never crashes
-
----
-
-## Known Issues
-
-| Feature | Status | Notes |
-|---------|--------|-------|
-| Visual calculations | Disabled | `NativeVisualCalculation` format identified but not rendering when written programmatically. Tools removed from registration. |
-| Bookmarks | Disabled | Tools registered in code but not exposed. Removed from registration. |
-
----
-
-## Agent-Agnostic — Works with Any MCP Client
-
-This server has **zero vendor-specific dependencies**. It uses only the open `@modelcontextprotocol/sdk` and `zod` — no Anthropic, OpenAI, or other AI SDK imports. Any agent that speaks MCP over stdio can connect.
-
-| Client | MCP Support | Config Location |
-|--------|-------------|-----------------|
-| **Claude Desktop** | Native | `%LOCALAPPDATA%\...\Claude\claude_desktop_config.json` |
-| **Claude Code** | Native | `.claude/settings.json` or `claude mcp add` |
-| **OpenAI ChatGPT** | Via MCP bridge | MCP plugin/tool integration |
-| **GitHub Copilot** | VS Code agent mode | `.vscode/mcp.json` |
-| **Cursor** | Native | `~/.cursor/mcp.json` |
-| **Windsurf** | Native | MCP settings |
-| **Continue.dev** | Native | `~/.continue/config.json` |
-| **Cline (VS Code)** | Native | Settings → Cline → MCP Servers |
-| **Custom agents** | `@modelcontextprotocol/sdk` | Programmatic client |
-
-For models without native MCP support, use `mcp-proxy` to expose the server over HTTP/SSE.
-
----
-
-## Token Overhead
-
-### Default Mode (9 tools)
-
-Only core tools are loaded at startup, dramatically reducing per-turn token cost:
-
-| Tool | Schema Tokens |
-|------|--------------|
-| `list_pages` | ~150 |
-| `list_visuals` | ~150 |
-| `create_page` | ~200 |
-| `add_visual` | ~1,200 |
-| `get_visual` | ~200 |
-| `format_visual` | ~350 |
-| `update_visual_bindings` | ~350 |
-| `set_report_theme` | ~500 |
-| `bulk_bind` | ~300 |
-| `load_tools` | ~100 |
-| **Total** | **~2,700** |
-
-### All Tools Mode (`MCP_TOOLS=all` — 42 tools)
-
-| Category | Tools | Schema Tokens | Avg/Tool | Heaviest Tool |
-|----------|-------|--------------|----------|---------------|
-| Report Ops | 16 | ~3,290 | 206 | `auto_layout` (300) |
-| Visual Ops | 8 | ~2,800 | 350 | `add_visual` (1,200) |
-| Format Ops | 5 | ~2,100 | 420 | `set_conditional_format` (800) |
-| Filter Ops | 4 | ~1,600 | 400 | `add_page_filter` (1,000) |
-| Theme Ops | 5 | ~1,150 | 230 | `set_report_theme` (500) |
-| Bulk Ops | 3 | ~900 | 300 | `bulk_update_format` (350) |
-| Binding Ops | 1 | ~350 | 350 | `update_visual_bindings` (350) |
-| **Total** | **42** | **~13,000** | **~310** | |
-
-> **Note:** Visual calculation tools (3) and bookmark tools (4) are parked and not included in either mode.
-
-### Token Savings: Default vs All
-
-| Mode | Tools | Schema Tokens | Reduction |
-|------|-------|--------------|-----------|
-| Default | 9 + load_tools | ~2,700 | **82% less** |
-| All | 42 + load_tools | ~13,000 | baseline |
-
-**Key efficiency patterns:**
-
-| Operation | Efficient | Tokens | vs N Calls | Tokens |
-|-----------|-----------|--------|------------|--------|
-| Add 6 visuals | 1× `add_visual` batch | ~200 | 6× `add_visual` | ~360 |
-| Format 10 visuals | 1× `bulk_update_format` | ~60 | 10× `format_visual` | ~600 |
-| Get all pages + visuals | 1× `get_page_summary` | ~120 | `list_pages` + N× `list_visuals` | ~300+ |
-| Style entire page | 1× `apply_theme` | ~80 | N× `format_visual` | ~60×N |
-
-### Report Build Cost — 10 Pages, ~60 Visuals
-
-**Base: theme + batch visuals only (22 calls)**
-
-| Step | Tool | Calls | I/O Tokens |
-|------|------|-------|-----------|
-| Connect | `set_report` | 1 | 50 |
-| Theme | `set_report_theme` | 1 | 180 |
-| Pages | `create_page` ×10 | 10 | 500 |
-| Visuals | `add_visual` batch(6) ×10 | 10 | 7,200 |
-| **Subtotal** | | **22** | **~8,000** |
-| + Schema overhead (one-time) | | | 14,600 |
-| + LLM reasoning (~12 turns) | | | ~2,400 |
-| + Context growth | | | ~3,000 |
-| **Total** | | | **~28,000** |
-
-**Adding layers on top (incremental cost per layer):**
-
-| Layer | Tool | Calls | +Tokens | Running Total |
-|-------|------|-------|---------|---------------|
-| Base | theme + visuals | 22 | — | **~28,000** |
-| +Page themes | `apply_theme` ×10 | +10 | +1,800 | ~30,000 |
-| +Bulk formatting | `bulk_update_format` ×10 | +10 | +3,700 | ~34,000 |
-| +Data colors | `set_datapoint_colors` ×20 | +20 | +5,400 | ~40,000 |
-| +Conditional format | `set_conditional_format` ×10 | +10 | +3,200 | ~44,000 |
-| +Page filters | `add_page_filter` ×10 | +10 | +3,000 | ~47,000 |
-| +Individual titles | `set_visual_title` ×60 | +60 | +6,600 | ~54,000 |
-| **Fully styled** | | **142** | | **~54,000** |
-
-> **Pro tip:** Use inline `title`, `dataColors`, and `containerFormat` in `add_visual` batch to skip separate title/color/format calls — a fully styled report in **~22 calls / ~32K tokens**.
-
-**Efficient vs naive approach:**
-
-| Approach | Calls | Tokens | Savings |
-|----------|-------|--------|---------|
-| Batch + bulk (recommended) | 22–32 | ~28–32K | baseline |
-| Per-visual calls (naive) | 300+ | ~120K | 2–4× more expensive |
-
-### Estimated API Cost (pricing as of April 2026)
-
-Based on ~19K input / ~9K output tokens (base) and ~30K input / ~24K output tokens (fully styled):
+<details>
+<summary><b>Detailed API cost breakdown (April 2026 pricing)</b></summary>
 
 | Model | Input $/1M | Output $/1M | Base Report | Fully Styled |
 |-------|-----------|-------------|-------------|--------------|
@@ -623,5 +558,72 @@ Based on ~19K input / ~9K output tokens (base) and ~30K input / ~24K output toke
 | Claude Haiku 3.5 | $0.80 | $4.00 | **$0.05** | $0.12 |
 | Claude Sonnet 4 | $3.00 | $15.00 | **$0.19** | $0.45 |
 | Claude Opus 4 | $15.00 | $75.00 | **$0.96** | $2.25 |
+</details>
 
-> A 10-page, 60-visual report costs **$0.01–$2.25** depending on model. Sweet spot: **Sonnet or GPT-4.1 at $0.11–$0.45** for a fully styled report.
+<details>
+<summary><b>Batch vs naive efficiency</b></summary>
+
+| Approach | Calls | Tokens |
+|----------|-------|--------|
+| Batch + bulk (recommended) | 22–32 | ~28–32K |
+| Per-visual calls (naive) | 300+ | ~120K |
+
+Use `add_visual` batch mode + inline `title`, `dataColors`, `containerFormat` to build fully styled pages in minimal calls.
+</details>
+
+---
+
+## Compatible Clients
+
+| Client | Support | Config |
+|--------|---------|--------|
+| **Claude Desktop** | Native | `claude_desktop_config.json` |
+| **Claude Code** | Native | `claude mcp add` |
+| **GitHub Copilot** | VS Code agent mode | `.vscode/mcp.json` |
+| **Cursor** | Native | `~/.cursor/mcp.json` |
+| **Windsurf** | Native | MCP settings |
+| **Continue.dev** | Native | `~/.continue/config.json` |
+| **Cline** | Native | VS Code settings |
+| **OpenAI ChatGPT** | Via MCP bridge | `mcp-proxy` |
+| **Custom agents** | `@modelcontextprotocol/sdk` | Programmatic |
+
+---
+
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| **[docs/quickstart.md](docs/quickstart.md)** | 5-minute setup guide |
+| **[docs/example-prompts.md](docs/example-prompts.md)** | 15 example prompts |
+| **[docs/visual-types.md](docs/visual-types.md)** | Visual type reference |
+| **[docs/pbir-gotchas.md](docs/pbir-gotchas.md)** | PBIR schema discoveries |
+| **[ARCHITECTURE.md](ARCHITECTURE.md)** | Codebase architecture |
+| **[CONTRIBUTING.md](CONTRIBUTING.md)** | How to contribute |
+| **[CHANGELOG.md](CHANGELOG.md)** | Version history |
+
+---
+
+## Known Issues
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Visual calculations | Disabled | Correct PBIR format identified but not rendering programmatically |
+| Bookmarks | Disabled | Tools in code but not registered |
+
+---
+
+## Tips
+
+- Pair with **[powerbi-modeling-mcp](https://github.com/nicholasgma/powerbi-modeling-mcp)** to query the semantic model for exact table/column names before binding
+- Use `Table[Column]` shorthand in bindings: `"field": "Sales[Revenue]"`
+- `barChart` = stacked bar, `clusteredBarChart` = clustered — there is no `stackedBarChart`
+- Add shapes **before** data visuals for correct z-order layering
+- `format_visual` merges with existing formatting — safe to call incrementally
+- TopN filters are **visual-level only** — pass `visualId` to `add_page_filter`
+- All tools return `{ success: false, error: "..." }` on failure — the server never crashes
+
+---
+
+## License
+
+[MIT](LICENSE) — use it however you want.
