@@ -200,21 +200,24 @@ Open the `.pbip` file — or if already open, press `Ctrl+Shift+F5` to refresh.
 By default, only **10 core tools** are loaded to keep token overhead low. The LLM activates more tools on-demand via `load_tools`.
 
 ```mermaid
-block-beta
-    columns 1
-    block:default["Default Tools (loaded at startup)"]
-        columns 5
-        set_report list_pages list_visuals create_page add_visual
-        get_visual format_visual update_visual_bindings set_report_theme bulk_bind
-    end
-    space
-    block:ondemand["32 On-Demand Tools (activate via load_tools)"]
-        columns 1
-        od["delete_page · rename_page · duplicate_page · move_visual · delete_visual<br/>set_datapoint_colors · set_conditional_format · add_page_filter · ..."]
+graph TD
+    subgraph DEFAULT["10 Default Tools -- loaded at startup"]
+        A1[set_report] --- A2[list_pages] --- A3[list_visuals] --- A4[create_page] --- A5[add_visual]
+        B1[get_visual] --- B2[format_visual] --- B3[update_visual_bindings] --- B4[set_report_theme] --- B5[bulk_bind]
     end
 
-    style default fill:#1a7f37,color:#fff
-    style ondemand fill:#444,color:#ccc
+    LT[load_tools -- always available]
+
+    subgraph ONDEMAND["32 On-Demand Tools -- activate mid-session"]
+        C1[delete_page] --- C2[rename_page] --- C3[duplicate_page] --- C4[move_visual] --- C5[delete_visual]
+        D1[set_datapoint_colors] --- D2[set_conditional_format] --- D3[add_page_filter] --- D4[list_filters] --- D5[...]
+    end
+
+    DEFAULT --> LT --> ONDEMAND
+
+    style DEFAULT fill:#1a7f37,color:#fff
+    style ONDEMAND fill:#333,color:#ccc
+    style LT fill:#0078D4,color:#fff
 ```
 
 | Mode | Tools | Token Overhead | Use Case |
