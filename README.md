@@ -46,14 +46,41 @@ AI:  create_page → add_visual (batch: 12 visuals) → set_report_theme → don
 **MCP (Model Context Protocol)** is an open standard that lets AI assistants call external tools. Instead of the AI generating code for you to run, it directly executes operations through the MCP server.
 
 ```
-┌──────────────────┐     stdio      ┌──────────────────────┐     file I/O     ┌─────────────────┐
-│   AI Assistant    │◄──────────────►│  powerbi-report-mcp  │◄───────────────►│  .Report folder  │
-│                   │   MCP JSON     │                      │   visual.json    │  (PBIR format)   │
-│  Claude, GPT,     │                │  42 tools            │   page.json      │                   │
-│  Copilot, etc.    │                │  Zod validation      │   report.json    │  Open in PBI      │
-└──────────────────┘                └──────────────────────┘                  │  Desktop          │
-                                                                              └─────────────────┘
+                                    ┌─────────────────────────────────────────────────────────┐
+                                    │              Two MCP Servers — One Workflow              │
+                                    │                                                         │
+                                    │   ┌───────────────────────┐     ┌───────────────────┐   │
+                                    │   │ powerbi-modeling-mcp  │     │  .SemanticModel   │   │
+                              ┌────►│   │                       │◄───►│                   │   │
+                              │     │   │  Tables, columns,     │     │  TMDL / measures  │   │
+                              │     │   │  measures, DAX query  │     │  relationships    │   │
+                              │     │   └───────────────────────┘     └───────────────────┘   │
+┌──────────────────┐   stdio  │     │                                                         │
+│   AI Assistant    │◄────────┤     │   ┌───────────────────────┐     ┌───────────────────┐   │
+│                   │  MCP    │     │   │ powerbi-report-mcp    │     │  .Report folder   │   │
+│  Claude, GPT,     │         └────►│   │                       │◄───►│                   │   │
+│  Copilot, etc.    │               │   │  Pages, visuals,      │     │  PBIR / JSON      │   │
+└──────────────────┘               │   │  themes, filters      │     │  visual.json      │   │
+                                    │   └───────────────────────┘     └───────────────────┘   │
+                                    │                                                         │
+                                    └──────────────────────────────────────────┬──────────────┘
+                                                                               │
+                                                                               ▼
+                                                                     ┌─────────────────┐
+                                                                     │  Power BI        │
+                                                                     │  Desktop         │
+                                                                     └─────────────────┘
 ```
+
+**The typical workflow:**
+
+```
+1. Query the model    →  "What tables and measures are available?"     (modeling-mcp)
+2. Build the report   →  "Create a dashboard with those measures"      (report-mcp)
+3. Open in Desktop    →  Ctrl+Shift+F5 to refresh
+```
+
+> Both servers run simultaneously as MCP tools. The AI assistant queries the semantic model for exact table/column/measure names, then uses those to build correctly-bound report pages — no guessing, no broken fields.
 
 **Zero vendor lock-in** — built on `@modelcontextprotocol/sdk` + `zod`. No Anthropic, OpenAI, or Microsoft SDK imports.
 
@@ -492,29 +519,23 @@ powerbi-report-mcp/
 ### Data Flow
 
 ```
-User Prompt
+User: "Create a sales dashboard with revenue KPIs and a chart by country"
     │
     ▼
-AI Assistant ──── MCP Request (JSON-RPC over stdio) ────► MCP Server
-                                                              │
-                                                         Tool Handler
-                                                              │
-                                                         Zod Validation
-                                                              │
-                                                         PbirProject
-                                                              │
-                                                    ┌─────────┴─────────┐
-                                                    ▼                   ▼
-                                              Read JSON            Write JSON
-                                              (visual.json)        (visual.json)
-                                                    │                   │
-                                                    ▼                   ▼
-                                              Return Response     File saved to
-                                              to AI Assistant     .Report folder
-                                                                       │
-                                                                       ▼
-                                                                  Open in PBI
-                                                                  Desktop
+AI Assistant
+    │
+    ├──► powerbi-modeling-mcp: "What measures are on the Sales table?"
+    │    └── Returns: Net Revenue, Net Profit, Margin %, Orders, Units Sold
+    │
+    ├──► powerbi-report-mcp: create_page("Sales Dashboard")
+    │
+    ├──► powerbi-report-mcp: add_visual(batch: 6 cards + 2 charts + table)
+    │    └── Binds Sales[Net Revenue], Sales[Net Profit], Store[Country], etc.
+    │
+    ├──► powerbi-report-mcp: set_report_theme({ dataColors: [...] })
+    │
+    ▼
+Done — open .pbip in Power BI Desktop
 ```
 
 ---
