@@ -45,42 +45,42 @@ AI:  create_page → add_visual (batch: 12 visuals) → set_report_theme → don
 
 **MCP (Model Context Protocol)** is an open standard that lets AI assistants call external tools. Instead of the AI generating code for you to run, it directly executes operations through the MCP server.
 
-```
-                                    ┌─────────────────────────────────────────────────────────┐
-                                    │              Two MCP Servers — One Workflow              │
-                                    │                                                         │
-                                    │   ┌───────────────────────┐     ┌───────────────────┐   │
-                                    │   │ powerbi-modeling-mcp  │     │  .SemanticModel   │   │
-                              ┌────►│   │                       │◄───►│                   │   │
-                              │     │   │  Tables, columns,     │     │  TMDL / measures  │   │
-                              │     │   │  measures, DAX query  │     │  relationships    │   │
-                              │     │   └───────────────────────┘     └───────────────────┘   │
-┌──────────────────┐   stdio  │     │                                                         │
-│   AI Assistant    │◄────────┤     │   ┌───────────────────────┐     ┌───────────────────┐   │
-│                   │  MCP    │     │   │ powerbi-report-mcp    │     │  .Report folder   │   │
-│  Claude, GPT,     │         └────►│   │                       │◄───►│                   │   │
-│  Copilot, etc.    │               │   │  Pages, visuals,      │     │  PBIR / JSON      │   │
-└──────────────────┘               │   │  themes, filters      │     │  visual.json      │   │
-                                    │   └───────────────────────┘     └───────────────────┘   │
-                                    │                                                         │
-                                    └──────────────────────────────────────────┬──────────────┘
-                                                                               │
-                                                                               ▼
-                                                                     ┌─────────────────┐
-                                                                     │  Power BI        │
-                                                                     │  Desktop         │
-                                                                     └─────────────────┘
+```mermaid
+graph LR
+    subgraph AI["AI Assistant"]
+        LLM["Claude, GPT,<br/>Copilot, Cursor..."]
+    end
+
+    subgraph MCP["Two MCP Servers"]
+        direction TB
+        MODEL["powerbi-modeling-mcp<br/><i>Tables, columns, measures, DAX</i>"]
+        REPORT["powerbi-report-mcp<br/><i>Pages, visuals, themes, filters</i>"]
+    end
+
+    subgraph Files["Power BI Project"]
+        direction TB
+        SEM[".SemanticModel<br/><i>TMDL / measures</i>"]
+        REP[".Report<br/><i>PBIR / visual.json</i>"]
+    end
+
+    PBI["Power BI<br/>Desktop"]
+
+    LLM <-->|"stdio / MCP"| MODEL
+    LLM <-->|"stdio / MCP"| REPORT
+    MODEL <-->|"read"| SEM
+    REPORT <-->|"read/write"| REP
+    REP -->|"open .pbip"| PBI
 ```
 
 **The typical workflow:**
 
 ```
-1. Query the model    →  "What tables and measures are available?"     (modeling-mcp)
-2. Build the report   →  "Create a dashboard with those measures"      (report-mcp)
-3. Open in Desktop    →  Ctrl+Shift+F5 to refresh
+1. Query the model   --> "What tables and measures are available?"    (modeling-mcp)
+2. Build the report  --> "Create a dashboard with those measures"     (report-mcp)
+3. Open in Desktop   --> Ctrl+Shift+F5 to refresh
 ```
 
-> Both servers run simultaneously as MCP tools. The AI assistant queries the semantic model for exact table/column/measure names, then uses those to build correctly-bound report pages — no guessing, no broken fields.
+> Both servers run simultaneously as MCP tools. The AI queries the semantic model for exact table/column/measure names, then uses those to build correctly-bound report pages — no guessing, no broken fields.
 
 **Zero vendor lock-in** — built on `@modelcontextprotocol/sdk` + `zod`. No Anthropic, OpenAI, or Microsoft SDK imports.
 
@@ -199,25 +199,22 @@ Open the `.pbip` file — or if already open, press `Ctrl+Shift+F5` to refresh.
 
 By default, only **10 core tools** are loaded to keep token overhead low. The LLM activates more tools on-demand via `load_tools`.
 
-```
-┌─────────────────────────────────────────────────┐
-│              10 Default Tools                    │
-│                                                  │
-│  set_report  ·  list_pages  ·  list_visuals     │
-│  create_page ·  add_visual  ·  get_visual       │
-│  format_visual · update_visual_bindings          │
-│  set_report_theme · bulk_bind                    │
-│                                                  │
-│  + load_tools (always available)                 │
-├─────────────────────────────────────────────────┤
-│         32 On-Demand Tools                       │
-│  (activated mid-session via load_tools)          │
-│                                                  │
-│  delete_page · rename_page · duplicate_page      │
-│  move_visual · delete_visual · duplicate_visual  │
-│  set_datapoint_colors · set_conditional_format   │
-│  add_page_filter · list_filters · ...            │
-└─────────────────────────────────────────────────┘
+```mermaid
+block-beta
+    columns 1
+    block:default["Default Tools (loaded at startup)"]
+        columns 5
+        set_report list_pages list_visuals create_page add_visual
+        get_visual format_visual update_visual_bindings set_report_theme bulk_bind
+    end
+    space
+    block:ondemand["32 On-Demand Tools (activate via load_tools)"]
+        columns 1
+        od["delete_page · rename_page · duplicate_page · move_visual · delete_visual<br/>set_datapoint_colors · set_conditional_format · add_page_filter · ..."]
+    end
+
+    style default fill:#1a7f37,color:#fff
+    style ondemand fill:#444,color:#ccc
 ```
 
 | Mode | Tools | Token Overhead | Use Case |
@@ -518,24 +515,25 @@ powerbi-report-mcp/
 
 ### Data Flow
 
-```
-User: "Create a sales dashboard with revenue KPIs and a chart by country"
-    │
-    ▼
-AI Assistant
-    │
-    ├──► powerbi-modeling-mcp: "What measures are on the Sales table?"
-    │    └── Returns: Net Revenue, Net Profit, Margin %, Orders, Units Sold
-    │
-    ├──► powerbi-report-mcp: create_page("Sales Dashboard")
-    │
-    ├──► powerbi-report-mcp: add_visual(batch: 6 cards + 2 charts + table)
-    │    └── Binds Sales[Net Revenue], Sales[Net Profit], Store[Country], etc.
-    │
-    ├──► powerbi-report-mcp: set_report_theme({ dataColors: [...] })
-    │
-    ▼
-Done — open .pbip in Power BI Desktop
+```mermaid
+sequenceDiagram
+    actor User
+    participant AI as AI Assistant
+    participant Model as powerbi-modeling-mcp
+    participant Report as powerbi-report-mcp
+    participant PBI as Power BI Desktop
+
+    User->>AI: "Create a sales dashboard with KPIs and a chart by country"
+    AI->>Model: What measures are on the Sales table?
+    Model-->>AI: Net Revenue, Net Profit, Margin %, Orders, Units Sold
+    AI->>Report: create_page("Sales Dashboard")
+    Report-->>AI: pageId: abc123
+    AI->>Report: add_visual(batch: 6 cards + 2 charts + table)
+    Report-->>AI: 9 visuals created
+    AI->>Report: set_report_theme({ dataColors: [...] })
+    Report-->>AI: theme applied
+    AI-->>User: Done! Open .pbip in Power BI Desktop
+    User->>PBI: Ctrl+Shift+F5
 ```
 
 ---
