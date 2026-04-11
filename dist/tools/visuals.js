@@ -4,6 +4,7 @@ exports.registerVisualTools = registerVisualTools;
 const zod_1 = require("zod");
 const pbir_js_1 = require("../pbir.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
+const model_usage_js_1 = require("../model-usage.js");
 function registerVisualTools(server, ctx) {
     // ============================================================
     // TOOL: get_visual_types
@@ -215,6 +216,7 @@ function registerVisualTools(server, ctx) {
             const result = (0, createVisual_js_1.createAndSaveVisual)(ctx.project, pageId, specs[i], maxZ + (i + 1) * 1000);
             results.push(result);
         }
+        (0, model_usage_js_1.invalidateCache)();
         return {
             content: [
                 {
@@ -232,6 +234,7 @@ function registerVisualTools(server, ctx) {
         visualId: zod_1.z.string().describe("The visual ID to delete"),
     }, async ({ pageId, visualId }) => {
         ctx.project.deleteVisual(pageId, visualId);
+        (0, model_usage_js_1.invalidateCache)();
         return {
             content: [{ type: "text", text: JSON.stringify({ success: true, deletedVisualId: visualId }) }],
         };
@@ -291,6 +294,7 @@ function registerVisualTools(server, ctx) {
             }
         }
         ctx.project.saveVisual(target, newId, duplicate);
+        (0, model_usage_js_1.invalidateCache)();
         return {
             content: [
                 {
@@ -311,6 +315,7 @@ function registerVisualTools(server, ctx) {
         const visual = ctx.project.getVisual(pageId, visualId);
         visual.visual.visualType = visualType;
         ctx.project.saveVisual(pageId, visualId, visual);
+        (0, model_usage_js_1.invalidateCache)();
         return {
             content: [{ type: "text", text: JSON.stringify({ success: true, visualId, visualType }) }],
         };

@@ -4,6 +4,7 @@ import { buildQueryRef, buildNativeQueryRef, buildAutoFilters, VISUAL_BUCKETS } 
 import type { Projection, QueryState } from "../pbir.js";
 import { BucketBindingSchema, parseFieldSpec, SLICER_VISUAL_TYPES } from "../helpers/createVisual.js";
 import type { ServerContext } from "../context.js";
+import { invalidateCache } from "../model-usage.js";
 
 export function registerBindingTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
@@ -84,6 +85,7 @@ export function registerBindingTools(server: McpServer, ctx: ServerContext): voi
       }
 
       ctx.project.saveVisual(pageId, visualId, visual);
+      invalidateCache();
       return {
         content: [{ type: "text", text: JSON.stringify({ success: true, visualId }) }],
       };

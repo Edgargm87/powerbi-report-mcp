@@ -1,4 +1,4 @@
-<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
+<!-- doc-version: 1.1 | Last updated: 2026-04-11 -->
 <p align="center">
   <h1 align="center">Power BI Report MCP Server</h1>
   <p align="center">
@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg" alt="Node.js">
   <img src="https://img.shields.io/badge/MCP-1.12-purple.svg" alt="MCP SDK">
   <img src="https://img.shields.io/badge/Power%20BI-PBIR-yellow.svg" alt="PBIR Format">
-  <img src="https://img.shields.io/badge/tools-47-orange.svg" alt="47 Tools">
+  <img src="https://img.shields.io/badge/tools-48-orange.svg" alt="48 Tools">
 </p>
 
 <p align="center">
@@ -198,13 +198,14 @@ Open the `.pbip` file — or if already open, press `Ctrl+Shift+F5` to refresh.
 
 ## Smart Tool Loading
 
-By default, only **10 core tools** are loaded to keep token overhead low. The LLM activates more tools on-demand via `load_tools`.
+By default, only **11 core tools** are loaded to keep token overhead low. The LLM activates more tools on-demand via `load_tools`.
 
 ```mermaid
 graph TD
-    subgraph DEFAULT["10 Default Tools -- loaded at startup"]
+    subgraph DEFAULT["11 Default Tools -- loaded at startup"]
         A1[set_report] --- A2[list_pages] --- A3[list_visuals] --- A4[create_page] --- A5[add_visual]
         B1[get_visual] --- B2[format_visual] --- B3[update_visual_bindings] --- B4[set_report_theme] --- B5[bulk_bind]
+        C1[model_usage]
     end
 
     LT[load_tools -- always available]
@@ -223,8 +224,8 @@ graph TD
 
 | Mode | Tools | Token Overhead | Use Case |
 |------|-------|----------------|----------|
-| `default` | 10 + `load_tools` | **~2,900 tokens** | Production / shared machines |
-| `MCP_TOOLS=all` | 47 + `load_tools` | ~14,000 tokens | Dev machine / full access |
+| `default` | 11 + `load_tools` | **~3,100 tokens** | Production / shared machines |
+| `MCP_TOOLS=all` | 48 + `load_tools` | ~14,500 tokens | Dev machine / full access |
 
 Load all tools at startup with:
 
@@ -250,6 +251,7 @@ Load all tools at startup with:
 | `update_visual_bindings` | Replace data bindings on a visual |
 | `set_report_theme` | Apply a custom JSON theme to the whole report |
 | `bulk_bind` | Rebind multiple visuals in one call |
+| `model_usage` | Cross-reference semantic model with report — usage, DAX lineage, unused fields |
 | `load_tools` | List and activate on-demand tools |
 
 ### On-Demand Tools (37)
@@ -503,6 +505,8 @@ powerbi-report-mcp/
 │   ├── index.ts              # Server entry, smart tool loading, safe() wrapper
 │   ├── pbir.ts               # PbirProject — PBIR file I/O abstraction
 │   ├── context.ts            # ServerContext interface
+│   ├── model-usage.ts        # Model usage analysis — cross-references model ↔ report
+│   ├── usage-cli.ts          # Standalone CLI for model usage (one-shot + watch mode)
 │   ├── tools/
 │   │   ├── report.ts         # Page & report management (19 tools)
 │   │   ├── visuals.ts        # Visual CRUD (8 tools)
@@ -515,6 +519,7 @@ powerbi-report-mcp/
 │       ├── createVisual.ts   # Visual creation engine
 │       ├── formatting.ts     # PBIR formatting builder
 │       └── defaults.ts       # Theme presets
+├── .usage/                   # Generated usage dashboards (gitignored)
 ├── dist/                     # Compiled JS (committed for no-build deploy)
 ├── pbi report/               # Sample report (financials model)
 ├── docs/                     # Guides and references
@@ -572,8 +577,8 @@ MyProject.Report/
 
 | Mode | Tools Loaded | Tokens/Turn | Cost per 10-Page Report |
 |------|-------------|-------------|------------------------|
-| **Default** | 10 | ~2,900 | $0.01 – $0.45 |
-| **All** | 47 | ~14,000 | $0.02 – $2.50 |
+| **Default** | 11 | ~3,100 | $0.01 – $0.45 |
+| **All** | 48 | ~14,500 | $0.02 – $2.50 |
 
 <details>
 <summary><b>Detailed API cost breakdown (April 2026 pricing)</b></summary>
@@ -651,6 +656,8 @@ Use `add_visual` batch mode + inline `title`, `dataColors`, `containerFormat` to
 - `format_visual` merges with existing formatting — safe to call incrementally
 - TopN filters are **visual-level only** — pass `visualId` to `add_page_filter`
 - All tools return `{ success: false, error: "..." }` on failure — the server never crashes
+- Use `model_usage` to see which measures/columns are actually used in visuals, find unused fields, and trace DAX dependencies — it bridges the gap between semantic model and report that external tools like Measure Killer cannot
+- Run `npm run usage:watch <path>` for a standalone dashboard with live file watching
 
 ---
 

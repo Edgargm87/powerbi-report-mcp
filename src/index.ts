@@ -12,6 +12,7 @@ import { registerBindingTools } from "./tools/bindings.js";
 import { registerThemeTools } from "./tools/themes.js";
 import { registerFilterTools } from "./tools/filters.js";
 import { registerBulkTools } from "./tools/bulk.js";
+import { registerModelUsageTool, findSemanticModelPath, startWatchers } from "./model-usage.js";
 // Visual calculations parked — not registering until PBI Desktop supports programmatic creation
 // import { registerCalculationTools } from "./tools/calculations.js";
 
@@ -29,6 +30,7 @@ const DEFAULT_TOOLS = new Set([
   "update_visual_bindings",
   "set_report_theme",
   "bulk_bind",
+  "model_usage",
 ]);
 
 const ALL_TOOLS: Record<string, string> = {
@@ -86,6 +88,8 @@ const ALL_TOOLS: Record<string, string> = {
   add_page_filter: "Add a page-level filter",
   remove_filter: "Remove a filter",
   clear_filters: "Clear all filters",
+  // Model usage
+  model_usage: "Cross-reference semantic model with report — measures, columns, DAX lineage, unused fields, per-page coverage",
   // Calculations — PARKED: visual calculations don't render when written programmatically
   // list_visual_calculations, add_visual_calculation, delete_visual_calculation
 };
@@ -159,6 +163,19 @@ async function main() {
     reportPath = resolved;
     _project = new PbirProject(reportPath);
     console.error(`Connected to report: ${reportPath}`);
+
+    // Start model_usage watchers + initial dashboard generation (non-blocking)
+    try {
+      const modelPath = findSemanticModelPath(reportPath);
+      startWatchers(reportPath, modelPath);
+      setTimeout(() => {
+        try {
+          const { regenerate } = require("./model-usage.js");
+          regenerate();
+        } catch { /* silent */ }
+      }, 100);
+    } catch { /* No .SemanticModel found — skip watchers silently */ }
+
     return { success: true, reportPath };
   }
 
@@ -215,6 +232,7 @@ async function main() {
   registerThemeTools(server, ctx);
   registerFilterTools(server, ctx);
   registerBulkTools(server, ctx);
+  registerModelUsageTool(server, ctx);
   // registerCalculationTools(server, ctx); // PARKED
 
   // Meta tool: load_tools — lists available on-demand tools and activates them

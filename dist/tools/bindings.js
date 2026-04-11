@@ -4,6 +4,7 @@ exports.registerBindingTools = registerBindingTools;
 const zod_1 = require("zod");
 const pbir_js_1 = require("../pbir.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
+const model_usage_js_1 = require("../model-usage.js");
 function registerBindingTools(server, ctx) {
     // ============================================================
     // TOOL: update_visual_bindings
@@ -75,6 +76,7 @@ function registerBindingTools(server, ctx) {
             visual.filterConfig = { filters: (0, pbir_js_1.buildAutoFilters)(queryState) };
         }
         ctx.project.saveVisual(pageId, visualId, visual);
+        (0, model_usage_js_1.invalidateCache)();
         return {
             content: [{ type: "text", text: JSON.stringify({ success: true, visualId }) }],
         };

@@ -5,6 +5,7 @@ const zod_1 = require("zod");
 const pbir_js_1 = require("../pbir.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
 const formatting_js_1 = require("../helpers/formatting.js");
+const model_usage_js_1 = require("../model-usage.js");
 // Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseArray(schema) {
@@ -29,6 +30,7 @@ function registerBulkTools(server, ctx) {
                 errors.push(`${vid}: ${err instanceof Error ? err.message : String(err)}`);
             }
         }
+        (0, model_usage_js_1.invalidateCache)();
         return {
             content: [
                 {
@@ -162,6 +164,7 @@ function registerBulkTools(server, ctx) {
                 errors.push(`${visualId}: ${err instanceof Error ? err.message : String(err)}`);
             }
         }
+        (0, model_usage_js_1.invalidateCache)();
         return {
             content: [
                 {

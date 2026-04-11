@@ -1,10 +1,11 @@
-<!-- doc-version: 1.1 | Last updated: 2026-04-09 -->
+<!-- doc-version: 1.2 | Last updated: 2026-04-11 -->
 # Changelog — powerbi-report-mcp
 
 Each release has its own file in [`changelog/`](changelog/).
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| [**0.5.1**](changelog/v0.5.1.md) | 2026-04-11 | New `model_usage` tool — cross-references semantic model with report, HTML dashboard, standalone CLI, cache invalidation |
 | [**0.5.0**](changelog/v0.5.0.md) | 2026-04-09 | 5 new tools (sort, interactions, filter pane, extension measures, theme audit), format auto-routing, tooltip/drillthrough pages, advanced filters, wireframes doc, doc versioning |
 | [**0.4.9**](changelog/v0.4.9.md) | 2026-04-08 | Smart tool loading (10 default / 37 on-demand), `load_tools` meta-tool, ARCHITECTURE.md, CONTRIBUTING.md, pbir-gotchas, visual-types, quickstart, sample report |
 | [**0.4.8**](changelog/v0.4.8.md) | 2026-04-07 | Fix B12 gradient conditional format, B13 transparency property, B14 visual calculations (parked) |

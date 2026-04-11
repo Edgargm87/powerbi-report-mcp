@@ -6,6 +6,7 @@ import { execSync } from "child_process";
 import { generateId, columnRef } from "../pbir.js";
 import type { PageDefinition } from "../pbir.js";
 import type { ServerContext } from "../context.js";
+import { invalidateCache } from "../model-usage.js";
 
 export function registerReportTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
@@ -177,6 +178,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       }
       ctx.project.savePagesMetadata(meta);
       ctx.project.deletePage(pageId);
+      invalidateCache();
       return {
         content: [{ type: "text", text: JSON.stringify({ success: true, deletedPageId: pageId }) }],
       };
@@ -433,6 +435,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         newVisualIds.push(newVid);
       }
 
+      invalidateCache();
       return {
         content: [
           {

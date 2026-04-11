@@ -47,6 +47,7 @@ const bindings_js_1 = require("./tools/bindings.js");
 const themes_js_1 = require("./tools/themes.js");
 const filters_js_1 = require("./tools/filters.js");
 const bulk_js_1 = require("./tools/bulk.js");
+const model_usage_js_1 = require("./model-usage.js");
 // Visual calculations parked — not registering until PBI Desktop supports programmatic creation
 // import { registerCalculationTools } from "./tools/calculations.js";
 // --- Tool loading modes ---
@@ -63,6 +64,7 @@ const DEFAULT_TOOLS = new Set([
     "update_visual_bindings",
     "set_report_theme",
     "bulk_bind",
+    "model_usage",
 ]);
 const ALL_TOOLS = {
     // Report management
@@ -119,6 +121,8 @@ const ALL_TOOLS = {
     add_page_filter: "Add a page-level filter",
     remove_filter: "Remove a filter",
     clear_filters: "Clear all filters",
+    // Model usage
+    model_usage: "Cross-reference semantic model with report — measures, columns, DAX lineage, unused fields, per-page coverage",
     // Calculations — PARKED: visual calculations don't render when written programmatically
     // list_visual_calculations, add_visual_calculation, delete_visual_calculation
 };
@@ -184,6 +188,19 @@ async function main() {
         reportPath = resolved;
         _project = new pbir_js_1.PbirProject(reportPath);
         console.error(`Connected to report: ${reportPath}`);
+        // Start model_usage watchers + initial dashboard generation (non-blocking)
+        try {
+            const modelPath = (0, model_usage_js_1.findSemanticModelPath)(reportPath);
+            (0, model_usage_js_1.startWatchers)(reportPath, modelPath);
+            setTimeout(() => {
+                try {
+                    const { regenerate } = require("./model-usage.js");
+                    regenerate();
+                }
+                catch { /* silent */ }
+            }, 100);
+        }
+        catch { /* No .SemanticModel found — skip watchers silently */ }
         return { success: true, reportPath };
     }
     // Connect to initial report if provided as CLI arg
@@ -235,6 +252,7 @@ async function main() {
     (0, themes_js_1.registerThemeTools)(server, ctx);
     (0, filters_js_1.registerFilterTools)(server, ctx);
     (0, bulk_js_1.registerBulkTools)(server, ctx);
+    (0, model_usage_js_1.registerModelUsageTool)(server, ctx);
     // registerCalculationTools(server, ctx); // PARKED
     // Meta tool: load_tools — lists available on-demand tools and activates them
     _tool("load_tools", "List available on-demand tools, or activate specific tools by name. Use without arguments to see what's available. Pass tool names to activate them for this session.", {

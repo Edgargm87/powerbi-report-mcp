@@ -1,4 +1,4 @@
-<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
+<!-- doc-version: 1.1 | Last updated: 2026-04-11 -->
 # Contributing to powerbi-report-mcp
 
 Thanks for your interest in contributing to the Power BI Report MCP server. This guide covers everything you need to get started, add features, and test your changes.
@@ -84,6 +84,8 @@ src/
   index.ts              # Server setup, tool loading modes, safe() wrapper, main()
   context.ts            # ServerContext interface shared by all tool modules
   pbir.ts               # PbirProject class — reads/writes PBIR JSON files on disk
+  model-usage.ts        # Model usage analysis — cross-references model ↔ report
+  usage-cli.ts          # Standalone CLI for model usage (one-shot + watch mode)
   tools/
     report.ts           # Page and report management tools
     visuals.ts          # Visual CRUD tools (add, delete, move, duplicate, etc.)

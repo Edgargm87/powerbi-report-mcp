@@ -10,6 +10,7 @@ import {
 } from "../helpers/createVisual.js";
 import { applyFormattingToTarget } from "../helpers/formatting.js";
 import type { ServerContext } from "../context.js";
+import { invalidateCache } from "../model-usage.js";
 
 // Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -44,6 +45,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
         }
       }
 
+      invalidateCache();
       return {
         content: [
           {
@@ -197,6 +199,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
         }
       }
 
+      invalidateCache();
       return {
         content: [
           {

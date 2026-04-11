@@ -1,11 +1,11 @@
-<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
+<!-- doc-version: 1.1 | Last updated: 2026-04-11 -->
 # Architecture: powerbi-report-mcp
 
 ## 1. Overview
 
 `powerbi-report-mcp` is an MCP (Model Context Protocol) server that enables AI agents to create and modify Power BI reports in PBIR format. It communicates over **stdio** using the `@modelcontextprotocol/sdk`, making it agent-agnostic -- any MCP-compatible client (Claude Code, Copilot, custom agents) can drive it.
 
-The server exposes ~40 tools for page management, visual creation, data binding, formatting, theming, filtering, and bulk operations. All tool inputs are validated with Zod schemas. All tool handlers are wrapped in a `safe()` error boundary so that failures return structured `isError` responses instead of crashing the process.
+The server exposes 48 tools for page management, visual creation, data binding, formatting, theming, filtering, bulk operations, and model usage analysis. All tool inputs are validated with Zod schemas. All tool handlers are wrapped in a `safe()` error boundary so that failures return structured `isError` responses instead of crashing the process.
 
 **Key dependencies:** `@modelcontextprotocol/sdk` (MCP protocol), `zod` (schema validation). No Power BI SDK is used -- the server reads and writes PBIR JSON files directly on disk.
 
@@ -25,6 +25,17 @@ src/
   pbir.ts               PbirProject class (file I/O abstraction), TypeScript types
                         for PBIR JSON structures, field reference builders,
                         aggregation mapping, and visual bucket definitions.
+
+  model-usage.ts        Model usage analysis. Cross-references the semantic model
+                        (TMDL or BIM) with the report (visual.json bindings) to
+                        determine where every measure and column is used.
+                        Exports: buildFullData(), generateHTML(), registerModelUsageTool(),
+                        findSemanticModelPath(), invalidateCache(), startWatchers().
+
+  usage-cli.ts          Standalone CLI entry point for model usage.
+                        One-shot mode: generates HTML dashboard and opens in browser.
+                        Watch mode (--watch): generates + HTTP server + fs.watch with
+                        auto-regeneration on file changes.
 
   helpers/
     createVisual.ts     Visual creation logic: parseFieldSpec(), createAndSaveVisual(),
@@ -192,12 +203,12 @@ function safe<T>(fn: (args: T) => Promise<unknown>) {
 
 ### Smart Tool Loading
 
-To reduce token overhead for LLM clients, the server loads only a default subset of ~10 tools at startup. The remaining tools are stored in `deferredTools` and can be activated on demand.
+To reduce token overhead for LLM clients, the server loads only a default subset of 11 tools at startup. The remaining tools are stored in `deferredTools` and can be activated on demand.
 
 **DEFAULT_TOOLS** (always loaded):
-`set_report`, `list_pages`, `list_visuals`, `create_page`, `add_visual`, `get_visual`, `format_visual`, `update_visual_bindings`, `set_report_theme`, `bulk_bind`
+`set_report`, `list_pages`, `list_visuals`, `create_page`, `add_visual`, `get_visual`, `format_visual`, `update_visual_bindings`, `set_report_theme`, `bulk_bind`, `model_usage`
 
-**ALL_TOOLS** -- a map of every tool name to its description (~40 tools total).
+**ALL_TOOLS** -- a map of every tool name to its description (48 tools total).
 
 **Activation mechanisms:**
 
@@ -296,6 +307,27 @@ To reduce token overhead for LLM clients, the server loads only a default subset
 | `bulk_delete_visuals` | Delete multiple visuals in one call |
 | `bulk_update_format` | Apply the same formatting to multiple visuals |
 | `bulk_bind` | Rebind multiple visuals in one call |
+
+### model-usage.ts (1 tool, default)
+
+| Tool | Purpose |
+|------|---------|
+| `model_usage` | Cross-reference semantic model (TMDL/BIM) with report visuals — shows where every measure and column is used, DAX dependencies, unused fields, and per-page breakdown. Also generates an HTML dashboard. |
+
+**Key functions:**
+
+- `findSemanticModelPath(reportPath)` -- locates the sibling `.SemanticModel` folder via `definition.pbir` or directory scan
+- `parseTmdlModel(modelPath)` / `parseBimModel(modelPath)` -- dual-format model parsing (TMDL text files or BIM JSON)
+- `parseDaxDependencies(dax, allMeasureNames)` -- regex-based measure reference detection in DAX expressions
+- `scanReportBindings(reportPath)` -- walks all visual.json files via `PbirProject`, extracts queryState and filterConfig bindings (Measure, Column, Aggregation, HierarchyLevel)
+- `buildFullData(reportPath)` -- builds complete usage data with counts, dependencies, reverse dependencies, page data
+- `generateHTML(data, reportName)` -- produces self-contained HTML dashboard (dark theme, 5 tabs: Measures, Columns, Pages, Lineage, Unused)
+- `invalidateCache()` -- called by 9 visual-modifying tools to trigger background regeneration
+- `startWatchers(reportPath, modelPath)` -- `fs.watch` on both folders with 500ms debounce
+
+**Standalone CLI** (`usage-cli.ts`):
+- One-shot: `npm run usage <path>` -- generates dashboard, opens in browser
+- Watch: `npm run usage:watch <path>` -- HTTP server + file watchers with auto-regeneration
 
 ### bookmarks.ts (4 tools, not registered)
 

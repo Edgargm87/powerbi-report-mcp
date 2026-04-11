@@ -11,6 +11,7 @@ import {
 } from "../helpers/createVisual.js";
 import type { VisualSpec } from "../helpers/createVisual.js";
 import type { ServerContext } from "../context.js";
+import { invalidateCache } from "../model-usage.js";
 
 export function registerVisualTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
@@ -248,6 +249,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
         results.push(result);
       }
 
+      invalidateCache();
       return {
         content: [
           {
@@ -271,6 +273,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
     },
     async ({ pageId, visualId }) => {
       ctx.project.deleteVisual(pageId, visualId);
+      invalidateCache();
       return {
         content: [{ type: "text", text: JSON.stringify({ success: true, deletedVisualId: visualId }) }],
       };
@@ -341,6 +344,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       }
 
       ctx.project.saveVisual(target, newId, duplicate);
+      invalidateCache();
       return {
         content: [
           {
@@ -367,6 +371,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       const visual = ctx.project.getVisual(pageId, visualId);
       visual.visual.visualType = visualType;
       ctx.project.saveVisual(pageId, visualId, visual);
+      invalidateCache();
       return {
         content: [{ type: "text", text: JSON.stringify({ success: true, visualId, visualType }) }],
       };

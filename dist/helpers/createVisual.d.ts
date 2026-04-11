@@ -59,8 +59,8 @@ export declare const FieldSpecSchema: z.ZodObject<{
     entity: z.ZodOptional<z.ZodString>;
     property: z.ZodOptional<z.ZodString>;
     type: z.ZodEnum<{
-        column: "column";
         measure: "measure";
+        column: "column";
         aggregation: "aggregation";
     }>;
     aggregation: z.ZodOptional<z.ZodString>;
@@ -72,8 +72,8 @@ export declare const BucketBindingSchema: z.ZodObject<{
         entity: z.ZodOptional<z.ZodString>;
         property: z.ZodOptional<z.ZodString>;
         type: z.ZodEnum<{
-            column: "column";
             measure: "measure";
+            column: "column";
             aggregation: "aggregation";
         }>;
         aggregation: z.ZodOptional<z.ZodString>;
@@ -100,8 +100,8 @@ export declare const VisualSpecSchema: z.ZodObject<{
             entity: z.ZodOptional<z.ZodString>;
             property: z.ZodOptional<z.ZodString>;
             type: z.ZodEnum<{
-                column: "column";
                 measure: "measure";
+                column: "column";
                 aggregation: "aggregation";
             }>;
             aggregation: z.ZodOptional<z.ZodString>;

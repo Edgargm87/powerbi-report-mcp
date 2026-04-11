@@ -39,6 +39,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const child_process_1 = require("child_process");
 const pbir_js_1 = require("../pbir.js");
+const model_usage_js_1 = require("../model-usage.js");
 function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: set_report — switch report at runtime
@@ -168,6 +169,7 @@ function registerReportTools(server, ctx) {
         }
         ctx.project.savePagesMetadata(meta);
         ctx.project.deletePage(pageId);
+        (0, model_usage_js_1.invalidateCache)();
         return {
             content: [{ type: "text", text: JSON.stringify({ success: true, deletedPageId: pageId }) }],
         };
@@ -371,6 +373,7 @@ function registerReportTools(server, ctx) {
             ctx.project.saveVisual(newPageId, newVid, duplicate);
             newVisualIds.push(newVid);
         }
+        (0, model_usage_js_1.invalidateCache)();
         return {
             content: [
                 {
