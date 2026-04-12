@@ -1,4 +1,4 @@
-<!-- doc-version: 1.1 | Last updated: 2026-04-11 -->
+<!-- doc-version: 1.2 | Last updated: 2026-04-12 -->
 <p align="center">
   <h1 align="center">Power BI Report MCP Server</h1>
   <p align="center">
@@ -8,11 +8,11 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/version-0.5.0-green.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.5.2-green.svg" alt="Version">
   <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg" alt="Node.js">
   <img src="https://img.shields.io/badge/MCP-1.12-purple.svg" alt="MCP SDK">
   <img src="https://img.shields.io/badge/Power%20BI-PBIR-yellow.svg" alt="PBIR Format">
-  <img src="https://img.shields.io/badge/tools-48-orange.svg" alt="48 Tools">
+  <img src="https://img.shields.io/badge/tools-54-orange.svg" alt="54 Tools">
 </p>
 
 <p align="center">
@@ -202,7 +202,7 @@ By default, only **11 core tools** are loaded to keep token overhead low. The LL
 
 ```mermaid
 graph TD
-    subgraph DEFAULT["11 Default Tools -- loaded at startup"]
+    subgraph DEFAULT["11 Default Tools — loaded at startup"]
         A1[set_report] --- A2[list_pages] --- A3[list_visuals] --- A4[create_page] --- A5[add_visual]
         B1[get_visual] --- B2[format_visual] --- B3[update_visual_bindings] --- B4[set_report_theme] --- B5[bulk_bind]
         C1[model_usage]
@@ -210,9 +210,10 @@ graph TD
 
     LT[load_tools -- always available]
 
-    subgraph ONDEMAND["37 On-Demand Tools -- activate mid-session"]
+    subgraph ONDEMAND["43 On-Demand Tools — activate mid-session"]
         C1[delete_page] --- C2[rename_page] --- C3[duplicate_page] --- C4[move_visual] --- C5[delete_visual]
-        D1[set_datapoint_colors] --- D2[set_conditional_format] --- D3[add_page_filter] --- D4[set_visual_sort] --- D5[...]
+        D1[set_datapoint_colors] --- D2[set_conditional_format] --- D3[add_page_filter] --- D4[set_visual_sort] --- D5[guide]
+        E1[list_bookmarks] --- E2[set_page_background] --- E3[...]
     end
 
     DEFAULT --> LT --> ONDEMAND
@@ -225,7 +226,7 @@ graph TD
 | Mode | Tools | Token Overhead | Use Case |
 |------|-------|----------------|----------|
 | `default` | 11 + `load_tools` | **~3,100 tokens** | Production / shared machines |
-| `MCP_TOOLS=all` | 48 + `load_tools` | ~14,500 tokens | Dev machine / full access |
+| `MCP_TOOLS=all` | 54 + `load_tools` | ~16,000 tokens | Dev machine / full access |
 
 Load all tools at startup with:
 
@@ -254,10 +255,10 @@ Load all tools at startup with:
 | `model_usage` | Cross-reference semantic model with report — usage, DAX lineage, unused fields |
 | `load_tools` | List and activate on-demand tools |
 
-### On-Demand Tools (37)
+### On-Demand Tools (43)
 
 <details>
-<summary><b>Report & Page Management</b> — 16 tools</summary>
+<summary><b>Report & Page Management</b> — 17 tools</summary>
 
 | Tool | Description |
 |------|-------------|
@@ -275,6 +276,7 @@ Load all tools at startup with:
 | `set_page_visibility` | Show/hide from navigation |
 | `auto_layout` | Auto-arrange visuals in a grid |
 | `set_filter_pane` | Show/hide and expand/collapse the filter pane |
+| `set_page_background` | Set page canvas background color and/or wallpaper |
 | `set_visual_interaction` | Set cross-filter/highlight interaction between visuals |
 | `manage_extension_measures` | Add, list, or remove report-level DAX measures |
 </details>
@@ -333,6 +335,27 @@ Load all tools at startup with:
 |------|-------------|
 | `bulk_delete_visuals` | Delete multiple visuals |
 | `bulk_update_format` | Format multiple visuals |
+</details>
+
+<details>
+<summary><b>Bookmarks</b> — 4 tools</summary>
+
+| Tool | Description |
+|------|-------------|
+| `list_bookmarks` | List all bookmarks in the report |
+| `add_bookmark` | Create a new bookmark |
+| `delete_bookmark` | Delete a bookmark |
+| `rename_bookmark` | Rename a bookmark |
+</details>
+
+<details>
+<summary><b>Knowledge Layer</b> — 1 tool</summary>
+
+| Tool | Description |
+|------|-------------|
+| `guide` | Domain knowledge for PBI development — topics: `svg-visuals`, `report-design` |
+
+The `guide` tool provides focused, actionable knowledge to help AI agents make better decisions. Instead of loading large skill files into every session, agents call `guide("topic")` on demand. The SVG visuals topic includes 4 DAX templates, binding rules, and workflow steps.
 </details>
 
 ---
@@ -508,13 +531,15 @@ powerbi-report-mcp/
 │   ├── model-usage.ts        # Model usage analysis — cross-references model ↔ report
 │   ├── usage-cli.ts          # Standalone CLI for model usage (one-shot + watch mode)
 │   ├── tools/
-│   │   ├── report.ts         # Page & report management (19 tools)
+│   │   ├── report.ts         # Page & report management (20 tools)
 │   │   ├── visuals.ts        # Visual CRUD (8 tools)
 │   │   ├── format.ts         # Formatting, sort & colors (6 tools)
 │   │   ├── bindings.ts       # Data binding (1 tool)
 │   │   ├── themes.ts         # Report themes (6 tools)
 │   │   ├── filters.ts        # Page/visual filters (4 tools)
-│   │   └── bulk.ts           # Bulk operations (3 tools)
+│   │   ├── bulk.ts           # Bulk operations (3 tools)
+│   │   ├── bookmarks.ts      # Bookmark CRUD (4 tools)
+│   │   └── guide.ts          # Knowledge layer (1 tool, 2 topics)
 │   └── helpers/
 │       ├── createVisual.ts   # Visual creation engine
 │       ├── formatting.ts     # PBIR formatting builder
@@ -643,7 +668,6 @@ Use `add_visual` batch mode + inline `title`, `dataColors`, `containerFormat` to
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Visual calculations | Disabled | Correct PBIR format identified but not rendering programmatically |
-| Bookmarks | Disabled | Tools in code but not registered |
 
 ---
 

@@ -581,6 +581,68 @@ function registerReportTools(server, ctx) {
         return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "Unknown operation" }) }] };
     });
     // ============================================================
+    // TOOL: set_page_background
+    // ============================================================
+    server.tool("set_page_background", "Set the page canvas background color and/or wallpaper (area behind the canvas). Pass color as hex (#0D1117). Set transparency 0-100 (0=opaque, 100=fully transparent).", {
+        pageId: zod_1.z.string().describe("The page ID"),
+        color: zod_1.z.string().optional().describe("Canvas background color (hex, e.g. '#0D1117')"),
+        transparency: zod_1.z.number().min(0).max(100).optional().default(0).describe("Canvas background transparency 0-100 (default 0 = opaque)"),
+        wallpaperColor: zod_1.z.string().optional().describe("Wallpaper color — the area behind the page canvas (hex)"),
+        wallpaperTransparency: zod_1.z.number().min(0).max(100).optional().default(0).describe("Wallpaper transparency 0-100"),
+        clear: zod_1.z.boolean().optional().describe("Remove all background/wallpaper settings from the page"),
+    }, async ({ pageId, color, transparency, wallpaperColor, wallpaperTransparency, clear }) => {
+        const page = ctx.project.getPage(pageId);
+        if (!page.objects)
+            page.objects = {};
+        if (clear) {
+            delete page.objects.background;
+            delete page.objects.wallpaper;
+            if (Object.keys(page.objects).length === 0)
+                delete page.objects;
+            ctx.project.savePage(pageId, page);
+            return { content: [{ type: "text", text: JSON.stringify({ success: true, pageId, cleared: true }) }] };
+        }
+        // Helper to build a color property in PBIR format
+        const colorProp = (hex) => ({
+            solid: { color: { expr: { Literal: { Value: `'${hex}'` } } } },
+        });
+        const intProp = (val) => ({
+            expr: { Literal: { Value: `${val}D` } },
+        });
+        // Canvas background
+        if (color) {
+            page.objects.background = [{
+                    properties: {
+                        show: { expr: { Literal: { Value: "true" } } },
+                        color: colorProp(color),
+                        transparency: intProp(transparency ?? 0),
+                    },
+                }];
+        }
+        // Wallpaper (area behind canvas)
+        if (wallpaperColor) {
+            page.objects.wallpaper = [{
+                    properties: {
+                        show: { expr: { Literal: { Value: "true" } } },
+                        color: colorProp(wallpaperColor),
+                        transparency: intProp(wallpaperTransparency ?? 0),
+                    },
+                }];
+        }
+        ctx.project.savePage(pageId, page);
+        return {
+            content: [{
+                    type: "text",
+                    text: JSON.stringify({
+                        success: true,
+                        pageId,
+                        background: color || undefined,
+                        wallpaper: wallpaperColor || undefined,
+                    }),
+                }],
+        };
+    });
+    // ============================================================
     // TOOL: set_visual_interaction
     // ============================================================
     server.tool("set_visual_interaction", "Set cross-filter interaction between visuals on a page. Controls whether selecting data in one visual filters, highlights, or has no effect on another visual.", {

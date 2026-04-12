@@ -48,6 +48,8 @@ const themes_js_1 = require("./tools/themes.js");
 const filters_js_1 = require("./tools/filters.js");
 const bulk_js_1 = require("./tools/bulk.js");
 const model_usage_js_1 = require("./model-usage.js");
+const bookmarks_js_1 = require("./tools/bookmarks.js");
+const guide_js_1 = require("./tools/guide.js");
 // Visual calculations parked — not registering until PBI Desktop supports programmatic creation
 // import { registerCalculationTools } from "./tools/calculations.js";
 // --- Tool loading modes ---
@@ -85,6 +87,7 @@ const ALL_TOOLS = {
     get_page_summary: "Get a detailed page summary",
     reload_report: "Reload report from disk",
     set_filter_pane: "Show or hide the report filter pane",
+    set_page_background: "Set page canvas background color and/or wallpaper",
     set_visual_interaction: "Set cross-filter/highlight interaction between visuals",
     manage_extension_measures: "Add, list, or remove report-level DAX measures",
     // Visuals
@@ -123,6 +126,13 @@ const ALL_TOOLS = {
     clear_filters: "Clear all filters",
     // Model usage
     model_usage: "Cross-reference semantic model with report — measures, columns, DAX lineage, unused fields, per-page coverage",
+    // Bookmarks
+    list_bookmarks: "List all bookmarks in the report",
+    add_bookmark: "Create a new bookmark",
+    delete_bookmark: "Delete a bookmark",
+    rename_bookmark: "Rename a bookmark",
+    // Guide (knowledge layer)
+    guide: "Domain knowledge for PBI development — topics: svg-visuals, report-design",
     // Calculations — PARKED: visual calculations don't render when written programmatically
     // list_visual_calculations, add_visual_calculation, delete_visual_calculation
 };
@@ -217,7 +227,7 @@ async function main() {
     }
     const server = new mcp_js_1.McpServer({
         name: "powerbi-report-mcp",
-        version: "0.5.0",
+        version: "0.5.2",
     });
     // Determine tool loading mode
     const loadAll = (process.env.MCP_TOOLS || "").toLowerCase() === "all";
@@ -252,6 +262,8 @@ async function main() {
     (0, themes_js_1.registerThemeTools)(server, ctx);
     (0, filters_js_1.registerFilterTools)(server, ctx);
     (0, bulk_js_1.registerBulkTools)(server, ctx);
+    (0, bookmarks_js_1.registerBookmarkTools)(server, ctx);
+    (0, guide_js_1.registerGuideTool)(server, ctx);
     (0, model_usage_js_1.registerModelUsageTool)(server, ctx);
     // registerCalculationTools(server, ctx); // PARKED
     // Meta tool: load_tools — lists available on-demand tools and activates them
@@ -427,7 +439,7 @@ Both formats are equivalent and can be mixed in the same bindings array.
 - **Visual interactions** — use \`set_visual_interaction\` to control cross-filter/cross-highlight between visuals (\`visualInteractions\` in page.json).
 - **Sort definitions** — \`sortDefinition\` in visual query controls default sort order. Not yet exposed as a tool.
 - **Extension measures** — use \`manage_extension_measures\` to add/list/remove report-level DAX measures (\`reportExtensions.json\`). WARNING: file is auto-deleted when empty — empty \`entities: []\` crashes PBI Desktop.
-- **Bookmarks** — \`definition/bookmarks/\` stores report bookmarks for toggle visibility and filter state. Parked — not exposed as tools.
+- **Bookmarks** — use \`list_bookmarks\`, \`add_bookmark\`, \`delete_bookmark\`, \`rename_bookmark\` to manage report bookmarks (\`definition/bookmarks/\`).
 - **Filter pane visibility** — use \`set_filter_pane\` to show/hide the filter pane (\`objects.outspacePane\` in report.json).
 
 ## Tips

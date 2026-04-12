@@ -409,11 +409,13 @@ export function buildFullData(reportPath: string): FullData {
       .filter(b => b.fieldType === "measure" && b.fieldName === m.name && b.tableName === m.table)
       .map(b => ({ pageId: b.pageId, pageName: b.pageName, visualId: b.visualId, visualType: b.visualType, visualTitle: b.visualTitle, bindingRole: b.bindingRole }));
 
-    // Deduplicate by visual (same measure can appear in same visual via filter)
+    // Deduplicate by visual (same measure can appear in same visual via autoFilter)
     const uniqueVisuals = new Map<string, BindingRef>();
     for (const u of usedIn) {
-      const key = `${u.pageId}|${u.visualId}|${u.bindingRole}`;
-      if (!uniqueVisuals.has(key)) uniqueVisuals.set(key, u);
+      const key = `${u.pageId}|${u.visualId}`;
+      const existing = uniqueVisuals.get(key);
+      // Prefer non-Filter binding role
+      if (!existing || (existing.bindingRole === "Filter" && u.bindingRole !== "Filter")) uniqueVisuals.set(key, u);
     }
     const dedupedUsedIn = [...uniqueVisuals.values()];
 
@@ -439,8 +441,9 @@ export function buildFullData(reportPath: string): FullData {
 
     const uniqueVisuals = new Map<string, BindingRef>();
     for (const u of usedIn) {
-      const key = `${u.pageId}|${u.visualId}|${u.bindingRole}`;
-      if (!uniqueVisuals.has(key)) uniqueVisuals.set(key, u);
+      const key = `${u.pageId}|${u.visualId}`;
+      const existing = uniqueVisuals.get(key);
+      if (!existing || (existing.bindingRole === "Filter" && u.bindingRole !== "Filter")) uniqueVisuals.set(key, u);
     }
     const dedupedUsedIn = [...uniqueVisuals.values()];
 
@@ -468,7 +471,10 @@ export function buildFullData(reportPath: string): FullData {
     const p = pageMap.get(pageName)!;
     const vKey = visualTitle || visualType;
     if (!p.visuals.has(vKey)) p.visuals.set(vKey, { type: visualType, title: vKey, bindings: [] });
-    p.visuals.get(vKey)!.bindings.push({ fieldName, fieldTable, fieldType });
+    const vBindings = p.visuals.get(vKey)!.bindings;
+    if (!vBindings.some(b => b.fieldName === fieldName && b.fieldTable === fieldTable)) {
+      vBindings.push({ fieldName, fieldTable, fieldType });
+    }
     if (fieldType === "measure") p.measures.add(fieldName);
     else p.columns.add(fieldName);
   };
@@ -629,7 +635,7 @@ export function generateHTML(data: FullData, reportName: string): string {
   .page-visual-row{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;transition:background .1s;margin-bottom:2px}
   .page-visual-row:hover{background:#12141A}
   .page-visual-type{font-size:11px;color:#64748B;font-family:'JetBrains Mono',monospace;width:100px;flex-shrink:0}
-  .page-visual-title{font-size:13px;font-weight:600;color:#E2E8F0;flex:1}
+  .page-visual-title{font-size:13px;font-weight:600;color:#E2E8F0;flex:0 0 200px;min-width:200px}
   .page-visual-bindings{display:flex;flex-wrap:wrap;gap:3px}
   .page-type-summary{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
   .page-type-chip{font-size:10px;padding:3px 8px;border-radius:4px;background:#12141A;color:#94A3B8;border:1px solid #2A2D3A;font-family:'JetBrains Mono',monospace}
@@ -701,7 +707,8 @@ const pageData=(()=>{
     const p=map.get(pageName);
     const vKey=visualTitle;
     if(!p.visuals.has(vKey))p.visuals.set(vKey,{type:visualType,title:visualTitle,bindings:[]});
-    p.visuals.get(vKey).bindings.push({fieldName,fieldTable,fieldType});
+    const vb=p.visuals.get(vKey).bindings;
+    if(!vb.some(b=>b.fieldName===fieldName&&b.fieldTable===fieldTable))vb.push({fieldName,fieldTable,fieldType});
     if(fieldType==="measure")p.measures.add(fieldName);
     else p.columns.add(fieldName);
   };

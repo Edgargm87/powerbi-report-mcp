@@ -1,6 +1,61 @@
 table financials
 	lineageTag: c7092923-54ed-42b4-a7d2-e61e9b9f3d01
 
+	/// Sum of net sales
+	measure 'Total Sales' = SUM(financials[Sales])
+		formatString: #,##0
+		lineageTag: 3031368b-90ab-4007-8db2-d2e6062b56ba
+
+	/// Sum of profit
+	measure 'Total Profit' = SUM(financials[Profit])
+		formatString: #,##0
+		lineageTag: c7b63476-2ecd-4b0b-ae1f-c4890bd64d5b
+
+	/// Sum of units sold
+	measure 'Total Units Sold' = SUM(financials[Units Sold])
+		formatString: #,##0
+		lineageTag: 649d6f5f-f6c7-4783-b6c2-135ef431aec5
+
+	/// Sum of cost of goods sold
+	measure 'Total COGS' = SUM(financials[COGS])
+		formatString: #,##0
+		lineageTag: 9a0326bf-995b-49fc-a5e4-9f9af24f0f4a
+
+	/// Sum of gross sales
+	measure 'Total Gross Sales' = SUM(financials[Gross Sales])
+		formatString: #,##0
+		lineageTag: 36cad2c6-c5ef-4da7-8f66-6780cbbbbce1
+
+	/// Sum of discounts
+	measure 'Total Discounts' = SUM(financials[Discounts])
+		formatString: #,##0
+		lineageTag: 91a2bb11-8f01-49df-a8dd-547f2d4de603
+
+	/// Profit as a percentage of sales
+	measure 'Profit Margin %' = DIVIDE(SUM(financials[Profit]), SUM(financials[Sales]))
+		formatString: 0.0%
+		lineageTag: e0bc40e1-ce25-4d96-ac7d-63ee241309c9
+
+	/// Discounts as a percentage of gross sales
+	measure 'Discount %' = DIVIDE(SUM(financials[Discounts]), SUM(financials[Gross Sales]))
+		formatString: 0.0%
+		lineageTag: 3d2d8cf8-81ff-417a-b784-e631fc470e66
+
+	/// Average sale price per unit
+	measure 'Avg Sale Price' = AVERAGE(financials[Sale Price])
+		formatString: #,##0
+		lineageTag: fd786915-44ab-4f59-b4aa-15cec561e8fc
+
+	/// Average manufacturing price per unit
+	measure 'Avg Manufacturing Price' = AVERAGE(financials[Manufacturing Price])
+		formatString: #,##0
+		lineageTag: 111e2bef-c2e7-4ef5-8e48-e6756e751f4f
+
+	/// Total Profit divided by Total Units Sold
+	measure 'Profit per Unit' = DIVIDE([Total Profit], [Total Units Sold])
+		formatString: #,##0.00
+		lineageTag: d8d2e923-ec9c-45cb-b77c-cb6335046553
+
 	column Segment
 		dataType: string
 		lineageTag: 070ab03e-8346-4eb3-95c8-0976123d0eed

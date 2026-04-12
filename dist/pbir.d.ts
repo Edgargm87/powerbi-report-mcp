@@ -100,6 +100,8 @@ export interface PageDefinition {
     filterConfig?: {
         filters: FilterItem[];
     };
+    /** Page-level objects — background, wallpaper, outspacePane, filterCard, etc. */
+    objects?: Record<string, unknown>;
     /** Cross-filter/cross-highlight interactions between visuals on this page. */
     visualInteractions?: Array<{
         source: string;

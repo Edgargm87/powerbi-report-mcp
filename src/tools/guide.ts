@@ -1,0 +1,336 @@
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { z } from "zod";
+import type { ServerContext } from "../context.js";
+
+// ---------------------------------------------------------------------------
+// Available topic keys (static — safe for tool description)
+// ---------------------------------------------------------------------------
+
+const TOPIC_KEYS = ["svg-visuals", "report-design"];
+
+// ---------------------------------------------------------------------------
+// Tool registration
+// ---------------------------------------------------------------------------
+
+export function registerGuideTool(server: McpServer, _ctx: ServerContext): void {
+  // Build topics lazily inside the function so all consts are defined
+  const topics: Record<string, string> = {
+    "svg-visuals": SVG_VISUALS_GUIDE,
+    "report-design": REPORT_DESIGN_GUIDE,
+  };
+
+  server.tool(
+    "guide",
+    `Domain knowledge for Power BI report development. Returns focused guidance and patterns for a topic. Available topics: ${TOPIC_KEYS.join(", ")}`,
+    {
+      topic: z
+        .string()
+        .describe(
+          `Topic to get guidance on. Available: ${TOPIC_KEYS.join(", ")}`
+        ),
+    },
+    async ({ topic }) => {
+      const key = topic.toLowerCase().replace(/\s+/g, "-");
+      const content = topics[key];
+      if (!content) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                success: false,
+                error: `Unknown topic: "${topic}". Available topics: ${TOPIC_KEYS.join(", ")}`,
+              }),
+            },
+          ],
+        };
+      }
+      return {
+        content: [{ type: "text" as const, text: content }],
+      };
+    }
+  );
+}
+
+// ===========================================================================
+// TOPIC: svg-visuals
+// ===========================================================================
+
+function SVG_VISUALS_GUIDE_FN(): string {
+  return `# SVG Visuals in Power BI
+
+SVG visuals are **DAX measures that return inline SVG strings** rendered as images in native visuals.
+No custom visuals or external dependencies needed.
+
+## How It Works
+
+A DAX measure constructs an SVG markup string and returns it as a data URI:
+\`\`\`
+"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='20'>...</svg>"
+\`\`\`
+
+The measure metadata must be set to:
+- **dataType**: \`"String"\` (or \`"Text"\` for extension measures)
+- **dataCategory**: \`"ImageUrl"\`
+
+## Where to Store
+
+| Path | Tool | Stored in |
+|------|------|-----------|
+| **Model measure** | modeling MCP → \`measure_operations(Create)\` | Semantic model (shared across reports) |
+| **Extension measure** | report MCP → \`manage_extension_measures(add)\` | reportExtensions.json (report-scoped) |
+
+For model measures, set \`dataCategory: "ImageUrl"\` in the Create call.
+For extension measures, set \`dataType: "Text"\` — bind the visual, then PBI renders it as an image.
+
+## Supported Visuals
+
+| Visual Type | visualType ID | How to bind |
+|-------------|--------------|-------------|
+| **Table** | \`tableEx\` | Add SVG measure to \`Values\` bucket |
+| **Matrix** | \`pivotTable\` | Add SVG measure to \`Values\` bucket |
+| **Image** | \`image\` | Bind to image source field |
+| **New Card** | \`cardVisual\` | Add SVG measure to \`Data\` bucket |
+| **New Slicer** | \`advancedSlicerVisual\` | Bind to header image |
+
+**Classic card does NOT support SVG** — only the new card visual works.
+
+After binding to a Table/Matrix, format the column: set \`grid.imageHeight\` to control SVG row height.
+
+## DAX Structure Convention
+
+Every SVG measure follows 4 sections:
+
+\`\`\`dax
+MyMeasure =
+// === CONFIG === (user-modifiable inputs)
+VAR _Value = [Total Sales]
+VAR _Max = CALCULATE(MAX(...), REMOVEFILTERS(...)) * 1.1
+VAR _Color = "#3B82F6"
+
+// === NORMALIZATION === (scale to SVG coordinates)
+VAR _Width = DIVIDE(_Value, _Max) * 150
+
+// === SVG ELEMENTS === (one VAR per element)
+VAR _Bar = "<rect x='0' y='2' width='" & _Width & "' height='16' rx='3' fill='" & _Color & "'/>"
+VAR _Label = "<text x='" & _Width + 5 & "' y='14' font-size='11' fill='#94A3B8'>" & FORMAT(_Value, "#,0") & "</text>"
+
+// === ASSEMBLY === (first = back layer, last = front)
+VAR _SVG = _Bar & _Label
+RETURN "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='20'>" & _SVG & "</svg>"
+\`\`\`
+
+## Conventions & Rules
+
+- **Single quotes** for SVG attributes (DAX strings use double quotes)
+- **Hex colors** with \`#\` directly — never \`%23\`, never named colors
+- **No JavaScript** — Power BI strips it
+- **32K character limit** on the rendered SVG string
+- **HASONEVALUE guard** — prevent SVG on total/subtotal rows:
+  \`\`\`dax
+  IF(HASONEVALUE(Table[Category]), _SVG_Result, BLANK())
+  \`\`\`
+- **Sort trick** — embed a \`<desc>\` tag for numeric sorting:
+  \`\`\`dax
+  "<desc>" & FORMAT(_Value, "000000000000") & "</desc>"
+  \`\`\`
+- **Axis normalization** — compute max across all rows for consistent bar widths:
+  \`\`\`dax
+  VAR _Max = CALCULATE(MAXX(_AllRows, [Measure]), REMOVEFILTERS('Table'[GroupCol])) * 1.1
+  \`\`\`
+
+## Templates
+
+### 1. Progress Bar (conditional color)
+\`\`\`dax
+Progress Bar =
+VAR _Pct = DIVIDE([Total Sales], [Total Gross Sales])
+VAR _W = ROUND(_Pct * 120, 0)
+VAR _Color = SWITCH(TRUE(),
+    _Pct >= 0.8, "#22C55E",
+    _Pct >= 0.5, "#F59E0B",
+    "#EF4444"
+)
+VAR _Bar = "<rect x='0' y='2' width='" & _W & "' height='14' rx='4' fill='" & _Color & "'/>"
+VAR _Track = "<rect x='0' y='2' width='120' height='14' rx='4' fill='#1E293B' opacity='0.3'/>"
+VAR _Label = "<text x='126' y='14' font-size='10' fill='#94A3B8' font-family='Segoe UI'>" & FORMAT(_Pct, "0%") & "</text>"
+RETURN
+"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='18'>" & _Track & _Bar & _Label & "</svg>"
+\`\`\`
+
+### 2. Status Pill
+\`\`\`dax
+Status Pill =
+VAR _Segment = SELECTEDVALUE('Table'[Segment])
+VAR _Color = SWITCH(_Segment,
+    "Government", "#3B82F6",
+    "Enterprise", "#8B5CF6",
+    "Midmarket", "#F59E0B",
+    "Small Business", "#22C55E",
+    "Channel Partners", "#EC4899",
+    "#64748B"
+)
+VAR _W = LEN(_Segment) * 7 + 16
+RETURN
+"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='" & _W & "' height='22'><rect x='0' y='1' width='" & _W & "' height='20' rx='10' fill='" & _Color & "' opacity='0.15'/><text x='" & _W / 2 & "' y='15' text-anchor='middle' font-size='11' font-family='Segoe UI' fill='" & _Color & "'>" & _Segment & "</text></svg>"
+\`\`\`
+
+### 3. Sparkline (for Table/Matrix rows)
+\`\`\`dax
+Sparkline =
+VAR _Dates = SUMMARIZE(ALLSELECTED('Date'), 'Date'[Month Number], "Val", [Total Sales])
+VAR _Max = MAXX(_Dates, [Val]) * 1.1
+VAR _Count = COUNTROWS(_Dates) - 1
+VAR _Points = CONCATENATEX(
+    _Dates,
+    VAR _X = ([Month Number] - 1) / MAX(_Count, 1) * 140
+    VAR _Y = 28 - DIVIDE([Val], _Max) * 26
+    RETURN _X & "," & _Y,
+    " ",
+    [Month Number], ASC
+)
+RETURN
+IF(HASONEVALUE('Table'[Product]),
+    "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='30'><polyline points='" & _Points & "' fill='none' stroke='#3B82F6' stroke-width='1.5'/></svg>",
+    BLANK()
+)
+\`\`\`
+
+### 4. Bullet Chart (actual vs target)
+\`\`\`dax
+Bullet Chart =
+VAR _Actual = [Total Sales]
+VAR _Target = [Total Sales] * 0.9
+VAR _Max = CALCULATE(MAXX(ALL('Table'[Segment]), [Total Sales]), REMOVEFILTERS()) * 1.1
+VAR _ActW = DIVIDE(_Actual, _Max) * 140
+VAR _TgtX = DIVIDE(_Target, _Max) * 140
+VAR _BG = "<rect x='0' y='4' width='140' height='12' rx='2' fill='#1E293B' opacity='0.3'/>"
+VAR _Bar = "<rect x='0' y='5' width='" & _ActW & "' height='10' rx='2' fill='#3B82F6'/>"
+VAR _Target_Line = "<line x1='" & _TgtX & "' y1='2' x2='" & _TgtX & "' y2='18' stroke='#F8FAFC' stroke-width='2'/>"
+RETURN
+IF(HASONEVALUE('Table'[Segment]),
+    "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='150' height='20'>" & _BG & _Bar & _Target_Line & "</svg>",
+    BLANK()
+)
+\`\`\`
+
+## Workflow
+
+1. Call \`guide("svg-visuals")\` — you're reading this now
+2. Create the SVG DAX measure:
+   - Model measure: \`measure_operations({ operation: "Create", definitions: [{ name, expression, dataType: "String", dataCategory: "ImageUrl", tableName }] })\`
+   - Extension measure: \`manage_extension_measures({ operation: "add", measureName, expression, dataType: "Text" })\`
+3. Add visual: \`add_visual({ visualType: "tableEx", bindings: [{ bucket: "Values", fields: [..., { type: "measure", field: "Table[SVG Measure]" }] }] })\`
+4. Format image height: \`format_visual({ target: "visual", categories: [{ category: "grid", properties: { imageHeight: 20 } }] })\`
+
+## Community UDF Libraries
+
+Before writing custom DAX, check these pre-built SVG libraries:
+- **PowerofBI.IBCS** — IBCS-compliant bars, columns, waterfalls (daxlib.org)
+- **DaxLib.SVG** — 3-tier API: Viz.*/Compound.*/Element.* for area, bars, boxplot, heatmap, jitter, line, pill, progress
+- **PowerBI MacGuyver Toolbox** — 20+ bar, 14+ line, 24+ KPI templates
+- **Kerry Kolosko Templates** — Sparklines, data bars, gauges, KPI cards, waterfalls
+`;
+}
+
+const SVG_VISUALS_GUIDE = SVG_VISUALS_GUIDE_FN();
+
+// ===========================================================================
+// TOPIC: report-design
+// ===========================================================================
+
+function REPORT_DESIGN_GUIDE_FN(): string {
+  return `# Power BI Report Design Principles
+
+## Layout Standards
+
+- **Page size**: 1280×720 (default), 1920×1080 (widescreen)
+- **Visual gap**: 5px between all visuals (horizontal and vertical)
+- **Page margins**: 20px left/right, 20px top/bottom
+- **Banner**: Full-width shape at (0, 0, 1280, 52) — no side margins
+- **First content row**: y=57 (banner 52 + gap 5)
+- **Max visuals per page**: 12-15 for performance and readability
+
+## Typography (Segoe UI)
+
+| Element | Size | Weight |
+|---------|------|--------|
+| Page title (in banner) | 20-24pt | SemiBold |
+| Section header | 14-16pt | SemiBold |
+| Card value | 24-32pt | Bold |
+| Card label | 10-12pt | Regular |
+| Axis labels | 10-12pt | Regular |
+| Data labels | 9-11pt | Regular |
+| Footnote/source | 8-9pt | Regular |
+
+## The 3-30-300 Rule
+
+- **3 seconds**: A viewer should understand the page purpose in 3 seconds (clear title, obvious KPIs)
+- **30 seconds**: Key insights should be digestible in 30 seconds (well-labeled charts, logical flow)
+- **300 seconds**: Detailed exploration should be available for 5 minutes (drill-through, tooltips, detail pages)
+
+## Page Layout Patterns
+
+### Executive Dashboard (overview page)
+\`\`\`
+┌─────────────────────────────────────────────────┐
+│ Banner (title + subtitle + date slicer)          │ y=0, h=52
+├────────┬────────┬────────┬────────┬─────────────┤
+│ KPI 1  │ KPI 2  │ KPI 3  │ KPI 4  │  KPI 5      │ y=57, h=100
+├────────┴────────┴────────┼────────┴─────────────┤
+│ Main chart               │ Secondary chart       │ y=162, h=270
+│ (trend, bar, combo)      │ (donut, bar, map)     │
+├──────────────────────────┼──────────────────────┤
+│ Table / detail           │ Small chart           │ y=437, h=260
+│                          │                       │
+└──────────────────────────┴──────────────────────┘
+\`\`\`
+
+### Detail / Analysis Page
+\`\`\`
+┌─────────────────────────────────────────────────┐
+│ Banner + slicers (segment, date range, category) │
+├─────────────────────────────────────────────────┤
+│ Full-width chart (trend over time)               │
+├──────────────────────────┬──────────────────────┤
+│ Comparison chart          │ Breakdown chart       │
+├──────────────────────────┴──────────────────────┤
+│ Detail table (scrollable, with sparklines/SVGs)  │
+└─────────────────────────────────────────────────┘
+\`\`\`
+
+## Color Usage
+
+- **Limit**: 5-7 distinct data colors per page maximum
+- **Semantic colors**: Green=positive, Red=negative, Amber=warning — use consistently
+- **Accessibility**: WCAG 2.1 requires 4.5:1 contrast ratio for text, 3:1 for large text/graphics
+- **Avoid**: Pure red (#FF0000) + green (#00FF00) — 8% of males are red-green colorblind
+- Use the theme's \`dataColors\` palette — don't override per-visual unless intentional
+
+## Slicer Placement
+
+- **Horizontal slicers**: Top of page, in or below the banner
+- **Vertical slicers**: Left sidebar (use a narrow column, ~200px wide)
+- **Dropdown**: Best for many values (>10 options) to save space
+- **Sync slicers**: Use the same slicer across pages for consistent filtering
+
+## KPI Card Pattern
+
+A KPI card typically shows:
+1. **Value** — the primary metric (large, bold)
+2. **Label** — what the metric is (smaller, muted)
+3. **Trend indicator** — vs prior period (arrow/color)
+
+Use the new \`cardVisual\` type for richer card formatting.
+For inline trend arrows, use SVG measures — see \`guide("svg-visuals")\`.
+
+## Performance Tips
+
+- Avoid background images (use solid colors or theme)
+- Minimize visuals with high cardinality dimensions
+- Use \`model_usage\` tool to find unused measures/columns for cleanup
+- Prefer explicit measures over implicit aggregations
+`;
+}
+
+const REPORT_DESIGN_GUIDE = REPORT_DESIGN_GUIDE_FN();

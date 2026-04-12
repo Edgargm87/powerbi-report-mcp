@@ -1,4 +1,4 @@
-<!-- doc-version: 1.1 | Last updated: 2026-04-11 -->
+<!-- doc-version: 1.2 | Last updated: 2026-04-12 -->
 # Contributing to powerbi-report-mcp
 
 Thanks for your interest in contributing to the Power BI Report MCP server. This guide covers everything you need to get started, add features, and test your changes.
@@ -94,7 +94,8 @@ src/
     themes.ts           # Theme management tools
     filters.ts          # Page and visual filter tools
     bulk.ts             # Bulk operations (bind, format, delete)
-    bookmarks.ts        # Bookmark tools (parked)
+    bookmarks.ts        # Bookmark CRUD tools
+    guide.ts            # Knowledge layer (svg-visuals, report-design topics)
     calculations.ts     # Visual calculation tools (parked)
   helpers/
     createVisual.ts     # Visual creation logic, field parsing, Zod schemas
@@ -288,10 +289,4 @@ Tools: `add_visual_calculation`, `list_visual_calculations`, `delete_visual_calc
 
 Status: Code exists in `src/tools/calculations.ts` but is not registered. The correct PBIR JSON format was identified (`NativeVisualCalculation` projections in `queryState.Values.projections[]`), but calculations written via file edit do not render in PBI Desktop. This likely requires internal PBI Desktop state initialization that cannot be triggered through file manipulation alone. See B14 in `tests.md`.
 
-### Bookmarks
-
-Tools: `list_bookmarks`, `add_bookmark`, `rename_bookmark`, `delete_bookmark`
-
-Status: Code exists in `src/tools/bookmarks.ts` but is not imported in `index.ts`. Bookmarks were registered in earlier versions but are not currently loaded in MCP sessions. The import line is commented out in `index.ts`.
-
-If you want to investigate either of these, start by reading the relevant bug entries and UAT rounds in `tests.md` to understand what was already tried.
+If you want to investigate visual calculations, start by reading the relevant bug entries and UAT rounds in `tests.md` to understand what was already tried.

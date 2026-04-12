@@ -13,6 +13,8 @@ import { registerThemeTools } from "./tools/themes.js";
 import { registerFilterTools } from "./tools/filters.js";
 import { registerBulkTools } from "./tools/bulk.js";
 import { registerModelUsageTool, findSemanticModelPath, startWatchers } from "./model-usage.js";
+import { registerBookmarkTools } from "./tools/bookmarks.js";
+import { registerGuideTool } from "./tools/guide.js";
 // Visual calculations parked — not registering until PBI Desktop supports programmatic creation
 // import { registerCalculationTools } from "./tools/calculations.js";
 
@@ -52,6 +54,7 @@ const ALL_TOOLS: Record<string, string> = {
   get_page_summary: "Get a detailed page summary",
   reload_report: "Reload report from disk",
   set_filter_pane: "Show or hide the report filter pane",
+  set_page_background: "Set page canvas background color and/or wallpaper",
   set_visual_interaction: "Set cross-filter/highlight interaction between visuals",
   manage_extension_measures: "Add, list, or remove report-level DAX measures",
   // Visuals
@@ -90,6 +93,13 @@ const ALL_TOOLS: Record<string, string> = {
   clear_filters: "Clear all filters",
   // Model usage
   model_usage: "Cross-reference semantic model with report — measures, columns, DAX lineage, unused fields, per-page coverage",
+  // Bookmarks
+  list_bookmarks: "List all bookmarks in the report",
+  add_bookmark: "Create a new bookmark",
+  delete_bookmark: "Delete a bookmark",
+  rename_bookmark: "Rename a bookmark",
+  // Guide (knowledge layer)
+  guide: "Domain knowledge for PBI development — topics: svg-visuals, report-design",
   // Calculations — PARKED: visual calculations don't render when written programmatically
   // list_visual_calculations, add_visual_calculation, delete_visual_calculation
 };
@@ -193,7 +203,7 @@ async function main() {
 
   const server = new McpServer({
     name: "powerbi-report-mcp",
-    version: "0.5.0",
+    version: "0.5.2",
   });
 
   // Determine tool loading mode
@@ -232,6 +242,8 @@ async function main() {
   registerThemeTools(server, ctx);
   registerFilterTools(server, ctx);
   registerBulkTools(server, ctx);
+  registerBookmarkTools(server, ctx);
+  registerGuideTool(server, ctx);
   registerModelUsageTool(server, ctx);
   // registerCalculationTools(server, ctx); // PARKED
 
@@ -414,7 +426,7 @@ Both formats are equivalent and can be mixed in the same bindings array.
 - **Visual interactions** — use \`set_visual_interaction\` to control cross-filter/cross-highlight between visuals (\`visualInteractions\` in page.json).
 - **Sort definitions** — \`sortDefinition\` in visual query controls default sort order. Not yet exposed as a tool.
 - **Extension measures** — use \`manage_extension_measures\` to add/list/remove report-level DAX measures (\`reportExtensions.json\`). WARNING: file is auto-deleted when empty — empty \`entities: []\` crashes PBI Desktop.
-- **Bookmarks** — \`definition/bookmarks/\` stores report bookmarks for toggle visibility and filter state. Parked — not exposed as tools.
+- **Bookmarks** — use \`list_bookmarks\`, \`add_bookmark\`, \`delete_bookmark\`, \`rename_bookmark\` to manage report bookmarks (\`definition/bookmarks/\`).
 - **Filter pane visibility** — use \`set_filter_pane\` to show/hide the filter pane (\`objects.outspacePane\` in report.json).
 
 ## Tips

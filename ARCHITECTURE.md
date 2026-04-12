@@ -1,11 +1,11 @@
-<!-- doc-version: 1.1 | Last updated: 2026-04-11 -->
+<!-- doc-version: 1.2 | Last updated: 2026-04-12 -->
 # Architecture: powerbi-report-mcp
 
 ## 1. Overview
 
 `powerbi-report-mcp` is an MCP (Model Context Protocol) server that enables AI agents to create and modify Power BI reports in PBIR format. It communicates over **stdio** using the `@modelcontextprotocol/sdk`, making it agent-agnostic -- any MCP-compatible client (Claude Code, Copilot, custom agents) can drive it.
 
-The server exposes 48 tools for page management, visual creation, data binding, formatting, theming, filtering, bulk operations, and model usage analysis. All tool inputs are validated with Zod schemas. All tool handlers are wrapped in a `safe()` error boundary so that failures return structured `isError` responses instead of crashing the process.
+The server exposes 54 tools for page management, visual creation, data binding, formatting, theming, filtering, bulk operations, and model usage analysis. All tool inputs are validated with Zod schemas. All tool handlers are wrapped in a `safe()` error boundary so that failures return structured `isError` responses instead of crashing the process.
 
 **Key dependencies:** `@modelcontextprotocol/sdk` (MCP protocol), `zod` (schema validation). No Power BI SDK is used -- the server reads and writes PBIR JSON files directly on disk.
 
@@ -53,14 +53,16 @@ src/
                         overrides, and data color palettes.
 
   tools/
-    report.ts           Page and report management tools (16 tools).
+    report.ts           Page and report management tools (20 tools).
     visuals.ts          Visual CRUD tools (8 tools).
     format.ts           Formatting and conditional formatting tools (4 tools).
     bindings.ts         Data binding tools (1 tool).
     themes.ts           Report-level theme tools (5 tools).
     filters.ts          Filter tools (4 tools).
     bulk.ts             Bulk operations (3 tools).
-    bookmarks.ts        Bookmark CRUD (4 tools, not currently registered).
+    bookmarks.ts        Bookmark CRUD (4 tools).
+    guide.ts            Knowledge layer (1 tool). Serves domain knowledge
+                        on demand — topics: svg-visuals, report-design.
     calculations.ts     Visual calculations (3 tools, parked -- PBI Desktop
                         doesn't render programmatically-created visual calcs).
 ```
@@ -208,7 +210,7 @@ To reduce token overhead for LLM clients, the server loads only a default subset
 **DEFAULT_TOOLS** (always loaded):
 `set_report`, `list_pages`, `list_visuals`, `create_page`, `add_visual`, `get_visual`, `format_visual`, `update_visual_bindings`, `set_report_theme`, `bulk_bind`, `model_usage`
 
-**ALL_TOOLS** -- a map of every tool name to its description (48 tools total).
+**ALL_TOOLS** -- a map of every tool name to its description (54 tools total).
 
 **Activation mechanisms:**
 
@@ -231,7 +233,7 @@ To reduce token overhead for LLM clients, the server loads only a default subset
 
 ## 6. Tool Modules
 
-### report.ts (16 tools)
+### report.ts (20 tools)
 
 | Tool | Purpose |
 |------|---------|
@@ -251,6 +253,10 @@ To reduce token overhead for LLM clients, the server loads only a default subset
 | `duplicate_page` | Deep-clone a page with all visuals |
 | `get_page_summary` | Pages + visuals in a single call (replaces list_pages + list_visuals) |
 | `reload_report` | Kill PBI Desktop and reopen the .pbip file |
+| `set_filter_pane` | Show/hide and expand/collapse the filter pane |
+| `set_page_background` | Set page canvas background color and/or wallpaper |
+| `set_visual_interaction` | Set cross-filter/highlight interaction between visuals |
+| `manage_extension_measures` | Add, list, or remove report-level DAX measures |
 
 ### visuals.ts (8 tools)
 
@@ -329,9 +335,22 @@ To reduce token overhead for LLM clients, the server loads only a default subset
 - One-shot: `npm run usage <path>` -- generates dashboard, opens in browser
 - Watch: `npm run usage:watch <path>` -- HTTP server + file watchers with auto-regeneration
 
-### bookmarks.ts (4 tools, not registered)
+### bookmarks.ts (4 tools)
 
-`list_bookmarks`, `add_bookmark`, `delete_bookmark`, `rename_bookmark` -- bookmark CRUD. The module exists but is not imported in `index.ts`.
+| Tool | Purpose |
+|------|---------|
+| `list_bookmarks` | List all bookmarks in the report |
+| `add_bookmark` | Create a new bookmark with optional page navigation |
+| `delete_bookmark` | Delete a bookmark by ID |
+| `rename_bookmark` | Rename an existing bookmark |
+
+### guide.ts (1 tool)
+
+| Tool | Purpose |
+|------|---------|
+| `guide` | Serve domain knowledge on demand — topics: `svg-visuals`, `report-design` |
+
+The guide tool provides focused, actionable knowledge to help AI agents make better decisions when orchestrating multi-tool workflows. Topics include SVG visual DAX templates, binding rules, and report design principles. New topics can be added by extending the `topics` map in `registerGuideTool()`.
 
 ### calculations.ts (3 tools, parked)
 
