@@ -70,30 +70,8 @@
             }
           }
         }
-      ],
-      "general": [
-        {
-          "properties": {
-            "paragraphs": [
-              {
-                "textRuns": [
-                  {
-                    "value": "WF-B: Analysis Layout",
-                    "textStyle": {
-                      "color": "#FFFFFF",
-                      "fontWeight": "bold",
-                      "fontSize": "22pt"
-                    }
-                  }
-                ],
-                "horizontalTextAlignment": "left"
-              }
-            ]
-          }
-        }
       ]
     },
-    "drillFilterOtherVisuals": true,
     "visualContainerObjects": {
       "title": [
         {
@@ -115,6 +93,7 @@
           }
         }
       ]
-    }
+    },
+    "drillFilterOtherVisuals": true
   }
 }
