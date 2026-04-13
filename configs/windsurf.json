@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "powerbi-report-mcp": {
+      "command": "node",
+      "args": ["C:\\path\\to\\powerbi-report-mcp\\dist\\index.js"]
+    },
+    "powerbi-modeling-mcp": {
+      "command": "C:\\path\\to\\powerbi-modeling-mcp\\server\\powerbi-modeling-mcp.exe",
+      "args": []
+    }
+  }
+}
