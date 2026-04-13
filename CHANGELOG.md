@@ -5,6 +5,7 @@ Each release has its own file in [`changelog/`](changelog/).
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| [**0.5.3**](changelog/v0.5.3.md) | 2026-04-13 | Usage dashboard: three-tier field classification, UDF functions tab, conditional formatting detection, native folder picker, standalone web app |
 | [**0.5.2**](changelog/v0.5.2.md) | 2026-04-12 | Bookmarks unparked (4 tools), `set_page_background`, `guide` knowledge layer (SVG visuals + report design topics) |
 | [**0.5.1**](changelog/v0.5.1.md) | 2026-04-11 | New `model_usage` tool — cross-references semantic model with report, HTML dashboard, standalone CLI, cache invalidation |
 | [**0.5.0**](changelog/v0.5.0.md) | 2026-04-09 | 5 new tools (sort, interactions, filter pane, extension measures, theme audit), format auto-routing, tooltip/drillthrough pages, advanced filters, wireframes doc, doc versioning |

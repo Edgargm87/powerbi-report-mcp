@@ -11,7 +11,8 @@
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
     "usage": "node dist/usage-cli.js",
-    "usage:watch": "node dist/usage-cli.js --watch"
+    "usage:watch": "node dist/usage-cli.js --watch",
+    "usage:app": "node dist/usage-app.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",

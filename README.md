@@ -1,4 +1,4 @@
-<!-- doc-version: 1.2 | Last updated: 2026-04-12 -->
+<!-- doc-version: 1.3 | Last updated: 2026-04-13 -->
 <p align="center">
   <h1 align="center">Power BI Report MCP Server</h1>
   <p align="center">
@@ -118,70 +118,24 @@ npm run build
 
 ### 2. Configure your MCP client
 
-<details>
-<summary><b>Claude Desktop</b></summary>
+Ready-to-use config files are in the **[configs/](configs/)** folder — copy the one for your client, update the path, done.
 
-File: `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json`
+| Config | Client | Copy to |
+|--------|--------|---------|
+| [`claude-desktop.json`](configs/claude-desktop.json) | Claude Desktop | `%LOCALAPPDATA%\...\Claude\claude_desktop_config.json` |
+| [`cursor.json`](configs/cursor.json) | Cursor | `~/.cursor/mcp.json` |
+| [`vscode-copilot.json`](configs/vscode-copilot.json) | GitHub Copilot | `.vscode/mcp.json` |
+| [`windsurf.json`](configs/windsurf.json) | Windsurf | `~/.windsurf/mcp.json` |
+| [`continue-dev.json`](configs/continue-dev.json) | Continue.dev | `~/.continue/config.json` |
+| [`cline.json`](configs/cline.json) | Cline | VS Code Settings → MCP Servers |
 
-```json
-{
-  "mcpServers": {
-    "powerbi-report-mcp": {
-      "command": "node",
-      "args": ["C:\\path\\to\\powerbi-report-mcp\\dist\\index.js"]
-    }
-  }
-}
-```
-</details>
-
-<details>
-<summary><b>Claude Code</b></summary>
+**Claude Code** (no config file needed):
 
 ```bash
-claude mcp add powerbi-report-mcp node dist/index.js
+claude mcp add powerbi-report-mcp node C:\path\to\powerbi-report-mcp\dist\index.js
 ```
-</details>
 
-<details>
-<summary><b>Cursor</b></summary>
-
-File: `~/.cursor/mcp.json`
-
-```json
-{
-  "mcpServers": {
-    "powerbi-report-mcp": {
-      "command": "node",
-      "args": ["C:\\path\\to\\powerbi-report-mcp\\dist\\index.js"]
-    }
-  }
-}
-```
-</details>
-
-<details>
-<summary><b>GitHub Copilot (VS Code)</b></summary>
-
-File: `.vscode/mcp.json`
-
-```json
-{
-  "mcpServers": {
-    "powerbi-report-mcp": {
-      "command": "node",
-      "args": ["C:\\path\\to\\powerbi-report-mcp\\dist\\index.js"]
-    }
-  }
-}
-```
-</details>
-
-<details>
-<summary><b>Other MCP clients</b></summary>
-
-Any client that supports MCP over stdio. Use `mcp-proxy` for HTTP/SSE bridges.
-</details>
+> Each config includes both **powerbi-report-mcp** and **powerbi-modeling-mcp** for full dual-layer access. See [configs/README.md](configs/README.md) for optional settings (pre-connect to a report, load all tools at startup).
 
 ### 3. Connect and build
 
@@ -252,7 +206,7 @@ Load all tools at startup with:
 | `update_visual_bindings` | Replace data bindings on a visual |
 | `set_report_theme` | Apply a custom JSON theme to the whole report |
 | `bulk_bind` | Rebind multiple visuals in one call |
-| `model_usage` | Cross-reference semantic model with report — usage, DAX lineage, unused fields |
+| `model_usage` | Cross-reference semantic model with report — three-tier classification (direct/indirect/unused), DAX lineage, UDF functions, conditional formatting detection |
 | `load_tools` | List and activate on-demand tools |
 
 ### On-Demand Tools (43)
@@ -528,7 +482,8 @@ powerbi-report-mcp/
 │   ├── index.ts              # Server entry, smart tool loading, safe() wrapper
 │   ├── pbir.ts               # PbirProject — PBIR file I/O abstraction
 │   ├── context.ts            # ServerContext interface
-│   ├── model-usage.ts        # Model usage analysis — cross-references model ↔ report
+│   ├── model-usage.ts        # Model usage analysis — three-tier classification, UDF parsing, conditional formatting
+│   ├── usage-app.ts          # Standalone usage dashboard web app (Browse / paste / recent reports)
 │   ├── usage-cli.ts          # Standalone CLI for model usage (one-shot + watch mode)
 │   ├── tools/
 │   │   ├── report.ts         # Page & report management (20 tools)
@@ -680,8 +635,9 @@ Use `add_visual` batch mode + inline `title`, `dataColors`, `containerFormat` to
 - `format_visual` merges with existing formatting — safe to call incrementally
 - TopN filters are **visual-level only** — pass `visualId` to `add_page_filter`
 - All tools return `{ success: false, error: "..." }` on failure — the server never crashes
-- Use `model_usage` to see which measures/columns are actually used in visuals, find unused fields, and trace DAX dependencies — it bridges the gap between semantic model and report that external tools like Measure Killer cannot
-- Run `npm run usage:watch <path>` for a standalone dashboard with live file watching
+- Use `model_usage` to see which measures/columns are used in visuals — it classifies fields as **direct** (on a visual), **indirect** (referenced by direct measures/relationships), or **unused** (safe to remove). It detects conditional formatting bindings (images, reference labels, colors) that other tools miss
+- `model_usage` also parses UDF functions from TMDL/BIM, counts measure references per function, and generates an interactive HTML dashboard with DAX lineage tracing
+- Run `npm run usage:app` for a standalone dashboard with native folder picker, or `npm run usage:watch <path>` for CLI mode with live file watching
 
 ---
 

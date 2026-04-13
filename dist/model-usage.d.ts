@@ -10,6 +10,7 @@ interface ModelMeasure {
     usedIn: BindingRef[];
     usageCount: number;
     pageCount: number;
+    status: "direct" | "indirect" | "unused";
 }
 interface ModelColumn {
     name: string;
@@ -19,6 +20,7 @@ interface ModelColumn {
     usedIn: BindingRef[];
     usageCount: number;
     pageCount: number;
+    status: "direct" | "indirect" | "unused";
 }
 interface BindingRef {
     pageId: string;
@@ -51,21 +53,38 @@ interface PageData {
 interface FullData {
     measures: ModelMeasure[];
     columns: ModelColumn[];
+    relationships: ModelRelationship[];
+    functions: ModelFunction[];
     pages: PageData[];
-    unused: {
-        measures: string[];
-        columns: string[];
-    };
     totals: {
         measuresInModel: number;
-        measuresUsed: number;
+        measuresDirect: number;
+        measuresIndirect: number;
+        measuresUnused: number;
         columnsInModel: number;
-        columnsUsed: number;
+        columnsDirect: number;
+        columnsIndirect: number;
+        columnsUnused: number;
+        relationships: number;
+        functions: number;
         pages: number;
         visuals: number;
     };
 }
 export declare function findSemanticModelPath(reportPath: string): string;
+interface ModelRelationship {
+    fromTable: string;
+    fromColumn: string;
+    toTable: string;
+    toColumn: string;
+    isActive: boolean;
+}
+interface ModelFunction {
+    name: string;
+    parameters: string;
+    expression: string;
+    description: string;
+}
 export declare function buildFullData(reportPath: string): FullData;
 export declare function generateHTML(data: FullData, reportName: string): string;
 /** Output dir inside the MCP project: .usage/<report-name>/ */

@@ -20,6 +20,7 @@ interface ModelMeasure {
   usedIn: BindingRef[];
   usageCount: number;
   pageCount: number;
+  status: "direct" | "indirect" | "unused";
 }
 
 interface ModelColumn {
@@ -30,6 +31,7 @@ interface ModelColumn {
   usedIn: BindingRef[];
   usageCount: number;
   pageCount: number;
+  status: "direct" | "indirect" | "unused";
 }
 
 interface BindingRef {
@@ -57,13 +59,20 @@ interface PageData {
 interface FullData {
   measures: ModelMeasure[];
   columns: ModelColumn[];
+  relationships: ModelRelationship[];
+  functions: ModelFunction[];
   pages: PageData[];
-  unused: { measures: string[]; columns: string[] };
   totals: {
     measuresInModel: number;
-    measuresUsed: number;
+    measuresDirect: number;
+    measuresIndirect: number;
+    measuresUnused: number;
     columnsInModel: number;
-    columnsUsed: number;
+    columnsDirect: number;
+    columnsIndirect: number;
+    columnsUnused: number;
+    relationships: number;
+    functions: number;
     pages: number;
     visuals: number;
   };
@@ -100,17 +109,153 @@ export function findSemanticModelPath(reportPath: string): string {
 // Step 2: Parse Model (TMDL + BIM)
 // ═══════════════════════════════════════════════════════════════════════════════
 
+interface ModelRelationship {
+  fromTable: string;
+  fromColumn: string;
+  toTable: string;
+  toColumn: string;
+  isActive: boolean;
+}
+
+interface ModelFunction {
+  name: string;
+  parameters: string;
+  expression: string;
+  description: string;
+}
+
+
 interface RawModel {
   measures: Array<{ name: string; table: string; daxExpression: string; formatString: string }>;
   columns: Array<{ name: string; table: string; dataType: string }>;
+  relationships: ModelRelationship[];
+  functions: ModelFunction[];
+}
+
+function parseTmdlRelationships(modelPath: string): ModelRelationship[] {
+  const relFile = path.join(modelPath, "definition", "relationships.tmdl");
+  if (!fs.existsSync(relFile)) return [];
+  const content = fs.readFileSync(relFile, "utf8");
+  const rels: ModelRelationship[] = [];
+  let current: Partial<ModelRelationship> | null = null;
+
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("relationship ")) {
+      if (current?.fromTable) rels.push({ fromTable: current.fromTable!, fromColumn: current.fromColumn!, toTable: current.toTable!, toColumn: current.toColumn!, isActive: current.isActive !== false });
+      current = { isActive: true };
+    } else if (current && trimmed.startsWith("fromColumn:")) {
+      const val = trimmed.replace("fromColumn:", "").trim();
+      const dot = val.indexOf(".");
+      if (dot > 0) {
+        current.fromTable = val.substring(0, dot).replace(/^'(.*)'$/, "$1");
+        current.fromColumn = val.substring(dot + 1).replace(/^'(.*)'$/, "$1");
+      }
+    } else if (current && trimmed.startsWith("toColumn:")) {
+      const val = trimmed.replace("toColumn:", "").trim();
+      const dot = val.indexOf(".");
+      if (dot > 0) {
+        current.toTable = val.substring(0, dot).replace(/^'(.*)'$/, "$1");
+        current.toColumn = val.substring(dot + 1).replace(/^'(.*)'$/, "$1");
+      }
+    } else if (current && trimmed.startsWith("isActive:")) {
+      current.isActive = trimmed.includes("true");
+    }
+  }
+  if (current?.fromTable) rels.push({ fromTable: current.fromTable!, fromColumn: current.fromColumn!, toTable: current.toTable!, toColumn: current.toColumn!, isActive: current.isActive !== false });
+  return rels;
+}
+
+function parseTmdlFunctions(modelPath: string): ModelFunction[] {
+  const funcFile = path.join(modelPath, "definition", "functions.tmdl");
+  if (!fs.existsSync(funcFile)) return [];
+  const content = fs.readFileSync(funcFile, "utf8");
+  const funcs: ModelFunction[] = [];
+  let pendingDesc = "";
+  let funcDesc = "";
+  let name = "";
+  let params = "";
+  let exprLines: string[] = [];
+  let inFunc = false;
+  let inBacktickBlock = false;
+
+  const flush = () => {
+    if (name) {
+      funcs.push({ name, parameters: params, expression: exprLines.join("\n").trim(), description: funcDesc.trim() });
+    }
+    name = "";
+    params = "";
+    exprLines = [];
+    funcDesc = "";
+    inFunc = false;
+    inBacktickBlock = false;
+  };
+
+  for (const line of content.split("\n")) {
+    const trimmed = line.trim();
+
+    // Collect /// doc comments (can appear between functions)
+    if (trimmed.startsWith("///")) {
+      pendingDesc += (pendingDesc ? " " : "") + trimmed.replace(/^\/\/\/\s*/, "");
+      continue;
+    }
+
+    // Function declaration: function 'name' = or function 'name' = ```
+    if (trimmed.startsWith("function ")) {
+      if (inFunc) flush();
+      funcDesc = pendingDesc;
+      pendingDesc = "";
+      const match = trimmed.match(/^function\s+'([^']+)'\s*=\s*(```)?(.*)$/);
+      if (match) {
+        name = match[1];
+        inFunc = true;
+        inBacktickBlock = !!match[2];
+        const rest = match[3]?.trim();
+        if (rest) exprLines.push(rest);
+      } else {
+        const m2 = trimmed.match(/^function\s+(\S+)\s*=\s*(```)?(.*)$/);
+        if (m2) {
+          name = m2[1];
+          inFunc = true;
+          inBacktickBlock = !!m2[2];
+          const rest = m2[3]?.trim();
+          if (rest) exprLines.push(rest);
+        }
+      }
+      continue;
+    }
+
+    if (inFunc) {
+      if (inBacktickBlock && trimmed === "```") continue;
+      if (trimmed.startsWith("lineageTag:")) continue;
+      exprLines.push(trimmed);
+    } else {
+      // Reset pending description if non-comment, non-function, non-empty
+      if (trimmed && !trimmed.startsWith("///")) pendingDesc = "";
+    }
+  }
+  flush();
+
+  // Extract parameters from expression: (Param : TYPE, ...) =>
+  for (const f of funcs) {
+    const paramMatch = f.expression.match(/^\(\s*(.*?)\s*\)\s*=>/s);
+    if (paramMatch) {
+      f.parameters = paramMatch[1].replace(/\s+/g, " ").trim();
+      f.expression = f.expression.replace(/^\(.*?\)\s*=>\s*/s, "").trim();
+    }
+  }
+
+  return funcs;
 }
 
 function parseTmdlModel(modelPath: string): RawModel {
   const tablesDir = path.join(modelPath, "definition", "tables");
   const measures: RawModel["measures"] = [];
   const columns: RawModel["columns"] = [];
+  const relationships = parseTmdlRelationships(modelPath);
+  const functions = parseTmdlFunctions(modelPath);
 
-  if (!fs.existsSync(tablesDir)) return { measures, columns };
+  if (!fs.existsSync(tablesDir)) return { measures, columns, relationships, functions };
 
   for (const file of fs.readdirSync(tablesDir).filter(f => f.endsWith(".tmdl"))) {
     const content = fs.readFileSync(path.join(tablesDir, file), "utf8");
@@ -234,7 +379,7 @@ function parseTmdlModel(modelPath: string): RawModel {
     }
   }
 
-  return { measures, columns };
+  return { measures, columns, relationships, functions };
 }
 
 function parseBimModel(modelPath: string): RawModel {
@@ -271,7 +416,28 @@ function parseBimFile(bimPath: string): RawModel {
       });
     }
   }
-  return { measures, columns };
+  const relationships: ModelRelationship[] = (bim.model?.relationships || []).map((r: any) => ({
+    fromTable: r.fromTable || "",
+    fromColumn: r.fromColumn || "",
+    toTable: r.toTable || "",
+    toColumn: r.toColumn || "",
+    isActive: r.isActive !== false,
+  }));
+
+  const functions: ModelFunction[] = [];
+  for (const expr of bim.model?.expressions || []) {
+    if (expr.kind === "m") continue; // skip M parameters
+    const exprText = Array.isArray(expr.expression) ? expr.expression.join("\n") : (expr.expression || "");
+    const paramMatch = exprText.match(/^\(\s*(.*?)\s*\)\s*=>/s);
+    functions.push({
+      name: expr.name || "",
+      parameters: paramMatch ? paramMatch[1].replace(/\s+/g, " ").trim() : "",
+      expression: paramMatch ? exprText.replace(/^\(.*?\)\s*=>\s*/s, "").trim() : exprText.trim(),
+      description: expr.description || "",
+    });
+  }
+
+  return { measures, columns, relationships, functions };
 }
 
 function parseModel(modelPath: string): RawModel {
@@ -370,6 +536,26 @@ function scanReportBindings(reportPath: string): { bindings: RawBinding[]; pageC
           const ref = extractFieldRef(f.field);
           if (ref) bindings.push({ ...ref, bindingRole: "Filter", ...ctx });
         }
+
+        // Scan objects section (conditional formatting: images, reference labels, colors, icons, etc.)
+        const objects = (visual as any).visual?.objects;
+        if (objects && typeof objects === "object") {
+          const walkExpr = (obj: any, role: string) => {
+            if (!obj || typeof obj !== "object") return;
+            if (obj.expr) {
+              const ref = extractFieldRef(obj.expr);
+              if (ref) bindings.push({ ...ref, bindingRole: role, ...ctx });
+            }
+            if (Array.isArray(obj)) {
+              for (const item of obj) walkExpr(item, role);
+            } else {
+              for (const val of Object.values(obj)) walkExpr(val, role);
+            }
+          };
+          for (const [objectType, objectArr] of Object.entries(objects)) {
+            walkExpr(objectArr, objectType);
+          }
+        }
       } catch { /* skip unreadable visuals */ }
     }
   }
@@ -429,6 +615,7 @@ export function buildFullData(reportPath: string): FullData {
       usedIn: dedupedUsedIn,
       usageCount: dedupedUsedIn.length,
       pageCount: new Set(dedupedUsedIn.map(u => u.pageName)).size,
+      status: "unused", // classified below
     };
   });
 
@@ -455,12 +642,69 @@ export function buildFullData(reportPath: string): FullData {
       usedIn: dedupedUsedIn,
       usageCount: dedupedUsedIn.length,
       pageCount: new Set(dedupedUsedIn.map(u => u.pageName)).size,
+      status: "unused", // classified below
     };
   });
 
   // Reverse dependencies
   for (const m of measures) {
     m.dependedOnBy = measures.filter(x => x.daxDependencies.includes(m.name)).map(x => x.name);
+  }
+
+  // ── Classify measures: direct → indirect → unused ──
+  // Direct: bound to a visual
+  for (const m of measures) {
+    if (m.usageCount > 0) m.status = "direct";
+  }
+  // Indirect: referenced (transitively) by any direct measure
+  const measureMap = new Map(measures.map(m => [m.name, m]));
+  const markIndirect = (name: string, visited: Set<string>) => {
+    if (visited.has(name)) return;
+    visited.add(name);
+    const m = measureMap.get(name);
+    if (!m) return;
+    for (const dep of m.daxDependencies) {
+      const dm = measureMap.get(dep);
+      if (dm && dm.status === "unused") dm.status = "indirect";
+      markIndirect(dep, visited);
+    }
+  };
+  for (const m of measures) {
+    if (m.status === "direct" || m.status === "indirect") {
+      markIndirect(m.name, new Set());
+    }
+  }
+
+  // ── Classify columns: direct → indirect → unused ──
+  // Direct: bound to a visual
+  for (const c of columns) {
+    if (c.usageCount > 0) { c.status = "direct"; continue; }
+  }
+  // Indirect: referenced in any measure's DAX or used in a relationship
+  const relationshipColumns = new Set<string>();
+  for (const r of rawModel.relationships) {
+    relationshipColumns.add(`${r.fromTable}|${r.fromColumn}`);
+    relationshipColumns.add(`${r.toTable}|${r.toColumn}`);
+  }
+  // Build set of columns referenced in DAX
+  const daxReferencedColumns = new Set<string>();
+  for (const m of measures) {
+    if (m.status === "unused") continue; // only check direct/indirect measures
+    for (const c of columns) {
+      if (daxReferencedColumns.has(`${c.table}|${c.name}`)) continue;
+      const qualifiedRef = `${c.table}[${c.name}]`;
+      const shortRef = `[${c.name}]`;
+      if (m.daxExpression.includes(qualifiedRef) || m.daxExpression.includes(shortRef)) {
+        daxReferencedColumns.add(`${c.table}|${c.name}`);
+      }
+    }
+  }
+  for (const c of columns) {
+    if (c.status !== "unused") continue;
+    const key = `${c.table}|${c.name}`;
+    if (relationshipColumns.has(key) || daxReferencedColumns.has(key)) {
+      c.status = "indirect";
+    }
   }
 
   // Build page data
@@ -500,22 +744,23 @@ export function buildFullData(reportPath: string): FullData {
     };
   });
 
-  const measuresUsed = measures.filter(m => m.usageCount > 0).length;
-  const columnsUsed = columns.filter(c => c.usageCount > 0).length;
-
   return {
     measures,
     columns,
+    relationships: rawModel.relationships,
+    functions: rawModel.functions,
     pages,
-    unused: {
-      measures: measures.filter(m => m.usageCount === 0).map(m => `${m.table}[${m.name}]`),
-      columns: columns.filter(c => c.usageCount === 0).map(c => `${c.table}[${c.name}]`),
-    },
     totals: {
       measuresInModel: measures.length,
-      measuresUsed,
+      measuresDirect: measures.filter(m => m.status === "direct").length,
+      measuresIndirect: measures.filter(m => m.status === "indirect").length,
+      measuresUnused: measures.filter(m => m.status === "unused").length,
       columnsInModel: columns.length,
-      columnsUsed,
+      columnsDirect: columns.filter(c => c.status === "direct").length,
+      columnsIndirect: columns.filter(c => c.status === "indirect").length,
+      columnsUnused: columns.filter(c => c.status === "unused").length,
+      relationships: rawModel.relationships.length,
+      functions: rawModel.functions.length,
       pages: pageCount,
       visuals: visualCount,
     },
@@ -548,10 +793,11 @@ export function generateHTML(data: FullData, reportName: string): string {
   .timestamp{font-size:10px;color:#334155;font-family:'JetBrains Mono',monospace;margin-top:4px}
   .refresh-btn{padding:6px 14px;font-size:11px;font-family:'JetBrains Mono',monospace;border:1px solid #2A2D3A;border-radius:6px;cursor:pointer;background:#1A1D27;color:#64748B;transition:all .15s}
   .refresh-btn:hover{background:#2A2D3A;color:#F8FAFC;border-color:#3B82F6}
-  .summary{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:20px}
+  .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
+  .stat-detail{font-size:10px;color:#475569;margin-top:2px;font-family:'JetBrains Mono',monospace}
   .stat{background:#1A1D27;border-radius:8px;border:1px solid #2A2D3A;padding:12px 14px;text-align:center}
   .stat-value{font-size:22px;font-weight:700;color:#F8FAFC}
-  .stat-value.warn{color:#F59E0B}.stat-value.danger{color:#EF4444}
+  .stat-value.good{color:#22C55E}.stat-value.warn{color:#F59E0B}.stat-value.danger{color:#EF4444}
   .stat-label{font-size:10px;color:#64748B;margin-top:2px;text-transform:uppercase;letter-spacing:.06em}
   .tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid #1E2028}
   .tab{padding:8px 16px;font-size:13px;border:none;border-bottom:2px solid transparent;cursor:pointer;background:none;color:#64748B;font-family:inherit;font-weight:500;transition:all .15s}
@@ -575,6 +821,8 @@ export function generateHTML(data: FullData, reportName: string): string {
   .data-table tr:hover{background:#1A1D27}
   .data-table tr.unused{opacity:.5}
   .data-table tr.unused td:first-child{border-left:3px solid #EF4444;padding-left:9px}
+  .data-table tr.indirect{opacity:.7}
+  .data-table tr.indirect td:first-child{border-left:3px solid #F59E0B;padding-left:9px}
   .field-name{font-weight:600;color:#F8FAFC;cursor:pointer;transition:color .15s;text-decoration:underline;text-decoration-color:#2A2D3A;text-underline-offset:2px}
   .field-name:hover{color:#3B82F6;text-decoration-color:#3B82F6}
   .field-table{font-size:11px;color:#64748B;font-family:'JetBrains Mono',monospace}
@@ -612,6 +860,7 @@ export function generateHTML(data: FullData, reportName: string): string {
   .lc.center.col-type{border-left-color:#3B82F6}
   .lc.downstream{border-left:3px solid #8B5CF6}
   .lc.empty{border-style:dashed;opacity:.4}
+  .lc.udf{border-left:3px solid #14B8A6}
   .lc.feeds{border-left:3px solid #F59E0B;background:rgba(245,158,11,.04)}
 
   .feeds-label{font-size:9px;color:#64748B;text-transform:uppercase;letter-spacing:.06em;margin-top:10px;margin-bottom:4px;font-weight:600}
@@ -665,7 +914,7 @@ export function generateHTML(data: FullData, reportName: string): string {
   <div class="panel" id="panel-measures">
     <div class="search-row">
       <input class="search-input" placeholder="Search measures..." oninput="filterTable('measures',this.value)">
-      <button class="filter-btn" id="btn-unused-m" onclick="toggleUnused('measures')">Unused only</button>
+      <button class="filter-btn" id="btn-unused-m" onclick="toggleUnused('measures')">Not on visual</button>
     </div>
     <table class="data-table"><thead><tr>
       <th onclick="sortTable('measures','name')">Measure ↕</th><th onclick="sortTable('measures','table')">Table ↕</th>
@@ -677,7 +926,7 @@ export function generateHTML(data: FullData, reportName: string): string {
   <div class="panel" id="panel-columns">
     <div class="search-row">
       <input class="search-input" placeholder="Search columns..." oninput="filterTable('columns',this.value)">
-      <button class="filter-btn" id="btn-unused-c" onclick="toggleUnused('columns')">Unused only</button>
+      <button class="filter-btn" id="btn-unused-c" onclick="toggleUnused('columns')">Not on visual</button>
     </div>
     <table class="data-table"><thead><tr>
       <th onclick="sortTable('columns','name')">Column ↕</th><th onclick="sortTable('columns','table')">Table ↕</th>
@@ -686,6 +935,8 @@ export function generateHTML(data: FullData, reportName: string): string {
     </tr></thead><tbody id="tbody-columns"></tbody></table>
   </div>
 
+  <div class="panel" id="panel-relationships"><div id="relationships-content"></div></div>
+  <div class="panel" id="panel-functions"><div id="functions-content"></div></div>
   <div class="panel" id="panel-pages"><div id="pages-content"></div></div>
   <div class="panel" id="panel-lineage"><div id="lineage-content"></div></div>
   <div class="panel" id="panel-unused"><div id="unused-content"></div></div>
@@ -732,19 +983,22 @@ const pageData=(()=>{
 function uc(n){return n===0?"zero":n<=1?"low":"good"}
 
 function renderSummary(){
-  const t=DATA.totals,um=t.measuresInModel-t.measuresUsed,ucc=t.columnsInModel-t.columnsUsed;
-  document.getElementById("summary").innerHTML=[
-    {v:t.measuresUsed+"/"+t.measuresInModel,l:"Measures Used",c:""},{v:um,l:"Unused Measures",c:um>0?"danger":""},
-    {v:t.columnsUsed+"/"+t.columnsInModel,l:"Columns Used",c:""},{v:ucc,l:"Unused Columns",c:ucc>0?"warn":""},
-    {v:t.pages,l:"Pages",c:""},{v:t.visuals,l:"Visuals",c:""},
-  ].map(s=>\`<div class="stat"><div class="stat-value \${s.c}">\${s.v}</div><div class="stat-label">\${s.l}</div></div>\`).join("");
+  const t=DATA.totals;
+  const totalOrphan=t.measuresUnused+t.columnsUnused;
+  document.getElementById("summary").innerHTML=\`
+    <div class="stat"><div class="stat-value good">\${t.measuresDirect+t.columnsDirect}</div><div class="stat-label">Direct</div><div class="stat-detail">\${t.measuresDirect}M · \${t.columnsDirect}C</div></div>
+    <div class="stat"><div class="stat-value \${t.measuresIndirect+t.columnsIndirect>0?'warn':''}">\${t.measuresIndirect+t.columnsIndirect}</div><div class="stat-label">Indirect</div><div class="stat-detail">\${t.measuresIndirect}M · \${t.columnsIndirect}C</div></div>
+    <div class="stat"><div class="stat-value \${totalOrphan>0?'danger':''}">\${totalOrphan}</div><div class="stat-label">Unused</div><div class="stat-detail">\${t.measuresUnused}M · \${t.columnsUnused}C</div></div>
+    <div class="stat"><div class="stat-value">\${t.pages}</div><div class="stat-label">Pages</div></div>
+    <div class="stat"><div class="stat-value">\${t.visuals}</div><div class="stat-label">Visuals</div></div>
+  \`;
 }
 
 function renderTabs(){
-  const um=DATA.measures.filter(m=>m.usageCount===0).length+DATA.columns.filter(c=>c.usageCount===0).length;
+  const um=DATA.totals.measuresUnused+DATA.totals.columnsUnused;
   document.getElementById("tabs").innerHTML=[
     {id:"measures",l:"Measures",b:DATA.measures.length},{id:"columns",l:"Columns",b:DATA.columns.length},
-    {id:"pages",l:"Pages",b:pageData.length},{id:"lineage",l:"Lineage",b:null},{id:"unused",l:"Unused",b:um,w:um>0}
+    {id:"relationships",l:"Relationships",b:DATA.relationships.length},{id:"functions",l:"Functions",b:DATA.functions.filter(f=>!f.name.endsWith('.About')).length},{id:"pages",l:"Pages",b:pageData.length},{id:"unused",l:"Unused",b:um,w:um>0},{id:"lineage",l:"Lineage",b:null}
   ].map(t=>\`<button class="tab \${activeTab===t.id?'active':''}" onclick="switchTab('\${t.id}')">\${t.l}\${t.b!==null?\`<span class="badge \${t.w?'warn':''}">\${t.b}</span>\`:''}</button>\`).join("");
 }
 
@@ -757,29 +1011,32 @@ function switchTab(id){
     document.getElementById("lineage-content").innerHTML='<div style="text-align:center;padding:60px 20px;color:#475569"><div style="font-size:16px;margin-bottom:8px">Click a measure or column name to view its lineage</div><div style="font-size:12px">Go to the Measures or Columns tab and click any field name</div></div>';
 }
 
+function sc(s){return s==='unused'?'unused':s==='indirect'?'indirect':''}
 function renderMeasures(){
   let items=[...DATA.measures];const s=sortState.measures;
   items.sort((a,b)=>{let av=a[s.key],bv=b[s.key];if(typeof av==='string')return s.desc?bv.localeCompare(av):av.localeCompare(bv);return s.desc?bv-av:av-bv;});
-  if(showUnusedOnly.measures)items=items.filter(m=>m.usageCount===0);
+  if(showUnusedOnly.measures)items=items.filter(m=>m.status!=='direct');
   if(searchTerms.measures){const q=searchTerms.measures.toLowerCase();items=items.filter(m=>m.name.toLowerCase().includes(q)||m.table.toLowerCase().includes(q));}
   document.getElementById("tbody-measures").innerHTML=items.map(m=>{
     const deps=m.daxDependencies.map(d=>\`<span class="dep-chip" onclick="openLineage('measure','\${d}')">\${d}</span>\`).join("")||'<span style="color:#334155">—</span>';
     const pages=[...new Set(m.usedIn.map(u=>u.pageName))];
     const used=pages.map(p=>\`<span class="used-chip">\${p}</span>\`).join("")||'<span style="color:#334155">—</span>';
-    return \`<tr class="\${m.usageCount===0?'unused':''}"><td><span class="field-name" onclick="openLineage('measure','\${m.name}')">\${m.name}</span></td><td><span class="field-table">\${m.table}</span></td><td><span class="usage-count \${uc(m.usageCount)}">\${m.usageCount}</span></td><td><span class="usage-count \${uc(m.pageCount)}">\${m.pageCount}</span></td><td>\${deps}</td><td>\${used}</td><td><span class="format-str">\${m.formatString||'—'}</span></td></tr>\`;
+    const statusBadge=m.status==='indirect'?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(245,158,11,.12);color:#F59E0B;font-weight:600;margin-left:4px">INDIRECT</span>':m.status==='unused'?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,.12);color:#EF4444;font-weight:600;margin-left:4px">UNUSED</span>':'';
+    return \`<tr class="\${sc(m.status)}"><td><span class="field-name" onclick="openLineage('measure','\${m.name}')">\${m.name}</span>\${statusBadge}</td><td><span class="field-table">\${m.table}</span></td><td><span class="usage-count \${uc(m.usageCount)}">\${m.usageCount}</span></td><td><span class="usage-count \${uc(m.pageCount)}">\${m.pageCount}</span></td><td>\${deps}</td><td>\${used}</td><td><span class="format-str">\${m.formatString||'—'}</span></td></tr>\`;
   }).join("");
 }
 
 function renderColumns(){
   let items=[...DATA.columns];const s=sortState.columns;
   items.sort((a,b)=>{let av=a[s.key],bv=b[s.key];if(typeof av==='string')return s.desc?bv.localeCompare(av):av.localeCompare(bv);return s.desc?bv-av:av-bv;});
-  if(showUnusedOnly.columns)items=items.filter(c=>c.usageCount===0);
+  if(showUnusedOnly.columns)items=items.filter(c=>c.status!=='direct');
   if(searchTerms.columns){const q=searchTerms.columns.toLowerCase();items=items.filter(c=>c.name.toLowerCase().includes(q)||c.table.toLowerCase().includes(q));}
   document.getElementById("tbody-columns").innerHTML=items.map(c=>{
     const pages=[...new Set(c.usedIn.map(u=>u.pageName))];
     const used=pages.map(p=>\`<span class="used-chip">\${p}</span>\`).join("")||'<span style="color:#334155">—</span>';
     const sb=c.isSlicerField?'<span class="slicer-badge">SLICER</span>':'';
-    return \`<tr class="\${c.usageCount===0?'unused':''}"><td><span class="field-name" onclick="openLineage('column','\${c.name}')">\${c.name}</span>\${sb}</td><td><span class="field-table">\${c.table}</span></td><td><span class="mono" style="font-size:11px;color:#64748B">\${c.dataType}</span></td><td><span class="usage-count \${uc(c.usageCount)}">\${c.usageCount}</span></td><td><span class="usage-count \${uc(c.pageCount)}">\${c.pageCount}</span></td><td>\${used}</td></tr>\`;
+    const statusBadge=c.status==='indirect'?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(245,158,11,.12);color:#F59E0B;font-weight:600;margin-left:4px">INDIRECT</span>':c.status==='unused'?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,.12);color:#EF4444;font-weight:600;margin-left:4px">UNUSED</span>':'';
+    return \`<tr class="\${sc(c.status)}"><td><span class="field-name" onclick="openLineage('column','\${c.name}')">\${c.name}</span>\${sb}\${statusBadge}</td><td><span class="field-table">\${c.table}</span></td><td><span class="mono" style="font-size:11px;color:#64748B">\${c.dataType}</span></td><td><span class="usage-count \${uc(c.usageCount)}">\${c.usageCount}</span></td><td><span class="usage-count \${uc(c.pageCount)}">\${c.pageCount}</span></td><td>\${used}</td></tr>\`;
   }).join("");
 }
 
@@ -800,6 +1057,7 @@ function openLineage(type,name){
       const dep=DATA.measures.find(x=>x.name===d);
       return dep||{name:d,table:"?",formatString:""};
     });
+    const usedFuncs=DATA.functions.filter(f=>!f.name.endsWith('.About')&&(m.daxExpression.includes("'"+f.name+"'")||m.daxExpression.includes(f.name+'(')));
     const feedsInto=DATA.measures.filter(x=>x.daxDependencies.includes(m.name));
 
     el.innerHTML=\`
@@ -812,15 +1070,20 @@ function openLineage(type,name){
       <div class="lineage-flow-row">
         <div class="lineage-flow-col">
           <div class="lineage-flow-col-label" style="color:#A78BFA">↑ Upstream</div>
+          \${usedFuncs.map(f=>\`
+            <div class="lc udf clickable" style="margin-bottom:4px" onclick="switchTab('functions')">
+              <div class="lc-name" style="color:#14B8A6">ƒ \${f.name}</div>
+              <div class="lc-sub">Function · \${f.parameters?f.parameters.split(',').length+' param'+(f.parameters.split(',').length!==1?'s':''):'no params'}</div>
+            </div>\`).join("")}
+          <div class="lc source" style="margin-bottom:4px">
+            <div class="lc-name" style="color:#10B981">⬡ \${m.table}</div>
+            <div class="lc-sub">Source table</div>
+          </div>
           \${upstream.length?upstream.map(u=>\`
             <div class="lc upstream clickable" onclick="openLineage('measure','\${u.name}')">
               <div class="lc-name">\${u.name}</div>
               <div class="lc-sub">\${u.table} · \${u.formatString||''}</div>
-            </div>\`).join(""):\`<div class="lc upstream empty"><div class="lc-name">No dependencies</div><div class="lc-sub">Base measure</div></div>\`}
-          <div class="lc source" style="margin-top:4px">
-            <div class="lc-name" style="color:#10B981">⬡ \${m.table}</div>
-            <div class="lc-sub">Source table</div>
-          </div>
+            </div>\`).join(""):\`\${usedFuncs.length?'':\`<div class="lc upstream empty"><div class="lc-name">No dependencies</div><div class="lc-sub">Base measure</div></div>\`}\`}
         </div>
         <div class="lineage-arrow-col">→</div>
         <div class="lineage-flow-col">
@@ -960,20 +1223,114 @@ function togglePage(name){
   renderPages();
 }
 
+var openOrphanSections=new Set();
+function toggleOrphanSection(id){if(openOrphanSections.has(id))openOrphanSections.delete(id);else openOrphanSections.add(id);renderUnused();}
+
+function orphanSection(id,title,subtitle,color,count,countLabel,items){
+  const isOpen=openOrphanSections.has(id);
+  return \`<div class="page-card \${isOpen?'open':''}" style="border-left:3px solid \${color}">
+    <div class="page-header" onclick="toggleOrphanSection('\${id}')">
+      <div style="flex:1">
+        <div class="page-name" style="font-size:14px">\${title}</div>
+        <div style="font-size:11px;color:#64748B;margin-top:2px">\${subtitle}</div>
+      </div>
+      <div class="page-stats">
+        <div class="page-stat"><div class="page-stat-val" style="color:\${color}">\${count}</div><div class="page-stat-label">\${countLabel}</div></div>
+      </div>
+      <span class="page-expand">▼</span>
+    </div>
+    <div class="page-body"><div class="page-body-inner">
+      <div style="display:flex;flex-wrap:wrap;gap:8px">\${items}</div>
+    </div></div>
+  </div>\`;
+}
+
 function renderUnused(){
-  const um=DATA.measures.filter(m=>m.usageCount===0),ucc=DATA.columns.filter(c=>c.usageCount===0);
+  const unusedM=DATA.measures.filter(m=>m.status==='unused'),indirectM=DATA.measures.filter(m=>m.status==='indirect');
+  const unusedC=DATA.columns.filter(c=>c.status==='unused'),indirectC=DATA.columns.filter(c=>c.status==='indirect');
+  const pureOrphanM=unusedM.filter(m=>!m.dependedOnBy.length);
+  const chainOrphanM=unusedM.filter(m=>m.dependedOnBy.length>0);
   let h='';
-  if(um.length)h+=\`<div style="margin-bottom:20px"><h3 style="font-size:14px;color:#EF4444;margin-bottom:10px;font-weight:600">Unused Measures (\${um.length})</h3><div style="display:flex;flex-wrap:wrap;gap:8px">\${um.map(m=>\`<div class="lc clickable" style="border-left:3px solid #EF4444;flex:0 0 auto" onclick="openLineage('measure','\${m.name}')"><div class="lc-name">\${m.name}</div><div class="lc-sub">\${m.table} · \${m.formatString||''}</div></div>\`).join("")}</div></div>\`;
-  if(ucc.length)h+=\`<div><h3 style="font-size:14px;color:#F59E0B;margin-bottom:10px;font-weight:600">Unused Columns (\${ucc.length})</h3><div style="display:flex;flex-wrap:wrap;gap:8px">\${ucc.map(c=>\`<div class="lc clickable" style="border-left:3px solid #F59E0B;flex:0 0 auto" onclick="openLineage('column','\${c.name}')"><div class="lc-name">\${c.name}</div><div class="lc-sub">\${c.table} · \${c.dataType}</div></div>\`).join("")}</div></div>\`;
-  if(!um.length&&!ucc.length)h='<div style="text-align:center;padding:40px;color:#22C55E;font-weight:600">All fields are in use ✓</div>';
+
+  if(pureOrphanM.length) h+=orphanSection('pure-m','Unused Measures — Not Referenced Anywhere','No visual uses them and no other measure references them — safe to remove','#EF4444',pureOrphanM.length,'Measures',
+    pureOrphanM.map(m=>\`<div class="lc clickable" style="border-left:3px solid #EF4444;flex:0 0 auto" onclick="event.stopPropagation();openLineage('measure','\${m.name}')"><div class="lc-name">\${m.name}</div><div class="lc-sub">\${m.table} · \${m.formatString||''}</div></div>\`).join(""));
+
+  if(chainOrphanM.length) h+=orphanSection('chain-m','Unused Measures — Dead Chain','Other measures depend on them, but the full chain never reaches any visual','#EF4444',chainOrphanM.length,'Measures',
+    chainOrphanM.map(m=>\`<div class="lc clickable" style="border-left:3px solid #EF4444;flex:0 0 auto" onclick="event.stopPropagation();openLineage('measure','\${m.name}')"><div class="lc-name">\${m.name}</div><div class="lc-sub">\${m.table} · \${m.formatString||''} · depended on by \${m.dependedOnBy.length}</div></div>\`).join(""));
+
+  if(unusedC.length) h+=orphanSection('orphan-c','Unused Columns','No visual, measure, or relationship uses them — safe to hide or remove','#EF4444',unusedC.length,'Columns',
+    unusedC.map(c=>\`<div class="lc clickable" style="border-left:3px solid #EF4444;flex:0 0 auto" onclick="event.stopPropagation();openLineage('column','\${c.name}')"><div class="lc-name">\${c.name}</div><div class="lc-sub">\${c.table} · \${c.dataType}</div></div>\`).join(""));
+
+  if(indirectM.length) h+=orphanSection('indirect-m','Indirect Measures','Not on any visual, but used inside other measures that are — keep these','#F59E0B',indirectM.length,'Measures',
+    indirectM.map(m=>\`<div class="lc clickable" style="border-left:3px solid #F59E0B;flex:0 0 auto" onclick="event.stopPropagation();openLineage('measure','\${m.name}')"><div class="lc-name">\${m.name}</div><div class="lc-sub">\${m.table} · \${m.formatString||''}</div></div>\`).join(""));
+
+  if(indirectC.length) h+=orphanSection('indirect-c','Indirect Columns','Not on any visual, but used in a relationship or measure DAX — keep these','#F59E0B',indirectC.length,'Columns',
+    indirectC.map(c=>\`<div class="lc clickable" style="border-left:3px solid #F59E0B;flex:0 0 auto" onclick="event.stopPropagation();openLineage('column','\${c.name}')"><div class="lc-name">\${c.name}</div><div class="lc-sub">\${c.table} · \${c.dataType}</div></div>\`).join(""));
+
+  if(!unusedM.length&&!unusedC.length&&!indirectM.length&&!indirectC.length)h='<div style="text-align:center;padding:40px;color:#22C55E;font-weight:600">All fields are in use ✓</div>';
   document.getElementById("unused-content").innerHTML=h;
+}
+
+function renderRelationships(){
+  const rels=DATA.relationships;
+  if(!rels.length){document.getElementById("relationships-content").innerHTML='<div style="text-align:center;padding:40px;color:#6B7280">No relationships found in the model</div>';return;}
+  let h='<table class="data-table"><thead><tr><th>From Table</th><th>From Column</th><th></th><th>To Table</th><th>To Column</th><th>Status</th></tr></thead><tbody>';
+  for(const r of rels){
+    const statusColor=r.isActive?'#10B981':'#6B7280';
+    const statusLabel=r.isActive?'Active':'Inactive';
+    h+=\`<tr>
+      <td style="font-weight:600">\${r.fromTable}</td>
+      <td>\${r.fromColumn}</td>
+      <td style="text-align:center;color:#6B7280;font-size:18px">→</td>
+      <td style="font-weight:600">\${r.toTable}</td>
+      <td>\${r.toColumn}</td>
+      <td><span style="color:\${statusColor};font-size:12px;font-weight:500">\${statusLabel}</span></td>
+    </tr>\`;
+  }
+  h+='</tbody></table>';
+  document.getElementById("relationships-content").innerHTML=h;
+}
+
+function renderFunctions(){
+  const fns=DATA.functions.filter(f=>!f.name.endsWith('.About'));
+  if(!fns.length){document.getElementById("functions-content").innerHTML='<div style="text-align:center;padding:40px;color:#6B7280">No user-defined functions found in the model</div>';return;}
+  let h='<div style="display:flex;flex-direction:column;gap:12px">';
+  for(const f of fns){
+    const refMeasures=DATA.measures.filter(m=>m.daxExpression.includes("'"+f.name+"'")||m.daxExpression.includes(f.name+'('));
+    const params=f.parameters?f.parameters.split(',').map(p=>{
+      const parts=p.trim().split(/\\s*:\\s*/);
+      return parts.length>=2?'<span style="color:#93C5FD">'+parts[0].trim()+'</span> <span style="color:#475569">:</span> <span style="color:#A78BFA">'+parts.slice(1).join(':').trim()+'</span>':'<span style="color:#93C5FD">'+p.trim()+'</span>';
+    }).join('<span style="color:#475569">, </span>'):'<span style="color:#475569;font-style:italic">none</span>';
+    const desc=f.description?'<div style="font-size:11px;color:#64748B;margin-top:6px;line-height:1.4">'+f.description.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>':'';
+    const expr=f.expression.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const measureChips=refMeasures.map(m=>\`<span class="dep-chip" style="background:rgba(245,158,11,.1);color:#F59E0B;border-color:rgba(245,158,11,.2);cursor:pointer" onclick="event.stopPropagation();openLineage('measure','\${m.name}')">\${m.name}</span>\`).join('');
+    h+=\`<div class="page-card">
+      <div class="page-header" onclick="this.parentElement.classList.toggle('open')">
+        <div style="flex:1">
+          <div class="page-name" style="font-size:14px">\${f.name}</div>
+          <div style="font-size:11px;color:#64748B;margin-top:2px;font-family:'JetBrains Mono',monospace">( \${params} )</div>
+        </div>
+        <div class="page-stats">
+          <div class="page-stat"><div class="page-stat-val" style="color:#F59E0B">\${refMeasures.length}</div><div class="page-stat-label">Measures</div></div>
+        </div>
+        <span class="page-expand">▼</span>
+      </div>
+      <div class="page-body"><div class="page-body-inner">
+        \${desc}
+        \${refMeasures.length?\`<div style="margin-top:8px"><div style="font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:6px">Measures using this function</div><div style="display:flex;flex-wrap:wrap;gap:4px">\${measureChips}</div></div>\`:''}
+        <div class="lineage-dax" style="margin-top:8px;max-height:300px;overflow-y:auto">\${expr}</div>
+      </div></div>
+    </div>\`;
+  }
+  h+='</div>';
+  document.getElementById("functions-content").innerHTML=h;
 }
 
 function sortTable(t,k){const s=sortState[t];if(s.key===k)s.desc=!s.desc;else{s.key=k;s.desc=true;}t==="measures"?renderMeasures():renderColumns();}
 function filterTable(t,v){searchTerms[t]=v;t==="measures"?renderMeasures():renderColumns();}
 function toggleUnused(t){showUnusedOnly[t]=!showUnusedOnly[t];document.getElementById("btn-unused-"+(t==="measures"?"m":"c")).classList.toggle("active");t==="measures"?renderMeasures():renderColumns();}
 
-renderSummary();renderTabs();renderMeasures();renderColumns();renderPages();renderUnused();switchTab("measures");
+renderSummary();renderTabs();renderMeasures();renderColumns();renderRelationships();renderFunctions();renderPages();renderUnused();switchTab("measures");
 
 // Auto-refresh: 5-minute countdown with stale detection
 (function(){
@@ -1153,15 +1510,19 @@ export function registerModelUsageTool(server: McpServer, ctx: ServerContext): v
       lastHtmlHash = simpleHash(html);
 
       // Build response — JSON data only (HTML is 58KB+, too large for context)
+      const unused = {
+        measures: data.measures.filter(m => m.status === "unused").map(m => `${m.table}[${m.name}]`),
+        columns: data.columns.filter(c => c.status === "unused").map(c => `${c.table}[${c.name}]`),
+      };
       if (slim) {
         return {
           content: [{
             type: "text" as const,
             text: JSON.stringify({
-              measures: data.measures.map(m => ({ name: m.name, table: m.table, usageCount: m.usageCount, pageCount: m.pageCount, daxDependencies: m.daxDependencies })),
-              columns: data.columns.map(c => ({ name: c.name, table: c.table, usageCount: c.usageCount, pageCount: c.pageCount, isSlicerField: c.isSlicerField })),
+              measures: data.measures.map(m => ({ name: m.name, table: m.table, usageCount: m.usageCount, pageCount: m.pageCount, status: m.status, daxDependencies: m.daxDependencies })),
+              columns: data.columns.map(c => ({ name: c.name, table: c.table, usageCount: c.usageCount, pageCount: c.pageCount, status: c.status, isSlicerField: c.isSlicerField })),
               pages: data.pages.map(p => ({ name: p.name, visualCount: p.visualCount, measureCount: p.measureCount, columnCount: p.columnCount, slicerCount: p.slicerCount, coverage: p.coverage })),
-              unused: data.unused,
+              unused,
               totals: data.totals,
               dashboardPath: currentDashboardPath,
               cached,
@@ -1175,16 +1536,16 @@ export function registerModelUsageTool(server: McpServer, ctx: ServerContext): v
             type: "text" as const,
             text: JSON.stringify({
               measures: data.measures.map(m => ({
-                name: m.name, table: m.table, usageCount: m.usageCount, pageCount: m.pageCount,
+                name: m.name, table: m.table, usageCount: m.usageCount, pageCount: m.pageCount, status: m.status,
                 daxDependencies: m.daxDependencies, dependedOnBy: m.dependedOnBy,
                 formatString: m.formatString, daxExpression: m.daxExpression, usedIn: m.usedIn,
               })),
               columns: data.columns.map(c => ({
-                name: c.name, table: c.table, usageCount: c.usageCount, pageCount: c.pageCount,
+                name: c.name, table: c.table, usageCount: c.usageCount, pageCount: c.pageCount, status: c.status,
                 isSlicerField: c.isSlicerField, dataType: c.dataType, usedIn: c.usedIn,
               })),
               pages: data.pages,
-              unused: data.unused,
+              unused,
               totals: data.totals,
               dashboardPath: currentDashboardPath,
               cached,
