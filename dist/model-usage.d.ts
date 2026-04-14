@@ -30,6 +30,9 @@ interface ModelColumn {
     table: string;
     dataType: string;
     isSlicerField: boolean;
+    isKey: boolean;
+    isHidden: boolean;
+    isCalculated: boolean;
     usedIn: BindingRef[];
     usageCount: number;
     pageCount: number;
@@ -42,6 +45,44 @@ interface BindingRef {
     visualType: string;
     visualTitle: string;
     bindingRole: string;
+}
+interface TableColumnData {
+    name: string;
+    dataType: string;
+    isKey: boolean;
+    isHidden: boolean;
+    isCalculated: boolean;
+    isFK: boolean;
+    fkTarget?: {
+        table: string;
+        column: string;
+    };
+    usageCount: number;
+    status: "direct" | "indirect" | "unused";
+}
+interface TableRelationshipRef {
+    direction: "outgoing" | "incoming";
+    fromTable: string;
+    fromColumn: string;
+    toTable: string;
+    toColumn: string;
+    isActive: boolean;
+}
+interface TableData {
+    name: string;
+    isCalcGroup: boolean;
+    columnCount: number;
+    measureCount: number;
+    keyCount: number;
+    fkCount: number;
+    hiddenColumnCount: number;
+    columns: TableColumnData[];
+    measures: Array<{
+        name: string;
+        status: string;
+        usageCount: number;
+    }>;
+    relationships: TableRelationshipRef[];
 }
 interface PageData {
     name: string;
@@ -69,6 +110,7 @@ interface FullData {
     relationships: ModelRelationship[];
     functions: ModelFunction[];
     calcGroups: ModelCalcGroup[];
+    tables: TableData[];
     pages: PageData[];
     hiddenPages: string[];
     totals: {
@@ -83,6 +125,7 @@ interface FullData {
         relationships: number;
         functions: number;
         calcGroups: number;
+        tables: number;
         pages: number;
         visuals: number;
     };

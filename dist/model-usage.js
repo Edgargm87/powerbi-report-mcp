@@ -262,8 +262,11 @@ function parseTmdlModel(modelPath) {
                 collectingExpression = false;
                 expressionLines = [];
                 currentMeasure = null;
-                const colName = trimmed.replace(/^\s*column\s+/, "").replace(/\s*=.*$/, "").replace(/^'(.*)'$/, "$1").trim();
-                currentColumn = { name: colName, table: tableName, dataType: "string" };
+                const colRest = trimmed.replace(/^\s*column\s+/, "");
+                const colEq = colRest.indexOf("=");
+                const colName = (colEq > 0 ? colRest.substring(0, colEq) : colRest).trim().replace(/^'(.*)'$/, "$1");
+                const isCalculated = colEq > 0;
+                currentColumn = { name: colName, table: tableName, dataType: "string", isKey: false, isHidden: false, isCalculated };
                 columns.push(currentColumn);
                 continue;
             }
@@ -390,6 +393,12 @@ function parseTmdlModel(modelPath) {
                     if (propLine.startsWith("dataType:") && currentColumn) {
                         currentColumn.dataType = propLine.replace("dataType:", "").trim();
                     }
+                    if (propLine.startsWith("isKey:") && currentColumn) {
+                        currentColumn.isKey = propLine.replace("isKey:", "").trim().toLowerCase() === "true";
+                    }
+                    if (propLine.startsWith("isHidden:") && currentColumn) {
+                        currentColumn.isHidden = propLine.replace("isHidden:", "").trim().toLowerCase() === "true";
+                    }
                     continue;
                 }
                 // Annotation/expression continuation at depth 2
@@ -449,12 +458,15 @@ function parseBimFile(bimPath) {
             });
         }
         for (const c of table.columns || []) {
-            if (c.type === "rowNumber" || c.isHidden)
+            if (c.type === "rowNumber")
                 continue;
             columns.push({
                 name: c.name,
                 table: tableName,
                 dataType: c.dataType || "string",
+                isKey: c.isKey === true,
+                isHidden: c.isHidden === true,
+                isCalculated: c.type === "calculated",
             });
         }
     }
@@ -680,6 +692,9 @@ function buildFullData(reportPath) {
             table: c.table,
             dataType: c.dataType,
             isSlicerField: dedupedUsedIn.some(u => SLICER_TYPES.has(u.visualType)),
+            isKey: c.isKey,
+            isHidden: c.isHidden,
+            isCalculated: c.isCalculated,
             usedIn: dedupedUsedIn,
             usageCount: dedupedUsedIn.length,
             pageCount: new Set(dedupedUsedIn.map(u => u.pageName)).size,
@@ -774,6 +789,66 @@ function buildFullData(reportPath) {
     };
     measures.forEach(m => m.usedIn.forEach(u => addToPage(u.pageName, u.visualType, u.visualTitle, m.name, m.table, "measure")));
     columns.forEach(c => c.usedIn.forEach(u => addToPage(u.pageName, u.visualType, u.visualTitle, c.name, c.table, "column")));
+    // Build table data — aggregate columns + measures + relationships per table
+    const calcGroupNames = new Set(rawModel.calcGroups.map(cg => cg.name));
+    const tableNames = new Set();
+    rawModel.columns.forEach(c => tableNames.add(c.table));
+    rawModel.measures.forEach(m => tableNames.add(m.table));
+    // Ensure calc group tables appear even if they have no non-system columns
+    calcGroupNames.forEach(n => tableNames.add(n));
+    const tables = [...tableNames].sort((a, b) => a.localeCompare(b)).map(tableName => {
+        // Column→FK map: columns on this table that appear as `fromColumn` in a relationship
+        const outgoingRels = rawModel.relationships.filter(r => r.fromTable === tableName);
+        const incomingRels = rawModel.relationships.filter(r => r.toTable === tableName);
+        const fkByColumn = new Map();
+        outgoingRels.forEach(r => fkByColumn.set(r.fromColumn, { table: r.toTable, column: r.toColumn }));
+        // Pull matching ModelColumn entries for this table (skip calc group implicit Name column)
+        const tableColumns = columns
+            .filter(c => c.table === tableName)
+            .filter(c => !(calcGroupNames.has(tableName) && c.name === "Name"))
+            .map(c => {
+            const fkTarget = fkByColumn.get(c.name);
+            return {
+                name: c.name,
+                dataType: c.dataType || "string",
+                isKey: c.isKey,
+                isHidden: c.isHidden,
+                isCalculated: c.isCalculated,
+                isFK: !!fkTarget,
+                fkTarget,
+                usageCount: c.usageCount,
+                status: c.status,
+            };
+        })
+            .sort((a, b) => {
+            // PK first, then FK, then the rest alphabetical
+            if (a.isKey !== b.isKey)
+                return a.isKey ? -1 : 1;
+            if (a.isFK !== b.isFK)
+                return a.isFK ? -1 : 1;
+            return a.name.localeCompare(b.name);
+        });
+        const tableMeasures = measures
+            .filter(m => m.table === tableName)
+            .map(m => ({ name: m.name, status: m.status, usageCount: m.usageCount }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+        const tableRels = [
+            ...outgoingRels.map(r => ({ direction: "outgoing", fromTable: r.fromTable, fromColumn: r.fromColumn, toTable: r.toTable, toColumn: r.toColumn, isActive: r.isActive })),
+            ...incomingRels.map(r => ({ direction: "incoming", fromTable: r.fromTable, fromColumn: r.fromColumn, toTable: r.toTable, toColumn: r.toColumn, isActive: r.isActive })),
+        ];
+        return {
+            name: tableName,
+            isCalcGroup: calcGroupNames.has(tableName),
+            columnCount: tableColumns.length,
+            measureCount: tableMeasures.length,
+            keyCount: tableColumns.filter(c => c.isKey).length,
+            fkCount: tableColumns.filter(c => c.isFK).length,
+            hiddenColumnCount: tableColumns.filter(c => c.isHidden).length,
+            columns: tableColumns,
+            measures: tableMeasures,
+            relationships: tableRels,
+        };
+    });
     const pages = [...pageMap.values()].map(p => {
         const visuals = [...p.visuals.values()];
         const typeCounts = {};
@@ -797,6 +872,7 @@ function buildFullData(reportPath) {
         relationships: rawModel.relationships,
         functions: rawModel.functions,
         calcGroups: rawModel.calcGroups,
+        tables,
         pages,
         hiddenPages,
         totals: {
@@ -811,6 +887,7 @@ function buildFullData(reportPath) {
             relationships: rawModel.relationships.length,
             functions: rawModel.functions.length,
             calcGroups: rawModel.calcGroups.length,
+            tables: tables.length,
             pages: pageCount,
             visuals: visualCount,
         },
@@ -906,6 +983,29 @@ function generateHTML(data, reportName) {
   .slicer-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(236,72,153,.12);color:#EC4899;font-weight:600;margin-left:4px}
   .hidden-badge{font-size:9px;padding:1px 6px;border-radius:3px;background:rgba(139,92,246,.15);color:#A78BFA;border:1px solid rgba(139,92,246,.3);font-weight:600;letter-spacing:.05em;margin-left:8px;vertical-align:middle;cursor:help}
   [data-theme="light"] .hidden-badge{background:rgba(139,92,246,.1);color:#6D28D9;border-color:rgba(139,92,246,.35)}
+  .pk-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(245,158,11,.15);color:#F59E0B;border:1px solid rgba(245,158,11,.3);font-weight:700;letter-spacing:.05em;margin-left:6px;vertical-align:middle;font-family:'JetBrains Mono',monospace}
+  .fk-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(59,130,246,.12);color:#3B82F6;border:1px solid rgba(59,130,246,.28);font-weight:700;letter-spacing:.05em;margin-left:6px;vertical-align:middle;font-family:'JetBrains Mono',monospace}
+  .hid-col-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(100,116,139,.12);color:var(--text-dim);border:1px solid rgba(100,116,139,.25);font-weight:600;margin-left:6px;vertical-align:middle;font-family:'JetBrains Mono',monospace}
+  .calc-col-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(168,85,247,.12);color:#A855F7;border:1px solid rgba(168,85,247,.28);font-weight:600;margin-left:6px;vertical-align:middle;font-family:'JetBrains Mono',monospace}
+  [data-theme="light"] .pk-badge{background:rgba(245,158,11,.1);color:#B45309;border-color:rgba(245,158,11,.35)}
+  [data-theme="light"] .fk-badge{background:rgba(59,130,246,.08);color:#1D4ED8;border-color:rgba(59,130,246,.3)}
+  [data-theme="light"] .calc-col-badge{background:rgba(168,85,247,.08);color:#7E22CE;border-color:rgba(168,85,247,.3)}
+
+  .tcol-row{display:grid;grid-template-columns:1fr 140px 220px;gap:12px;padding:6px 10px;border-radius:6px;align-items:center;font-size:12px;border-bottom:1px solid var(--border-row)}
+  .tcol-row:last-child{border-bottom:none}
+  .tcol-row:hover{background:var(--surface-alt)}
+  .tcol-name{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-body);font-weight:500;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tcol-name:hover{color:var(--accent)}
+  .tcol-type{font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tcol-fk{font-size:11px;color:var(--chip-used-tx);font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tcol-fk .arrow{color:var(--text-faint);margin:0 4px}
+  .trel-row{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text-body)}
+  .trel-row:hover{background:var(--surface-alt)}
+  .trel-dir{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
+  .trel-dir.out{background:rgba(34,197,94,.12);color:#22C55E;border:1px solid rgba(34,197,94,.3)}
+  .trel-dir.in{background:rgba(59,130,246,.12);color:#3B82F6;border:1px solid rgba(59,130,246,.3)}
+  .trel-inactive{opacity:.55;font-style:italic}
+  .calc-group-pill{font-size:9px;padding:1px 6px;border-radius:3px;background:rgba(236,72,153,.12);color:#EC4899;border:1px solid rgba(236,72,153,.3);font-weight:600;letter-spacing:.05em;margin-left:8px;vertical-align:middle}
   .format-str{font-size:11px;color:var(--text-faint);font-family:'JetBrains Mono',monospace}
 
   .lineage-back{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim);cursor:pointer;margin-bottom:16px;transition:color .15s}
@@ -1032,6 +1132,7 @@ function generateHTML(data, reportName) {
     </tr></thead><tbody id="tbody-columns"></tbody></table>
   </div>
 
+  <div class="panel" id="panel-tables"><div id="tables-content"></div></div>
   <div class="panel" id="panel-relationships"><div id="relationships-content"></div></div>
   <div class="panel" id="panel-functions"><div id="functions-content"></div></div>
   <div class="panel" id="panel-calcgroups"><div id="calcgroups-content"></div></div>
@@ -1085,6 +1186,7 @@ let sortState={measures:{key:"usageCount",desc:true},columns:{key:"usageCount",d
 let showUnusedOnly={measures:false,columns:false};
 let searchTerms={measures:"",columns:""};
 let openPages=new Set();
+let openTables=new Set();
 
 const pageData=(()=>{
   const map=new Map();
@@ -1139,7 +1241,7 @@ function renderSummary(){
 function renderTabs(){
   const um=DATA.totals.measuresUnused+DATA.totals.columnsUnused;
   document.getElementById("tabs").innerHTML=[
-    {id:"measures",l:"Measures",b:DATA.measures.length},{id:"columns",l:"Columns",b:DATA.columns.length},
+    {id:"measures",l:"Measures",b:DATA.measures.length},{id:"columns",l:"Columns",b:DATA.columns.length},{id:"tables",l:"Tables",b:DATA.tables.length},
     {id:"relationships",l:"Relationships",b:DATA.relationships.length},{id:"functions",l:"Functions",b:DATA.functions.filter(f=>!f.name.endsWith('.About')).length},{id:"calcgroups",l:"Calc Groups",b:DATA.calcGroups.length},{id:"pages",l:"Pages",b:pageData.length},{id:"unused",l:"Unused",b:um,w:um>0},{id:"lineage",l:"Lineage",b:null}
   ].map(t=>\`<button class="tab \${activeTab===t.id?'active':''}" onclick="switchTab('\${t.id}')">\${t.l}\${t.b!==null?\`<span class="badge \${t.w?'warn':''}">\${t.b}</span>\`:''}</button>\`).join("");
 }
@@ -1368,6 +1470,86 @@ function togglePage(name){
   renderPages();
 }
 
+function toggleTableCard(name){
+  if(openTables.has(name))openTables.delete(name);else openTables.add(name);
+  renderTables();
+}
+
+function renderTables(){
+  const tables=DATA.tables||[];
+  document.getElementById("tables-content").innerHTML=tables.map(t=>{
+    const isOpen=openTables.has(t.name);
+    const calcGroupPill=t.isCalcGroup?'<span class="calc-group-pill" title="This table is a calculation group">CALC GROUP</span>':'';
+
+    const colRows=t.columns.map(c=>{
+      const badges=[];
+      if(c.isKey)badges.push('<span class="pk-badge" title="Primary key (isKey:true)">PK</span>');
+      if(c.isFK)badges.push('<span class="fk-badge" title="Foreign key — used as fromColumn in a relationship">FK</span>');
+      if(c.isCalculated)badges.push('<span class="calc-col-badge" title="Calculated column">CALC</span>');
+      if(c.isHidden)badges.push('<span class="hid-col-badge" title="isHidden:true">HIDDEN</span>');
+      const statusClass=c.status==='unused'?'zero':c.status==='indirect'?'low':'good';
+      const fkText=c.isFK&&c.fkTarget?\`→ <span>\${c.fkTarget.table}[\${c.fkTarget.column}]</span>\`:'<span style="color:var(--text-fainter)">—</span>';
+      return \`<div class="tcol-row">
+        <div>
+          <span class="tcol-name" onclick="openLineage('column','\${c.name.replace(/'/g,"\\\\'")}')">\${c.name}</span>\${badges.join('')}
+          <span class="usage-count \${statusClass}" style="margin-left:8px;font-size:10px">\${c.usageCount}</span>
+        </div>
+        <div class="tcol-type">\${c.dataType}</div>
+        <div class="tcol-fk">\${fkText}</div>
+      </div>\`;
+    }).join("")||'<div style="padding:8px 10px;color:var(--text-faint);font-size:12px">No columns</div>';
+
+    const measureList=t.measures.map(m=>{
+      const cls=m.status==='unused'?'zero':m.status==='indirect'?'low':'good';
+      return \`<span class="dep-chip" style="background:rgba(245,158,11,.1);color:#F59E0B;border-color:rgba(245,158,11,.2);cursor:pointer" onclick="event.stopPropagation();openLineage('measure','\${m.name.replace(/'/g,"\\\\'")}')">\${m.name} <span class="usage-count \${cls}" style="margin-left:4px;font-size:9px">\${m.usageCount}</span></span>\`;
+    }).join("")||'<span style="color:var(--text-faint);font-size:12px">None</span>';
+
+    const relRows=t.relationships.map(r=>{
+      const dirClass=r.direction==='outgoing'?'out':'in';
+      const dirLabel=r.direction==='outgoing'?'FK →':'← PK';
+      const inactive=r.isActive?'':' trel-inactive';
+      const arrow=r.direction==='outgoing'?'→':'←';
+      const other=r.direction==='outgoing'?\`\${r.toTable}[\${r.toColumn}]\`:\`\${r.fromTable}[\${r.fromColumn}]\`;
+      const self=r.direction==='outgoing'?\`[\${r.fromColumn}]\`:\`[\${r.toColumn}]\`;
+      return \`<div class="trel-row\${inactive}">
+        <span class="trel-dir \${dirClass}">\${dirLabel}</span>
+        <span>\${self} <span style="color:var(--text-faint)">\${arrow}</span> \${other}</span>
+        \${r.isActive?'':'<span style="font-size:9px;color:var(--text-dim);margin-left:4px">(inactive)</span>'}
+      </div>\`;
+    }).join("")||'<div style="padding:8px 10px;color:var(--text-faint);font-size:12px">No relationships</div>';
+
+    return \`<div class="page-card \${isOpen?'open':''}">
+      <div class="page-header" onclick="toggleTableCard('\${t.name.replace(/'/g,"\\\\'")}')">
+        <div class="page-name">\${t.name}\${calcGroupPill}</div>
+        <div class="page-stats">
+          <div class="page-stat"><div class="page-stat-val" style="color:#3B82F6">\${t.columnCount}</div><div class="page-stat-label">Columns</div></div>
+          <div class="page-stat"><div class="page-stat-val" style="color:#F59E0B">\${t.measureCount}</div><div class="page-stat-label">Measures</div></div>
+          <div class="page-stat"><div class="page-stat-val" style="color:#F59E0B">\${t.keyCount}</div><div class="page-stat-label">Keys</div></div>
+          <div class="page-stat"><div class="page-stat-val" style="color:#3B82F6">\${t.fkCount}</div><div class="page-stat-label">FKs</div></div>
+        </div>
+        <span class="page-expand">▼</span>
+      </div>
+      <div class="page-body"><div class="page-body-inner">
+        <div class="page-section">
+          <div class="page-section-title">Columns (\${t.columnCount})<span class="line"></span></div>
+          <div class="tcol-row" style="font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--text-dim);font-weight:600;border-bottom:1px solid var(--border);padding-bottom:4px">
+            <div>Name</div><div>Type</div><div>Relationship</div>
+          </div>
+          \${colRows}
+        </div>
+        <div class="page-section">
+          <div class="page-section-title">Measures (\${t.measureCount})<span class="line"></span></div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">\${measureList}</div>
+        </div>
+        <div class="page-section">
+          <div class="page-section-title">Relationships (\${t.relationships.length})<span class="line"></span></div>
+          \${relRows}
+        </div>
+      </div></div>
+    </div>\`;
+  }).join("")||'<div style="text-align:center;padding:60px 20px;color:var(--text-faint);font-size:13px">No tables found</div>';
+}
+
 var openOrphanSections=new Set();
 function toggleOrphanSection(id){if(openOrphanSections.has(id))openOrphanSections.delete(id);else openOrphanSections.add(id);renderUnused();}
 
@@ -1513,7 +1695,7 @@ function sortTable(t,k){const s=sortState[t];if(s.key===k)s.desc=!s.desc;else{s.
 function filterTable(t,v){searchTerms[t]=v;t==="measures"?renderMeasures():renderColumns();}
 function toggleUnused(t){showUnusedOnly[t]=!showUnusedOnly[t];document.getElementById("btn-unused-"+(t==="measures"?"m":"c")).classList.toggle("active");t==="measures"?renderMeasures():renderColumns();}
 
-renderSummary();renderTabs();renderMeasures();renderColumns();renderRelationships();renderFunctions();renderCalcGroups();renderPages();renderUnused();switchTab("measures");addCopyButtons();
+renderSummary();renderTabs();renderMeasures();renderColumns();renderTables();renderRelationships();renderFunctions();renderCalcGroups();renderPages();renderUnused();switchTab("measures");addCopyButtons();
 
 // Auto-refresh: 5-minute countdown with stale detection
 (function(){
