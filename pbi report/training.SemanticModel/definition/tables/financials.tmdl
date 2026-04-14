@@ -64,6 +64,10 @@ table financials
 		formatString: #,0
 		lineageTag: bf314c5c-339e-4c54-846c-7690e70ba68f
 
+	measure 'Sales Amount' = SUM(financials[Sales])
+		formatString: #,0.00
+		lineageTag: a8817ee1-9ae9-4cb5-89dc-ae35e8f48941
+
 	column Segment
 		dataType: string
 		lineageTag: 070ab03e-8346-4eb3-95c8-0976123d0eed
