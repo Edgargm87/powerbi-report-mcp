@@ -56,6 +56,14 @@ table financials
 		formatString: #,##0.00
 		lineageTag: d8d2e923-ec9c-45cb-b77c-cb6335046553
 
+	measure 'Transaction Count' = COUNTROWS(financials)
+		formatString: #,0
+		lineageTag: 33c8394f-7931-4148-a1cb-67dfab99b6d8
+
+	measure 'Product Count' = DISTINCTCOUNT(financials[Product])
+		formatString: #,0
+		lineageTag: bf314c5c-339e-4c54-846c-7690e70ba68f
+
 	column Segment
 		dataType: string
 		lineageTag: 070ab03e-8346-4eb3-95c8-0976123d0eed
