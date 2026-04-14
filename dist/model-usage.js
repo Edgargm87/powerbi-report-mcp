@@ -797,33 +797,45 @@ function buildFullData(reportPath) {
     // Ensure calc group tables appear even if they have no non-system columns
     calcGroupNames.forEach(n => tableNames.add(n));
     const tables = [...tableNames].sort((a, b) => a.localeCompare(b)).map(tableName => {
-        // Column→FK map: columns on this table that appear as `fromColumn` in a relationship
+        // Outgoing: this table's column is the `fromColumn` (FK pointing to another table)
+        // Incoming: this table's column is the `toColumn` (PK referenced by another table's FK)
         const outgoingRels = rawModel.relationships.filter(r => r.fromTable === tableName);
         const incomingRels = rawModel.relationships.filter(r => r.toTable === tableName);
         const fkByColumn = new Map();
         outgoingRels.forEach(r => fkByColumn.set(r.fromColumn, { table: r.toTable, column: r.toColumn }));
+        const incomingByColumn = new Map();
+        incomingRels.forEach(r => {
+            const list = incomingByColumn.get(r.toColumn) || [];
+            list.push({ table: r.fromTable, column: r.fromColumn, isActive: r.isActive });
+            incomingByColumn.set(r.toColumn, list);
+        });
         // Pull matching ModelColumn entries for this table (skip calc group implicit Name column)
         const tableColumns = columns
             .filter(c => c.table === tableName)
             .filter(c => !(calcGroupNames.has(tableName) && c.name === "Name"))
             .map(c => {
             const fkTarget = fkByColumn.get(c.name);
+            const incomingRefs = incomingByColumn.get(c.name) || [];
             return {
                 name: c.name,
                 dataType: c.dataType || "string",
                 isKey: c.isKey,
+                isInferredPK: incomingRefs.length > 0,
                 isHidden: c.isHidden,
                 isCalculated: c.isCalculated,
                 isFK: !!fkTarget,
                 fkTarget,
+                incomingRefs,
                 usageCount: c.usageCount,
                 status: c.status,
             };
         })
             .sort((a, b) => {
-            // PK first, then FK, then the rest alphabetical
-            if (a.isKey !== b.isKey)
-                return a.isKey ? -1 : 1;
+            // PK (explicit or inferred) first, then FK, then the rest alphabetical
+            const aPK = a.isKey || a.isInferredPK;
+            const bPK = b.isKey || b.isInferredPK;
+            if (aPK !== bPK)
+                return aPK ? -1 : 1;
             if (a.isFK !== b.isFK)
                 return a.isFK ? -1 : 1;
             return a.name.localeCompare(b.name);
@@ -841,7 +853,7 @@ function buildFullData(reportPath) {
             isCalcGroup: calcGroupNames.has(tableName),
             columnCount: tableColumns.length,
             measureCount: tableMeasures.length,
-            keyCount: tableColumns.filter(c => c.isKey).length,
+            keyCount: tableColumns.filter(c => c.isKey || c.isInferredPK).length,
             fkCount: tableColumns.filter(c => c.isFK).length,
             hiddenColumnCount: tableColumns.filter(c => c.isHidden).length,
             columns: tableColumns,
@@ -997,8 +1009,14 @@ function generateHTML(data, reportName) {
   .tcol-name{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-body);font-weight:500;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .tcol-name:hover{color:var(--accent)}
   .tcol-type{font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .tcol-fk{font-size:11px;color:var(--chip-used-tx);font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tcol-fk{font-size:11px;font-family:'JetBrains Mono',monospace;line-height:1.6;white-space:normal;overflow:hidden}
   .tcol-fk .arrow{color:var(--text-faint);margin:0 4px}
+  .tcol-fk .rel-out{color:#22C55E}
+  .tcol-fk .rel-in{color:var(--chip-used-tx)}
+  .tcol-fk .rel-inactive{opacity:.55;font-style:italic}
+  [data-theme="light"] .tcol-fk .rel-out{color:#15803D}
+  .pk-badge.inferred{background:transparent;color:#F59E0B;border:1px dashed rgba(245,158,11,.5)}
+  [data-theme="light"] .pk-badge.inferred{color:#B45309;border-color:rgba(245,158,11,.55)}
   .trel-row{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--text-body)}
   .trel-row:hover{background:var(--surface-alt)}
   .trel-dir{font-size:9px;padding:1px 5px;border-radius:3px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
@@ -1483,19 +1501,27 @@ function renderTables(){
 
     const colRows=t.columns.map(c=>{
       const badges=[];
-      if(c.isKey)badges.push('<span class="pk-badge" title="Primary key (isKey:true)">PK</span>');
+      if(c.isKey)badges.push('<span class="pk-badge" title="Primary key — isKey:true set in the model">PK</span>');
+      else if(c.isInferredPK)badges.push('<span class="pk-badge inferred" title="Inferred primary key — this column is on the one-side of at least one relationship">PK</span>');
       if(c.isFK)badges.push('<span class="fk-badge" title="Foreign key — used as fromColumn in a relationship">FK</span>');
       if(c.isCalculated)badges.push('<span class="calc-col-badge" title="Calculated column">CALC</span>');
       if(c.isHidden)badges.push('<span class="hid-col-badge" title="isHidden:true">HIDDEN</span>');
       const statusClass=c.status==='unused'?'zero':c.status==='indirect'?'low':'good';
-      const fkText=c.isFK&&c.fkTarget?\`→ <span>\${c.fkTarget.table}[\${c.fkTarget.column}]</span>\`:'<span style="color:var(--text-fainter)">—</span>';
+      // Relationship column: FK target (outgoing) or incoming PK refs, or both if the column is a bridge
+      const parts=[];
+      if(c.isFK&&c.fkTarget)parts.push(\`<span class="rel-out">→ \${c.fkTarget.table}[\${c.fkTarget.column}]</span>\`);
+      if(c.incomingRefs&&c.incomingRefs.length>0){
+        const refs=c.incomingRefs.map(r=>\`<span class="rel-in\${r.isActive?'':' rel-inactive'}">← \${r.table}[\${r.column}]\${r.isActive?'':' <span style="font-size:9px;opacity:.7">(inactive)</span>'}</span>\`).join('<span style="color:var(--text-fainter);margin:0 4px">·</span>');
+        parts.push(refs);
+      }
+      const relText=parts.length?parts.join('<br>'):'<span style="color:var(--text-fainter)">—</span>';
       return \`<div class="tcol-row">
         <div>
           <span class="tcol-name" onclick="openLineage('column','\${c.name.replace(/'/g,"\\\\'")}')">\${c.name}</span>\${badges.join('')}
           <span class="usage-count \${statusClass}" style="margin-left:8px;font-size:10px">\${c.usageCount}</span>
         </div>
         <div class="tcol-type">\${c.dataType}</div>
-        <div class="tcol-fk">\${fkText}</div>
+        <div class="tcol-fk">\${relText}</div>
       </div>\`;
     }).join("")||'<div style="padding:8px 10px;color:var(--text-faint);font-size:12px">No columns</div>';
 

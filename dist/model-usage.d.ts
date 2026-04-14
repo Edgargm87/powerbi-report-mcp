@@ -50,6 +50,7 @@ interface TableColumnData {
     name: string;
     dataType: string;
     isKey: boolean;
+    isInferredPK: boolean;
     isHidden: boolean;
     isCalculated: boolean;
     isFK: boolean;
@@ -57,6 +58,11 @@ interface TableColumnData {
         table: string;
         column: string;
     };
+    incomingRefs: Array<{
+        table: string;
+        column: string;
+        isActive: boolean;
+    }>;
     usageCount: number;
     status: "direct" | "indirect" | "unused";
 }
