@@ -1,10 +1,11 @@
-<!-- doc-version: 1.3 | Last updated: 2026-04-12 -->
+<!-- doc-version: 1.4 | Last updated: 2026-04-14 -->
 # Changelog — powerbi-report-mcp
 
 Each release has its own file in [`changelog/`](changelog/).
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| [**0.5.4**](changelog/v0.5.4.md) | 2026-04-14 | Usage dashboard: **Calc Groups** tab (TMDL + BIM parser, per-item DAX expressions, precedence), **light mode** with toggle and localStorage persistence |
 | [**0.5.3**](changelog/v0.5.3.md) | 2026-04-13 | Usage dashboard: three-tier field classification, UDF functions tab, conditional formatting detection, native folder picker, standalone web app |
 | [**0.5.2**](changelog/v0.5.2.md) | 2026-04-12 | Bookmarks unparked (4 tools), `set_page_background`, `guide` knowledge layer (SVG visuals + report design topics) |
 | [**0.5.1**](changelog/v0.5.1.md) | 2026-04-11 | New `model_usage` tool — cross-references semantic model with report, HTML dashboard, standalone CLI, cache invalidation |

@@ -1,5 +1,18 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ServerContext } from "./context.js";
+interface CalcItem {
+    name: string;
+    ordinal: number;
+    expression: string;
+    formatStringExpression: string;
+    description: string;
+}
+interface ModelCalcGroup {
+    name: string;
+    description: string;
+    precedence: number;
+    items: CalcItem[];
+}
 interface ModelMeasure {
     name: string;
     table: string;
@@ -55,6 +68,7 @@ interface FullData {
     columns: ModelColumn[];
     relationships: ModelRelationship[];
     functions: ModelFunction[];
+    calcGroups: ModelCalcGroup[];
     pages: PageData[];
     totals: {
         measuresInModel: number;
@@ -67,6 +81,7 @@ interface FullData {
         columnsUnused: number;
         relationships: number;
         functions: number;
+        calcGroups: number;
         pages: number;
         visuals: number;
     };

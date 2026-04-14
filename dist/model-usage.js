@@ -198,10 +198,11 @@ function parseTmdlModel(modelPath) {
     const tablesDir = path.join(modelPath, "definition", "tables");
     const measures = [];
     const columns = [];
+    const calcGroups = [];
     const relationships = parseTmdlRelationships(modelPath);
     const functions = parseTmdlFunctions(modelPath);
     if (!fs.existsSync(tablesDir))
-        return { measures, columns, relationships, functions };
+        return { measures, columns, relationships, functions, calcGroups };
     for (const file of fs.readdirSync(tablesDir).filter(f => f.endsWith(".tmdl"))) {
         const content = fs.readFileSync(path.join(tablesDir, file), "utf8");
         const lines = content.split("\n");
@@ -210,6 +211,17 @@ function parseTmdlModel(modelPath) {
         let currentColumn = null;
         let collectingExpression = false;
         let expressionLines = [];
+        // Calc group tracking
+        let isCalcGroupTable = false;
+        let inCalcGroupSection = false;
+        let calcGroupDesc = "";
+        let calcGroupPrecedence = 10;
+        let pendingCalcDesc = "";
+        let calcGroupItems = [];
+        let calcItemOrdinal = 0;
+        let currentCalcItem = null;
+        let calcItemExprLines = [];
+        let collectingCalcItemExpr = false;
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             const trimmed = line.trimEnd();
@@ -255,14 +267,107 @@ function parseTmdlModel(modelPath) {
                 columns.push(currentColumn);
                 continue;
             }
+            // Calc group section at depth 1
+            if (tabCount === 1 && /^\tcalculationGroup/.test(line)) {
+                isCalcGroupTable = true;
+                inCalcGroupSection = true;
+                calcGroupDesc = pendingCalcDesc;
+                pendingCalcDesc = "";
+                currentMeasure = null;
+                currentColumn = null;
+                collectingExpression = false;
+                expressionLines = [];
+                continue;
+            }
+            // Inside calc group: depth-2 lines
+            if (inCalcGroupSection && tabCount === 2) {
+                const t2 = trimmed.trim();
+                // Doc comment for next item
+                if (t2.startsWith("///")) {
+                    if (currentCalcItem) {
+                        // Flush previous item expression
+                        if (collectingCalcItemExpr) {
+                            currentCalcItem.expression = calcItemExprLines.join("\n").trim();
+                            collectingCalcItemExpr = false;
+                            calcItemExprLines = [];
+                        }
+                        calcGroupItems.push(currentCalcItem);
+                        currentCalcItem = null;
+                    }
+                    pendingCalcDesc += (pendingCalcDesc ? " " : "") + t2.replace(/^\/\/\/\s*/, "");
+                    continue;
+                }
+                // precedence property
+                if (t2.startsWith("precedence:")) {
+                    calcGroupPrecedence = parseInt(t2.replace("precedence:", "").trim()) || 10;
+                    continue;
+                }
+                // calculationItem Name = expr
+                const ciMatch = t2.match(/^calculationItem\s+'?([^'=]+?)'?\s*=\s*(.*)$/);
+                if (ciMatch) {
+                    if (currentCalcItem) {
+                        if (collectingCalcItemExpr) {
+                            currentCalcItem.expression = calcItemExprLines.join("\n").trim();
+                            collectingCalcItemExpr = false;
+                            calcItemExprLines = [];
+                        }
+                        calcGroupItems.push(currentCalcItem);
+                    }
+                    const itemExpr = ciMatch[2].trim();
+                    currentCalcItem = {
+                        name: ciMatch[1].trim(),
+                        ordinal: calcItemOrdinal++,
+                        expression: itemExpr,
+                        formatStringExpression: "",
+                        description: pendingCalcDesc,
+                    };
+                    pendingCalcDesc = "";
+                    if (!itemExpr) {
+                        collectingCalcItemExpr = true;
+                        calcItemExprLines = [];
+                    }
+                    continue;
+                }
+                // formatStringDefinition or other known props on item
+                if (currentCalcItem && t2.startsWith("formatStringExpression:")) {
+                    currentCalcItem.formatStringExpression = t2.replace("formatStringExpression:", "").trim();
+                    continue;
+                }
+                // Expression continuation at depth 3
+                if (collectingCalcItemExpr && currentCalcItem && tabCount >= 3) {
+                    calcItemExprLines.push(t2);
+                    continue;
+                }
+                continue;
+            }
+            // Depth 3 inside calc item expression
+            if (inCalcGroupSection && collectingCalcItemExpr && currentCalcItem && tabCount >= 3) {
+                calcItemExprLines.push(trimmed.trim());
+                continue;
+            }
             // Other depth-1 items (partition, hierarchy, etc.) end current measure/column
             if (tabCount === 1 && !line.match(/^\t\s/)) {
+                // Exit calc group section
+                if (inCalcGroupSection) {
+                    if (currentCalcItem) {
+                        if (collectingCalcItemExpr)
+                            currentCalcItem.expression = calcItemExprLines.join("\n").trim();
+                        calcGroupItems.push(currentCalcItem);
+                        currentCalcItem = null;
+                    }
+                    inCalcGroupSection = false;
+                }
                 if (currentMeasure && collectingExpression) {
                     currentMeasure.daxExpression = expressionLines.join("\n").trim();
                 }
                 collectingExpression = false;
                 expressionLines = [];
                 currentMeasure = null;
+                // Skip the Name column that belongs to the calc group table
+                if (isCalcGroupTable && /^\tcolumn\s+/.test(line)) {
+                    currentColumn = null;
+                    continue;
+                }
                 currentColumn = null;
                 continue;
             }
@@ -307,8 +412,17 @@ function parseTmdlModel(modelPath) {
         if (currentMeasure && collectingExpression) {
             currentMeasure.daxExpression = expressionLines.join("\n").trim();
         }
+        // Flush final calc item and register calc group
+        if (isCalcGroupTable) {
+            if (currentCalcItem) {
+                if (collectingCalcItemExpr)
+                    currentCalcItem.expression = calcItemExprLines.join("\n").trim();
+                calcGroupItems.push(currentCalcItem);
+            }
+            calcGroups.push({ name: tableName, description: calcGroupDesc, precedence: calcGroupPrecedence, items: calcGroupItems });
+        }
     }
-    return { measures, columns, relationships, functions };
+    return { measures, columns, relationships, functions, calcGroups };
 }
 function parseBimModel(modelPath) {
     const bimPath = path.join(modelPath, "model.bim");
@@ -364,7 +478,22 @@ function parseBimFile(bimPath) {
             description: expr.description || "",
         });
     }
-    return { measures, columns, relationships, functions };
+    const calcGroups = [];
+    for (const table of bim.model?.tables || []) {
+        if (!table.calculationGroup)
+            continue;
+        const cg = table.calculationGroup;
+        const items = (cg.calculationItems || []).map((ci, idx) => ({
+            name: ci.name || "",
+            ordinal: ci.ordinal ?? idx,
+            expression: Array.isArray(ci.expression) ? ci.expression.join("\n") : (ci.expression || ""),
+            formatStringExpression: Array.isArray(ci.formatStringDefinition) ? ci.formatStringDefinition.join("\n") : (ci.formatStringDefinition || ""),
+            description: ci.description || "",
+        }));
+        items.sort((a, b) => a.ordinal - b.ordinal);
+        calcGroups.push({ name: table.name || "", description: table.description || "", precedence: cg.precedence ?? 0, items });
+    }
+    return { measures, columns, relationships, functions, calcGroups };
 }
 function parseModel(modelPath) {
     const tablesDir = path.join(modelPath, "definition", "tables");
@@ -664,6 +793,7 @@ function buildFullData(reportPath) {
         columns,
         relationships: rawModel.relationships,
         functions: rawModel.functions,
+        calcGroups: rawModel.calcGroups,
         pages,
         totals: {
             measuresInModel: measures.length,
@@ -676,6 +806,7 @@ function buildFullData(reportPath) {
             columnsUnused: columns.filter(c => c.status === "unused").length,
             relationships: rawModel.relationships.length,
             functions: rawModel.functions.length,
+            calcGroups: rawModel.calcGroups.length,
             pages: pageCount,
             visuals: visualCount,
         },
@@ -692,122 +823,151 @@ function generateHTML(data, reportName) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Model Usage - ${reportName}</title>
+<script>(function(){try{var t=localStorage.getItem('usage-theme')||'dark';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'DM Sans',system-ui,sans-serif;background:#0B0D11;color:#E2E8F0;min-height:100vh}
+  :root{
+    --bg:#0B0D11;--surface:#1A1D27;--surface-alt:#12141A;--surface-deep:#12141C;--surface-center:#14161C;
+    --border:#2A2D3A;--border-soft:#1E2028;--border-row:#1A1D27;
+    --text:#F8FAFC;--text-body:#E2E8F0;--text-muted:#94A3B8;--text-dim:#64748B;--text-faint:#475569;--text-fainter:#334155;
+    --row-hover:#1A1D27;--hover-border:#475569;
+    --chip-dep-bg:rgba(139,92,246,.1);--chip-dep-bd:rgba(139,92,246,.2);--chip-dep-tx:#A78BFA;--chip-dep-hover:rgba(139,92,246,.2);
+    --chip-used-bg:rgba(59,130,246,.1);--chip-used-bd:rgba(59,130,246,.15);--chip-used-tx:#93C5FD;
+    --code-name:#93C5FD;--code-type:#A78BFA;--code-punct:#475569;
+    --accent:#3B82F6;
+  }
+  [data-theme="light"]{
+    --bg:#F8FAFC;--surface:#FFFFFF;--surface-alt:#F1F5F9;--surface-deep:#FFFFFF;--surface-center:#FFFBEB;
+    --border:#E2E8F0;--border-soft:#F1F5F9;--border-row:#F1F5F9;
+    --text:#0F172A;--text-body:#1E293B;--text-muted:#475569;--text-dim:#64748B;--text-faint:#94A3B8;--text-fainter:#CBD5E1;
+    --row-hover:#F1F5F9;--hover-border:#94A3B8;
+    --chip-dep-bg:rgba(139,92,246,.08);--chip-dep-bd:rgba(139,92,246,.3);--chip-dep-tx:#6D28D9;--chip-dep-hover:rgba(139,92,246,.15);
+    --chip-used-bg:rgba(59,130,246,.08);--chip-used-bd:rgba(59,130,246,.25);--chip-used-tx:#1D4ED8;
+    --code-name:#1D4ED8;--code-type:#6D28D9;--code-punct:#94A3B8;
+    --accent:#2563EB;
+  }
+  body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--text-body);min-height:100vh;transition:background .2s,color .2s}
   .mono{font-family:'JetBrains Mono',monospace}
   .container{max-width:1100px;margin:0 auto;padding:20px 16px}
   .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
   .header-left .top{display:flex;align-items:center;gap:8px}
-  .header-label{font-size:13px;color:#3B82F6;font-weight:700;font-family:'JetBrains Mono',monospace}
-  .header-sep{font-size:13px;color:#334155}
-  .header-sub{font-size:13px;color:#64748B}
-  .timestamp{font-size:10px;color:#334155;font-family:'JetBrains Mono',monospace;margin-top:4px}
-  .refresh-btn{padding:6px 14px;font-size:11px;font-family:'JetBrains Mono',monospace;border:1px solid #2A2D3A;border-radius:6px;cursor:pointer;background:#1A1D27;color:#64748B;transition:all .15s}
-  .refresh-btn:hover{background:#2A2D3A;color:#F8FAFC;border-color:#3B82F6}
+  .header-label{font-size:13px;color:var(--accent);font-weight:700;font-family:'JetBrains Mono',monospace}
+  .header-sep{font-size:13px;color:var(--text-fainter)}
+  .header-sub{font-size:13px;color:var(--text-dim)}
+  .timestamp{font-size:10px;color:var(--text-fainter);font-family:'JetBrains Mono',monospace;margin-top:4px}
+  .header-actions{display:flex;gap:6px;align-items:center}
+  .theme-btn{padding:6px 10px;font-size:13px;line-height:1;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--surface);color:var(--text-dim);transition:all .15s}
+  .theme-btn:hover{background:var(--border);color:var(--text);border-color:var(--accent)}
+  .refresh-btn{padding:6px 14px;font-size:11px;font-family:'JetBrains Mono',monospace;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--surface);color:var(--text-dim);transition:all .15s}
+  .refresh-btn:hover{background:var(--border);color:var(--text);border-color:var(--accent)}
   .summary{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px}
-  .stat-detail{font-size:10px;color:#475569;margin-top:2px;font-family:'JetBrains Mono',monospace}
-  .stat{background:#1A1D27;border-radius:8px;border:1px solid #2A2D3A;padding:12px 14px;text-align:center}
-  .stat-value{font-size:22px;font-weight:700;color:#F8FAFC}
+  .stat-detail{font-size:10px;color:var(--text-faint);margin-top:2px;font-family:'JetBrains Mono',monospace}
+  .stat{background:var(--surface);border-radius:8px;border:1px solid var(--border);padding:12px 14px;text-align:center}
+  .stat-value{font-size:22px;font-weight:700;color:var(--text)}
   .stat-value.good{color:#22C55E}.stat-value.warn{color:#F59E0B}.stat-value.danger{color:#EF4444}
-  .stat-label{font-size:10px;color:#64748B;margin-top:2px;text-transform:uppercase;letter-spacing:.06em}
-  .tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid #1E2028}
-  .tab{padding:8px 16px;font-size:13px;border:none;border-bottom:2px solid transparent;cursor:pointer;background:none;color:#64748B;font-family:inherit;font-weight:500;transition:all .15s}
-  .tab.active{color:#F8FAFC;border-bottom-color:#3B82F6}
-  .tab:hover:not(.active){color:#94A3B8}
-  .tab .badge{font-size:10px;background:#2A2D3A;color:#94A3B8;padding:1px 6px;border-radius:10px;margin-left:6px;font-family:'JetBrains Mono',monospace}
+  .stat-label{font-size:10px;color:var(--text-dim);margin-top:2px;text-transform:uppercase;letter-spacing:.06em}
+  .tabs{display:flex;gap:2px;margin-bottom:16px;border-bottom:1px solid var(--border-soft)}
+  .tab{padding:8px 16px;font-size:13px;border:none;border-bottom:2px solid transparent;cursor:pointer;background:none;color:var(--text-dim);font-family:inherit;font-weight:500;transition:all .15s}
+  .tab.active{color:var(--text);border-bottom-color:var(--accent)}
+  .tab:hover:not(.active){color:var(--text-muted)}
+  .tab .badge{font-size:10px;background:var(--border);color:var(--text-muted);padding:1px 6px;border-radius:10px;margin-left:6px;font-family:'JetBrains Mono',monospace}
   .tab .badge.warn{background:rgba(245,158,11,.15);color:#F59E0B}
   .panel{display:none}.panel.active{display:block}
   .search-row{display:flex;gap:10px;margin-bottom:14px;align-items:center}
-  .search-input{flex:1;padding:7px 12px;font-size:13px;font-family:inherit;background:#1A1D27;border:1px solid #2A2D3A;border-radius:6px;color:#E2E8F0;outline:none;transition:border-color .15s}
-  .search-input:focus{border-color:#3B82F6}
-  .search-input::placeholder{color:#475569}
-  .filter-btn{padding:6px 12px;font-size:11px;border:1px solid #2A2D3A;border-radius:6px;cursor:pointer;background:#1A1D27;color:#64748B;font-family:inherit;transition:all .15s}
-  .filter-btn:hover,.filter-btn.active{background:#2A2D3A;color:#F8FAFC}
-  .filter-btn.active{border-color:#3B82F6;color:#3B82F6}
+  .search-input{flex:1;padding:7px 12px;font-size:13px;font-family:inherit;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text-body);outline:none;transition:border-color .15s}
+  .search-input:focus{border-color:var(--accent)}
+  .search-input::placeholder{color:var(--text-faint)}
+  .filter-btn{padding:6px 12px;font-size:11px;border:1px solid var(--border);border-radius:6px;cursor:pointer;background:var(--surface);color:var(--text-dim);font-family:inherit;transition:all .15s}
+  .filter-btn:hover,.filter-btn.active{background:var(--border);color:var(--text)}
+  .filter-btn.active{border-color:var(--accent);color:var(--accent)}
   .data-table{width:100%;border-collapse:collapse}
-  .data-table th{text-align:left;padding:8px 12px;font-size:10px;color:#64748B;text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid #2A2D3A;font-weight:600;cursor:pointer;user-select:none;white-space:nowrap}
-  .data-table th:hover{color:#94A3B8}
-  .data-table td{padding:8px 12px;font-size:13px;border-bottom:1px solid #1A1D27;vertical-align:top}
+  .data-table th{text-align:left;padding:8px 12px;font-size:10px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border);font-weight:600;cursor:pointer;user-select:none;white-space:nowrap}
+  .data-table th:hover{color:var(--text-muted)}
+  .data-table td{padding:8px 12px;font-size:13px;border-bottom:1px solid var(--border-row);vertical-align:top}
   .data-table tr{transition:background .1s}
-  .data-table tr:hover{background:#1A1D27}
+  .data-table tr:hover{background:var(--row-hover)}
   .data-table tr.unused{opacity:.5}
   .data-table tr.unused td:first-child{border-left:3px solid #EF4444;padding-left:9px}
   .data-table tr.indirect{opacity:.7}
   .data-table tr.indirect td:first-child{border-left:3px solid #F59E0B;padding-left:9px}
-  .field-name{font-weight:600;color:#F8FAFC;cursor:pointer;transition:color .15s;text-decoration:underline;text-decoration-color:#2A2D3A;text-underline-offset:2px}
-  .field-name:hover{color:#3B82F6;text-decoration-color:#3B82F6}
-  .field-table{font-size:11px;color:#64748B;font-family:'JetBrains Mono',monospace}
+  .field-name{font-weight:600;color:var(--text);cursor:pointer;transition:color .15s;text-decoration:underline;text-decoration-color:var(--border);text-underline-offset:2px}
+  .field-name:hover{color:var(--accent);text-decoration-color:var(--accent)}
+  .field-table{font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace}
   .usage-count{font-family:'JetBrains Mono',monospace;font-weight:600}
   .usage-count.zero{color:#EF4444}.usage-count.low{color:#F59E0B}.usage-count.good{color:#22C55E}
-  .dep-chip{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;margin:1px 2px;font-family:'JetBrains Mono',monospace;background:rgba(139,92,246,.1);color:#A78BFA;border:1px solid rgba(139,92,246,.2);cursor:pointer;transition:all .15s}
-  .dep-chip:hover{background:rgba(139,92,246,.2);border-color:#A78BFA}
-  .used-chip{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;margin:1px 2px;background:rgba(59,130,246,.1);color:#93C5FD;border:1px solid rgba(59,130,246,.15)}
+  .dep-chip{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;margin:1px 2px;font-family:'JetBrains Mono',monospace;background:var(--chip-dep-bg);color:var(--chip-dep-tx);border:1px solid var(--chip-dep-bd);cursor:pointer;transition:all .15s}
+  .dep-chip:hover{background:var(--chip-dep-hover);border-color:var(--chip-dep-tx)}
+  .used-chip{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;margin:1px 2px;background:var(--chip-used-bg);color:var(--chip-used-tx);border:1px solid var(--chip-used-bd)}
   .slicer-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(236,72,153,.12);color:#EC4899;font-weight:600;margin-left:4px}
-  .format-str{font-size:11px;color:#475569;font-family:'JetBrains Mono',monospace}
+  .format-str{font-size:11px;color:var(--text-faint);font-family:'JetBrains Mono',monospace}
 
-  .lineage-back{display:flex;align-items:center;gap:6px;font-size:12px;color:#64748B;cursor:pointer;margin-bottom:16px;transition:color .15s}
-  .lineage-back:hover{color:#3B82F6}
-  .lineage-hero{background:#1A1D27;border-radius:10px;border:1px solid #2A2D3A;padding:20px;margin-bottom:16px}
-  .lineage-hero-title{font-size:20px;font-weight:700;color:#F8FAFC;display:flex;align-items:center;gap:10px}
+  .lineage-back{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim);cursor:pointer;margin-bottom:16px;transition:color .15s}
+  .lineage-back:hover{color:var(--accent)}
+  .lineage-hero{background:var(--surface);border-radius:10px;border:1px solid var(--border);padding:20px;margin-bottom:16px}
+  .lineage-hero-title{font-size:20px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:10px}
   .lineage-hero-title .dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
-  .lineage-hero-meta{font-size:12px;color:#64748B;margin-top:6px;font-family:'JetBrains Mono',monospace}
-  .lineage-dax{font-family:'JetBrains Mono',monospace;font-size:12px;color:#94A3B8;background:#12141A;padding:10px 12px;border-radius:6px;border:1px solid #2A2D3A;margin-top:12px;white-space:pre-wrap;word-break:break-all;line-height:1.6}
+  .lineage-hero-meta{font-size:12px;color:var(--text-dim);margin-top:6px;font-family:'JetBrains Mono',monospace}
+  .lineage-dax{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--text-muted);background:var(--surface-alt);padding:10px 12px;border-radius:6px;border:1px solid var(--border);margin-top:12px;white-space:pre-wrap;word-break:break-all;line-height:1.6}
 
   .lineage-flow-row{display:flex;gap:0;align-items:flex-start}
   .lineage-flow-col{flex:1;display:flex;flex-direction:column;gap:6px;padding:0 8px}
-  .lineage-flow-col-label{font-size:10px;color:#334155;text-transform:uppercase;letter-spacing:.08em;text-align:center;margin-bottom:6px;font-weight:600}
-  .lineage-arrow-col{display:flex;align-items:flex-start;justify-content:center;color:#334155;font-size:18px;flex-shrink:0;width:32px;padding-top:36px}
+  .lineage-flow-col-label{font-size:10px;color:var(--text-fainter);text-transform:uppercase;letter-spacing:.08em;text-align:center;margin-bottom:6px;font-weight:600}
+  .lineage-arrow-col{display:flex;align-items:flex-start;justify-content:center;color:var(--text-fainter);font-size:18px;flex-shrink:0;width:32px;padding-top:36px}
 
-  .lc{background:#1A1D27;border:1px solid #2A2D3A;border-radius:8px;padding:10px 14px;transition:all .15s}
-  .lc:hover{border-color:#475569}
+  .lc{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 14px;transition:all .15s}
+  .lc:hover{border-color:var(--hover-border)}
   .lc.clickable{cursor:pointer}
-  .lc.clickable:hover{border-color:#3B82F6}
-  .lc .lc-name{font-size:13px;font-weight:600;color:#F8FAFC}
-  .lc .lc-sub{font-size:10px;color:#64748B;font-family:'JetBrains Mono',monospace;margin-top:2px}
-  .lc .lc-role{font-size:10px;color:#475569;margin-top:3px}
+  .lc.clickable:hover{border-color:var(--accent)}
+  .lc .lc-name{font-size:13px;font-weight:600;color:var(--text)}
+  .lc .lc-sub{font-size:10px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;margin-top:2px}
+  .lc .lc-role{font-size:10px;color:var(--text-faint);margin-top:3px}
   .lc.upstream{border-left:3px solid #A78BFA}
   .lc.source{border-left:3px solid #10B981}
-  .lc.center{border-left:3px solid #F59E0B;background:#14161C}
-  .lc.center.col-type{border-left-color:#3B82F6}
+  .lc.center{border-left:3px solid #F59E0B;background:var(--surface-center)}
+  .lc.center.col-type{border-left-color:var(--accent)}
   .lc.downstream{border-left:3px solid #8B5CF6}
   .lc.empty{border-style:dashed;opacity:.4}
   .lc.udf{border-left:3px solid #14B8A6}
   .lc.feeds{border-left:3px solid #F59E0B;background:rgba(245,158,11,.04)}
 
-  .feeds-label{font-size:9px;color:#64748B;text-transform:uppercase;letter-spacing:.06em;margin-top:10px;margin-bottom:4px;font-weight:600}
+  .feeds-label{font-size:9px;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-top:10px;margin-bottom:4px;font-weight:600}
 
-  .page-card{background:#1A1D27;border-radius:10px;border:1px solid #2A2D3A;margin-bottom:12px;overflow:hidden;transition:border-color .15s}
-  .page-card:hover{border-color:#475569}
+  .page-card{background:var(--surface);border-radius:10px;border:1px solid var(--border);margin-bottom:12px;overflow:hidden;transition:border-color .15s}
+  .page-card:hover{border-color:var(--hover-border)}
   .page-header{padding:14px 18px;cursor:pointer;display:flex;align-items:center;gap:14px;user-select:none}
-  .page-name{font-size:16px;font-weight:700;color:#F8FAFC;flex:1}
+  .page-name{font-size:16px;font-weight:700;color:var(--text);flex:1}
   .page-stats{display:flex;gap:12px;align-items:center}
   .page-stat{text-align:center}
   .page-stat-val{font-size:16px;font-weight:700;font-family:'JetBrains Mono',monospace}
-  .page-stat-label{font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.05em}
-  .page-expand{color:#475569;font-size:12px;transition:transform .2s;flex-shrink:0}
+  .page-stat-label{font-size:9px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em}
+  .page-expand{color:var(--text-faint);font-size:12px;transition:transform .2s;flex-shrink:0}
   .page-card.open .page-expand{transform:rotate(180deg)}
   .page-body{max-height:0;overflow:hidden;transition:max-height .3s ease}
   .page-card.open .page-body{max-height:2000px}
   .page-body-inner{padding:0 18px 16px}
   .page-section{margin-bottom:12px}
-  .page-section-title{font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px}
-  .page-section-title .line{flex:1;height:1px;background:#1E2028}
+  .page-section-title{font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  .page-section-title .line{flex:1;height:1px;background:var(--border-soft)}
   .page-visual-row{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;transition:background .1s;margin-bottom:2px}
-  .page-visual-row:hover{background:#12141A}
-  .page-visual-type{font-size:11px;color:#64748B;font-family:'JetBrains Mono',monospace;width:100px;flex-shrink:0}
-  .page-visual-title{font-size:13px;font-weight:600;color:#E2E8F0;flex:0 0 200px;min-width:200px}
+  .page-visual-row:hover{background:var(--surface-alt)}
+  .page-visual-type{font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;width:100px;flex-shrink:0}
+  .page-visual-title{font-size:13px;font-weight:600;color:var(--text-body);flex:0 0 200px;min-width:200px}
   .page-visual-bindings{display:flex;flex-wrap:wrap;gap:3px}
   .page-type-summary{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-  .page-type-chip{font-size:10px;padding:3px 8px;border-radius:4px;background:#12141A;color:#94A3B8;border:1px solid #2A2D3A;font-family:'JetBrains Mono',monospace}
+  .page-type-chip{font-size:10px;padding:3px 8px;border-radius:4px;background:var(--surface-alt);color:var(--text-muted);border:1px solid var(--border);font-family:'JetBrains Mono',monospace}
 
-  .refresh-bar{position:fixed;bottom:0;left:0;right:0;height:28px;background:#12141C;border-top:1px solid #2A2D3A;display:flex;align-items:center;justify-content:center;gap:12px;font-size:11px;font-family:'JetBrains Mono',monospace;color:#64748B;z-index:999}
-  .refresh-bar .timer{color:#94A3B8}
-  .refresh-bar .dot{width:6px;height:6px;border-radius:50%;background:#334155;display:inline-block}
+  .ci-card{padding:10px 12px;border-radius:6px;background:var(--surface-alt);border:1px solid var(--border);margin-bottom:6px}
+  .ci-head{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+  .ci-ord{font-size:11px;color:var(--text-faint);font-weight:600;min-width:20px}
+  .ci-name{font-size:13px;font-weight:600;color:var(--text-body)}
+
+  .refresh-bar{position:fixed;bottom:0;left:0;right:0;height:28px;background:var(--surface-deep);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:12px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-dim);z-index:999}
+  .refresh-bar .timer{color:var(--text-muted)}
+  .refresh-bar .dot{width:6px;height:6px;border-radius:50%;background:var(--text-fainter);display:inline-block}
   .refresh-bar .dot.stale{background:#F59E0B}
-  .refresh-bar button{padding:2px 10px;font-size:10px;font-family:'JetBrains Mono',monospace;border:1px solid #2A2D3A;border-radius:4px;cursor:pointer;background:#1A1D27;color:#64748B;transition:all .15s}
-  .refresh-bar button:hover{background:#2A2D3A;color:#F8FAFC;border-color:#3B82F6}
+  .refresh-bar button{padding:2px 10px;font-size:10px;font-family:'JetBrains Mono',monospace;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:var(--surface);color:var(--text-dim);transition:all .15s}
+  .refresh-bar button:hover{background:var(--border);color:var(--text);border-color:var(--accent)}
 
   @media(max-width:768px){.summary{grid-template-columns:repeat(3,1fr)}.lineage-flow-row{flex-direction:column}.lineage-arrow-col{transform:rotate(90deg);padding:8px 0;width:100%}}
 </style>
@@ -819,7 +979,10 @@ function generateHTML(data, reportName) {
       <div class="top"><span class="header-label">MODEL USAGE</span><span class="header-sep">|</span><span class="header-sub">${reportName}</span></div>
       <div class="timestamp">Generated: ${ts}</div>
     </div>
-    <button class="refresh-btn" onclick="location.reload()">↻ Refresh</button>
+    <div class="header-actions">
+      <button class="theme-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle light/dark theme" aria-label="Toggle theme">☾</button>
+      <button class="refresh-btn" onclick="location.reload()">↻ Refresh</button>
+    </div>
   </div>
   <div class="summary" id="summary"></div>
   <div class="tabs" id="tabs"></div>
@@ -850,6 +1013,7 @@ function generateHTML(data, reportName) {
 
   <div class="panel" id="panel-relationships"><div id="relationships-content"></div></div>
   <div class="panel" id="panel-functions"><div id="functions-content"></div></div>
+  <div class="panel" id="panel-calcgroups"><div id="calcgroups-content"></div></div>
   <div class="panel" id="panel-pages"><div id="pages-content"></div></div>
   <div class="panel" id="panel-lineage"><div id="lineage-content"></div></div>
   <div class="panel" id="panel-unused"><div id="unused-content"></div></div>
@@ -857,6 +1021,16 @@ function generateHTML(data, reportName) {
 
 <script>
 const DATA=${JSON.stringify(data)};
+
+function toggleTheme(){
+  var cur=document.documentElement.getAttribute('data-theme')||'dark';
+  var next=cur==='dark'?'light':'dark';
+  document.documentElement.setAttribute('data-theme',next);
+  try{localStorage.setItem('usage-theme',next);}catch(e){}
+  var btn=document.getElementById('theme-btn');
+  if(btn)btn.textContent=next==='dark'?'☾':'☀';
+}
+(function(){var t=document.documentElement.getAttribute('data-theme')||'dark';var btn=document.getElementById('theme-btn');if(btn)btn.textContent=t==='dark'?'☾':'☀';})();
 
 let activeTab="measures",lastTab="measures";
 let sortState={measures:{key:"usageCount",desc:true},columns:{key:"usageCount",desc:true}};
@@ -911,7 +1085,7 @@ function renderTabs(){
   const um=DATA.totals.measuresUnused+DATA.totals.columnsUnused;
   document.getElementById("tabs").innerHTML=[
     {id:"measures",l:"Measures",b:DATA.measures.length},{id:"columns",l:"Columns",b:DATA.columns.length},
-    {id:"relationships",l:"Relationships",b:DATA.relationships.length},{id:"functions",l:"Functions",b:DATA.functions.filter(f=>!f.name.endsWith('.About')).length},{id:"pages",l:"Pages",b:pageData.length},{id:"unused",l:"Unused",b:um,w:um>0},{id:"lineage",l:"Lineage",b:null}
+    {id:"relationships",l:"Relationships",b:DATA.relationships.length},{id:"functions",l:"Functions",b:DATA.functions.filter(f=>!f.name.endsWith('.About')).length},{id:"calcgroups",l:"Calc Groups",b:DATA.calcGroups.length},{id:"pages",l:"Pages",b:pageData.length},{id:"unused",l:"Unused",b:um,w:um>0},{id:"lineage",l:"Lineage",b:null}
   ].map(t=>\`<button class="tab \${activeTab===t.id?'active':''}" onclick="switchTab('\${t.id}')">\${t.l}\${t.b!==null?\`<span class="badge \${t.w?'warn':''}">\${t.b}</span>\`:''}</button>\`).join("");
 }
 
@@ -921,7 +1095,7 @@ function switchTab(id){
   document.querySelectorAll(".panel").forEach(p=>p.classList.remove("active"));
   document.getElementById("panel-"+id).classList.add("active");
   if(id==="lineage"&&!document.getElementById("lineage-content").innerHTML.trim())
-    document.getElementById("lineage-content").innerHTML='<div style="text-align:center;padding:60px 20px;color:#475569"><div style="font-size:16px;margin-bottom:8px">Click a measure or column name to view its lineage</div><div style="font-size:12px">Go to the Measures or Columns tab and click any field name</div></div>';
+    document.getElementById("lineage-content").innerHTML='<div style="text-align:center;padding:60px 20px;color:var(--text-faint)"><div style="font-size:16px;margin-bottom:8px">Click a measure or column name to view its lineage</div><div style="font-size:12px">Go to the Measures or Columns tab and click any field name</div></div>';
 }
 
 function sc(s){return s==='unused'?'unused':s==='indirect'?'indirect':''}
@@ -1212,8 +1386,8 @@ function renderFunctions(){
     const refMeasures=DATA.measures.filter(m=>m.daxExpression.includes("'"+f.name+"'")||m.daxExpression.includes(f.name+'('));
     const params=f.parameters?f.parameters.split(',').map(p=>{
       const parts=p.trim().split(/\\s*:\\s*/);
-      return parts.length>=2?'<span style="color:#93C5FD">'+parts[0].trim()+'</span> <span style="color:#475569">:</span> <span style="color:#A78BFA">'+parts.slice(1).join(':').trim()+'</span>':'<span style="color:#93C5FD">'+p.trim()+'</span>';
-    }).join('<span style="color:#475569">, </span>'):'<span style="color:#475569;font-style:italic">none</span>';
+      return parts.length>=2?'<span style="color:var(--code-name)">'+parts[0].trim()+'</span> <span style="color:var(--code-punct)">:</span> <span style="color:var(--code-type)">'+parts.slice(1).join(':').trim()+'</span>':'<span style="color:var(--code-name)">'+p.trim()+'</span>';
+    }).join('<span style="color:var(--code-punct)">, </span>'):'<span style="color:var(--code-punct);font-style:italic">none</span>';
     const desc=f.description?'<div style="font-size:11px;color:#64748B;margin-top:6px;line-height:1.4">'+f.description.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>':'';
     const expr=f.expression.replace(/</g,'&lt;').replace(/>/g,'&gt;');
     const measureChips=refMeasures.map(m=>\`<span class="dep-chip" style="background:rgba(245,158,11,.1);color:#F59E0B;border-color:rgba(245,158,11,.2);cursor:pointer" onclick="event.stopPropagation();openLineage('measure','\${m.name}')">\${m.name}</span>\`).join('');
@@ -1239,11 +1413,49 @@ function renderFunctions(){
   document.getElementById("functions-content").innerHTML=h;
 }
 
+function renderCalcGroups(){
+  const cgs=DATA.calcGroups;
+  if(!cgs.length){document.getElementById("calcgroups-content").innerHTML='<div style="text-align:center;padding:40px;color:#6B7280">No calculation groups found in the model</div>';return;}
+  let h='<div style="display:flex;flex-direction:column;gap:12px">';
+  for(const cg of cgs){
+    const desc=cg.description?'<div style="font-size:11px;color:var(--text-dim);margin-top:4px">'+cg.description.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>':'';
+    let items='';
+    for(const item of cg.items){
+      const expr=item.expression.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const fmtBadge=item.formatStringExpression?'<span class="mono" style="margin-left:8px;font-size:10px;color:var(--text-dim)">fmt: '+item.formatStringExpression.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</span>':'';
+      const itemDesc=item.description?'<div style="font-size:11px;color:var(--text-dim);margin-bottom:4px">'+item.description.replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</div>':'';
+      items+=\`<div class="ci-card">
+        <div class="ci-head">
+          <span class="ci-ord">\${item.ordinal}</span>
+          <span class="ci-name">\${item.name}</span>\${fmtBadge}
+        </div>\${itemDesc}
+        <div class="lineage-dax" style="font-size:12px">\${expr}</div>
+      </div>\`;
+    }
+    h+=\`<div class="page-card">
+      <div class="page-header" onclick="this.parentElement.classList.toggle('open')">
+        <div style="flex:1">
+          <div class="page-name" style="font-size:14px">\${cg.name}</div>
+          \${desc}
+        </div>
+        <div class="page-stats">
+          <div class="page-stat"><div class="page-stat-val" style="color:#A78BFA">\${cg.items.length}</div><div class="page-stat-label">Items</div></div>
+          <div class="page-stat"><div class="page-stat-val" style="color:#64748B">\${cg.precedence}</div><div class="page-stat-label">Precedence</div></div>
+        </div>
+        <span class="page-expand">▼</span>
+      </div>
+      <div class="page-body"><div class="page-body-inner">\${items}</div></div>
+    </div>\`;
+  }
+  h+='</div>';
+  document.getElementById("calcgroups-content").innerHTML=h;
+}
+
 function sortTable(t,k){const s=sortState[t];if(s.key===k)s.desc=!s.desc;else{s.key=k;s.desc=true;}t==="measures"?renderMeasures():renderColumns();}
 function filterTable(t,v){searchTerms[t]=v;t==="measures"?renderMeasures():renderColumns();}
 function toggleUnused(t){showUnusedOnly[t]=!showUnusedOnly[t];document.getElementById("btn-unused-"+(t==="measures"?"m":"c")).classList.toggle("active");t==="measures"?renderMeasures():renderColumns();}
 
-renderSummary();renderTabs();renderMeasures();renderColumns();renderRelationships();renderFunctions();renderPages();renderUnused();switchTab("measures");
+renderSummary();renderTabs();renderMeasures();renderColumns();renderRelationships();renderFunctions();renderCalcGroups();renderPages();renderUnused();switchTab("measures");
 
 // Auto-refresh: 5-minute countdown with stale detection
 (function(){

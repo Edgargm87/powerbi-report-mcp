@@ -1,4 +1,4 @@
-<!-- doc-version: 1.3 | Last updated: 2026-04-13 -->
+<!-- doc-version: 1.4 | Last updated: 2026-04-14 -->
 <p align="center">
   <h1 align="center">Power BI Report MCP Server</h1>
   <p align="center">
@@ -208,6 +208,22 @@ Load all tools at startup with:
 | `bulk_bind` | Rebind multiple visuals in one call |
 | `model_usage` | Cross-reference semantic model with report — three-tier classification (direct/indirect/unused), DAX lineage, UDF functions, conditional formatting detection |
 | `load_tools` | List and activate on-demand tools |
+
+#### Why `model_usage` is a default tool — the deletion fail-safe
+
+`model_usage` ships in the default set (not on-demand) because it is the **safety layer** for any AI-driven cleanup of the semantic model. When a user asks Claude (or any LLM) to *"remove unused measures"* or *"clean up dead columns"*, the model would otherwise guess based on measure names and delete things blindly — and break visuals that depend on indirect references.
+
+With `model_usage` always available, the LLM can call it first and see the full dependency picture before touching anything:
+
+| Scenario | Without `model_usage` | With `model_usage` |
+|---|---|---|
+| User: *"delete all unused measures"* | LLM guesses by name, deletes `Margin Delta pp`, `Margin Arrow` breaks the next day | LLM sees `Margin Delta pp` is status `indirect` (referenced by `Margin Arrow`), keeps it, lists only the truly safe ones |
+| User: *"is `Discount Arrow` used anywhere?"* | LLM greps the visual JSON, misses conditional formatting bindings | LLM sees it bound to `cardImage.imageData` / `referenceLabel.value` and reports exactly where |
+| User: *"which UDF functions can I drop?"* | LLM has no lineage info | LLM sees reference counts per function and flags zero-reference functions |
+
+The standalone `.bat` dashboard (`npm run usage:app`) is for **humans** to visually explore their model. The MCP tool is for **Claude** to have that same understanding *before* it mutates anything. Same parser, two front-ends — and the MCP one is what prevents "oops" deletes.
+
+The tool returns a slim JSON response (~7K tokens) by default so it's cheap to call before every destructive operation.
 
 ### On-Demand Tools (43)
 
@@ -636,7 +652,10 @@ Use `add_visual` batch mode + inline `title`, `dataColors`, `containerFormat` to
 - TopN filters are **visual-level only** — pass `visualId` to `add_page_filter`
 - All tools return `{ success: false, error: "..." }` on failure — the server never crashes
 - Use `model_usage` to see which measures/columns are used in visuals — it classifies fields as **direct** (on a visual), **indirect** (referenced by direct measures/relationships), or **unused** (safe to remove). It detects conditional formatting bindings (images, reference labels, colors) that other tools miss
+- **Always call `model_usage` before any delete / cleanup request** — it's the fail-safe that stops the LLM from removing indirectly-referenced measures. See [Why `model_usage` is a default tool](#why-model_usage-is-a-default-tool--the-deletion-fail-safe) for the full rationale
 - `model_usage` also parses UDF functions from TMDL/BIM, counts measure references per function, and generates an interactive HTML dashboard with DAX lineage tracing
+- The dashboard parses **calculation groups** too — each group is shown as a collapsible card with per-item DAX expressions, ordinals, descriptions, and precedence
+- The dashboard ships with both **dark and light themes** — toggle via the `☾` / `☀` button in the header; choice persists across reloads via `localStorage`
 - Run `npm run usage:app` for a standalone dashboard with native folder picker, or `npm run usage:watch <path>` for CLI mode with live file watching
 
 ---
