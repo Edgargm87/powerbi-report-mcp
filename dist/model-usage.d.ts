@@ -70,6 +70,7 @@ interface FullData {
     functions: ModelFunction[];
     calcGroups: ModelCalcGroup[];
     pages: PageData[];
+    hiddenPages: string[];
     totals: {
         measuresInModel: number;
         measuresDirect: number;

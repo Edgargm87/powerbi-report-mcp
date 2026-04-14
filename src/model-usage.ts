@@ -78,6 +78,7 @@ interface FullData {
   functions: ModelFunction[];
   calcGroups: ModelCalcGroup[];
   pages: PageData[];
+  hiddenPages: string[];
   totals: {
     measuresInModel: number;
     measuresDirect: number;
@@ -649,15 +650,17 @@ function extractFieldRef(field: any): { fieldType: "measure" | "column" | "aggre
   return null;
 }
 
-function scanReportBindings(reportPath: string): { bindings: RawBinding[]; pageCount: number; visualCount: number } {
+function scanReportBindings(reportPath: string): { bindings: RawBinding[]; pageCount: number; visualCount: number; hiddenPages: string[] } {
   const project = new PbirProject(reportPath);
   const pageIds = project.listPageIds();
   const bindings: RawBinding[] = [];
+  const hiddenPages: string[] = [];
   let totalVisuals = 0;
 
   for (const pageId of pageIds) {
     const page = project.getPage(pageId);
     const pageName = page.displayName || pageId;
+    if (page.visibility === "HiddenInViewMode") hiddenPages.push(pageName);
     const visualIds = project.listVisualIds(pageId);
 
     for (const visualId of visualIds) {
@@ -713,7 +716,7 @@ function scanReportBindings(reportPath: string): { bindings: RawBinding[]; pageC
     }
   }
 
-  return { bindings, pageCount: pageIds.length, visualCount: totalVisuals };
+  return { bindings, pageCount: pageIds.length, visualCount: totalVisuals, hiddenPages };
 }
 
 function extractVisualTitle(visual: any): string {
@@ -739,7 +742,7 @@ export function buildFullData(reportPath: string): FullData {
   const modelPath = findSemanticModelPath(reportPath);
   const rawModel = parseModel(modelPath);
   const allMeasureNames = rawModel.measures.map(m => m.name);
-  const { bindings, pageCount, visualCount } = scanReportBindings(reportPath);
+  const { bindings, pageCount, visualCount, hiddenPages } = scanReportBindings(reportPath);
 
   // Build measures
   const measures: ModelMeasure[] = rawModel.measures.map(m => {
@@ -904,6 +907,7 @@ export function buildFullData(reportPath: string): FullData {
     functions: rawModel.functions,
     calcGroups: rawModel.calcGroups,
     pages,
+    hiddenPages,
     totals: {
       measuresInModel: measures.length,
       measuresDirect: measures.filter(m => m.status === "direct").length,
@@ -1011,6 +1015,8 @@ export function generateHTML(data: FullData, reportName: string): string {
   .dep-chip:hover{background:var(--chip-dep-hover);border-color:var(--chip-dep-tx)}
   .used-chip{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;margin:1px 2px;background:var(--chip-used-bg);color:var(--chip-used-tx);border:1px solid var(--chip-used-bd)}
   .slicer-badge{font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(236,72,153,.12);color:#EC4899;font-weight:600;margin-left:4px}
+  .hidden-badge{font-size:9px;padding:1px 6px;border-radius:3px;background:rgba(139,92,246,.15);color:#A78BFA;border:1px solid rgba(139,92,246,.3);font-weight:600;letter-spacing:.05em;margin-left:8px;vertical-align:middle;cursor:help}
+  [data-theme="light"] .hidden-badge{background:rgba(139,92,246,.1);color:#6D28D9;border-color:rgba(139,92,246,.35)}
   .format-str{font-size:11px;color:var(--text-faint);font-family:'JetBrains Mono',monospace}
 
   .lineage-back{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-dim);cursor:pointer;margin-bottom:16px;transition:color .15s}
@@ -1411,8 +1417,10 @@ function openLineage(type,name){
 
 function renderPages(){
   const FC={measure:"#F59E0B",column:"#3B82F6"};
+  const hiddenSet=new Set(DATA.hiddenPages||[]);
   document.getElementById("pages-content").innerHTML=pageData.map(p=>{
     const isOpen=openPages.has(p.name);
+    const hiddenBadge=hiddenSet.has(p.name)?'<span class="hidden-badge" title="This page is marked HiddenInViewMode — typically a tooltip, drillthrough, or nav-suppressed page">HIDDEN</span>':'';
 
     const typeChips=Object.entries(p.typeCounts).map(([t,c])=>\`<span class="page-type-chip">\${c}× \${t}</span>\`).join("");
 
@@ -1433,7 +1441,7 @@ function renderPages(){
 
     return \`<div class="page-card \${isOpen?'open':''}">
       <div class="page-header" onclick="togglePage('\${p.name}')">
-        <div class="page-name">\${p.name}</div>
+        <div class="page-name">\${p.name}\${hiddenBadge}</div>
         <div class="page-stats">
           <div class="page-stat"><div class="page-stat-val" style="color:#8B5CF6">\${p.visualCount}</div><div class="page-stat-label">Visuals</div></div>
           <div class="page-stat"><div class="page-stat-val" style="color:#F59E0B">\${p.measureCount}</div><div class="page-stat-label">Measures</div></div>
@@ -1805,7 +1813,8 @@ export function registerModelUsageTool(server: McpServer, ctx: ServerContext): v
             text: JSON.stringify({
               measures: data.measures.map(m => ({ name: m.name, table: m.table, usageCount: m.usageCount, pageCount: m.pageCount, status: m.status, daxDependencies: m.daxDependencies })),
               columns: data.columns.map(c => ({ name: c.name, table: c.table, usageCount: c.usageCount, pageCount: c.pageCount, status: c.status, isSlicerField: c.isSlicerField })),
-              pages: data.pages.map(p => ({ name: p.name, visualCount: p.visualCount, measureCount: p.measureCount, columnCount: p.columnCount, slicerCount: p.slicerCount, coverage: p.coverage })),
+              pages: data.pages.map(p => ({ name: p.name, visualCount: p.visualCount, measureCount: p.measureCount, columnCount: p.columnCount, slicerCount: p.slicerCount, coverage: p.coverage, hidden: data.hiddenPages.includes(p.name) })),
+              hiddenPages: data.hiddenPages,
               unused,
               totals: data.totals,
               dashboardPath: currentDashboardPath,
@@ -1828,7 +1837,8 @@ export function registerModelUsageTool(server: McpServer, ctx: ServerContext): v
                 name: c.name, table: c.table, usageCount: c.usageCount, pageCount: c.pageCount, status: c.status,
                 isSlicerField: c.isSlicerField, dataType: c.dataType, usedIn: c.usedIn,
               })),
-              pages: data.pages,
+              pages: data.pages.map(p => ({ ...p, hidden: data.hiddenPages.includes(p.name) })),
+              hiddenPages: data.hiddenPages,
               unused,
               totals: data.totals,
               dashboardPath: currentDashboardPath,
