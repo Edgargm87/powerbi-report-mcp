@@ -830,7 +830,7 @@ function generateHTML(data, reportName) {
   :root{
     --bg:#0B0D11;--surface:#1A1D27;--surface-alt:#12141A;--surface-deep:#12141C;--surface-center:#14161C;
     --border:#2A2D3A;--border-soft:#1E2028;--border-row:#1A1D27;
-    --text:#F8FAFC;--text-body:#E2E8F0;--text-muted:#94A3B8;--text-dim:#64748B;--text-faint:#475569;--text-fainter:#334155;
+    --text:#F8FAFC;--text-body:#E2E8F0;--text-muted:#94A3B8;--text-dim:#7A8595;--text-faint:#5E6A7B;--text-fainter:#4A5566;
     --row-hover:#1A1D27;--hover-border:#475569;
     --chip-dep-bg:rgba(139,92,246,.1);--chip-dep-bd:rgba(139,92,246,.2);--chip-dep-tx:#A78BFA;--chip-dep-hover:rgba(139,92,246,.2);
     --chip-used-bg:rgba(59,130,246,.1);--chip-used-bd:rgba(59,130,246,.15);--chip-used-tx:#93C5FD;
@@ -962,6 +962,21 @@ function generateHTML(data, reportName) {
   .ci-ord{font-size:11px;color:var(--text-faint);font-weight:600;min-width:20px}
   .ci-name{font-size:13px;font-weight:600;color:var(--text-body)}
 
+  .has-tip{position:relative;cursor:help}
+  .has-tip::after{content:attr(data-tooltip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--surface);color:var(--text);border:1px solid var(--border);padding:8px 12px;border-radius:6px;font-size:11px;font-weight:400;white-space:normal;width:max-content;max-width:240px;text-align:left;pointer-events:none;opacity:0;transition:opacity .15s;z-index:1000;box-shadow:0 8px 24px rgba(0,0,0,.4);line-height:1.5;text-transform:none;letter-spacing:0}
+  .has-tip::before{content:"";position:absolute;bottom:calc(100% + 2px);left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--border);pointer-events:none;opacity:0;transition:opacity .15s;z-index:1000}
+  .has-tip:hover::after,.has-tip:hover::before{opacity:1}
+  .summary .stat.has-tip:first-child::after{left:0;transform:none}
+  .summary .stat.has-tip:first-child::before{left:24px}
+  .summary .stat.has-tip:last-child::after{left:auto;right:0;transform:none}
+  .summary .stat.has-tip:last-child::before{left:auto;right:24px;transform:none}
+
+  .lineage-dax{position:relative}
+  .copy-btn{position:absolute;top:6px;right:6px;width:24px;height:24px;padding:0;font-size:12px;line-height:1;border:1px solid var(--border);border-radius:4px;cursor:pointer;background:var(--surface);color:var(--text-dim);opacity:0;transition:all .15s;font-family:'JetBrains Mono',monospace;display:flex;align-items:center;justify-content:center}
+  .lineage-dax:hover .copy-btn{opacity:1}
+  .copy-btn:hover{color:var(--text);background:var(--border);border-color:var(--accent)}
+  .copy-btn.copied{color:#22C55E;border-color:#22C55E;opacity:1}
+
   .refresh-bar{position:fixed;bottom:0;left:0;right:0;height:28px;background:var(--surface-deep);border-top:1px solid var(--border);display:flex;align-items:center;justify-content:center;gap:12px;font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-dim);z-index:999}
   .refresh-bar .timer{color:var(--text-muted)}
   .refresh-bar .dot{width:6px;height:6px;border-radius:50%;background:var(--text-fainter);display:inline-block}
@@ -1030,6 +1045,33 @@ function toggleTheme(){
   var btn=document.getElementById('theme-btn');
   if(btn)btn.textContent=next==='dark'?'☾':'☀';
 }
+
+function addCopyButtons(){
+  document.querySelectorAll('.lineage-dax:not([data-copy-wired])').forEach(function(el){
+    el.setAttribute('data-copy-wired','1');
+    var dax=el.textContent;
+    el.setAttribute('data-dax',dax);
+    var btn=document.createElement('button');
+    btn.className='copy-btn';
+    btn.textContent='⎘';
+    btn.title='Copy DAX';
+    btn.onclick=function(e){
+      e.stopPropagation();
+      var text=el.getAttribute('data-dax')||'';
+      function ok(){btn.textContent='✓';btn.classList.add('copied');setTimeout(function(){btn.textContent='⎘';btn.classList.remove('copied');},1500);}
+      function fallback(){
+        var ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';document.body.appendChild(ta);ta.select();
+        var success=false;try{success=document.execCommand('copy');}catch(err){}
+        document.body.removeChild(ta);
+        if(success)ok();else{btn.textContent='✗';setTimeout(function(){btn.textContent='⎘';},1500);}
+      }
+      if(navigator.clipboard&&navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(ok).catch(fallback);
+      }else{fallback();}
+    };
+    el.appendChild(btn);
+  });
+}
 (function(){var t=document.documentElement.getAttribute('data-theme')||'dark';var btn=document.getElementById('theme-btn');if(btn)btn.textContent=t==='dark'?'☾':'☀';})();
 
 let activeTab="measures",lastTab="measures";
@@ -1072,12 +1114,17 @@ function uc(n){return n===0?"zero":n<=1?"low":"good"}
 function renderSummary(){
   const t=DATA.totals;
   const totalOrphan=t.measuresUnused+t.columnsUnused;
+  const tipDirect=\`Fields bound to at least one visual (data well, filter, or conditional formatting). \${t.measuresDirect} measures · \${t.columnsDirect} columns.\`;
+  const tipIndirect=\`Not on any visual, but referenced by direct measures via DAX or used in a relationship — keep these. \${t.measuresIndirect} measures · \${t.columnsIndirect} columns.\`;
+  const tipUnused=\`Not referenced anywhere in the report — safe to remove. \${t.measuresUnused} measures · \${t.columnsUnused} columns.\`;
+  const tipPages=\`Total pages in the report.\`;
+  const tipVisuals=\`Total visuals across all pages.\`;
   document.getElementById("summary").innerHTML=\`
-    <div class="stat"><div class="stat-value good">\${t.measuresDirect+t.columnsDirect}</div><div class="stat-label">Direct</div><div class="stat-detail">\${t.measuresDirect}M · \${t.columnsDirect}C</div></div>
-    <div class="stat"><div class="stat-value \${t.measuresIndirect+t.columnsIndirect>0?'warn':''}">\${t.measuresIndirect+t.columnsIndirect}</div><div class="stat-label">Indirect</div><div class="stat-detail">\${t.measuresIndirect}M · \${t.columnsIndirect}C</div></div>
-    <div class="stat"><div class="stat-value \${totalOrphan>0?'danger':''}">\${totalOrphan}</div><div class="stat-label">Unused</div><div class="stat-detail">\${t.measuresUnused}M · \${t.columnsUnused}C</div></div>
-    <div class="stat"><div class="stat-value">\${t.pages}</div><div class="stat-label">Pages</div></div>
-    <div class="stat"><div class="stat-value">\${t.visuals}</div><div class="stat-label">Visuals</div></div>
+    <div class="stat has-tip" data-tooltip="\${tipDirect}"><div class="stat-value good">\${t.measuresDirect+t.columnsDirect}</div><div class="stat-label">Direct</div><div class="stat-detail">\${t.measuresDirect}M · \${t.columnsDirect}C</div></div>
+    <div class="stat has-tip" data-tooltip="\${tipIndirect}"><div class="stat-value \${t.measuresIndirect+t.columnsIndirect>0?'warn':''}">\${t.measuresIndirect+t.columnsIndirect}</div><div class="stat-label">Indirect</div><div class="stat-detail">\${t.measuresIndirect}M · \${t.columnsIndirect}C</div></div>
+    <div class="stat has-tip" data-tooltip="\${tipUnused}"><div class="stat-value \${totalOrphan>0?'danger':''}">\${totalOrphan}</div><div class="stat-label">Unused</div><div class="stat-detail">\${t.measuresUnused}M · \${t.columnsUnused}C</div></div>
+    <div class="stat has-tip" data-tooltip="\${tipPages}"><div class="stat-value">\${t.pages}</div><div class="stat-label">Pages</div></div>
+    <div class="stat has-tip" data-tooltip="\${tipVisuals}"><div class="stat-value">\${t.visuals}</div><div class="stat-label">Visuals</div></div>
   \`;
 }
 
@@ -1105,9 +1152,9 @@ function renderMeasures(){
   if(showUnusedOnly.measures)items=items.filter(m=>m.status!=='direct');
   if(searchTerms.measures){const q=searchTerms.measures.toLowerCase();items=items.filter(m=>m.name.toLowerCase().includes(q)||m.table.toLowerCase().includes(q));}
   document.getElementById("tbody-measures").innerHTML=items.map(m=>{
-    const deps=m.daxDependencies.map(d=>\`<span class="dep-chip" onclick="openLineage('measure','\${d}')">\${d}</span>\`).join("")||'<span style="color:#334155">—</span>';
+    const deps=m.daxDependencies.map(d=>\`<span class="dep-chip" onclick="openLineage('measure','\${d}')">\${d}</span>\`).join("")||'<span style="color:var(--text-faint)">—</span>';
     const pages=[...new Set(m.usedIn.map(u=>u.pageName))];
-    const used=pages.map(p=>\`<span class="used-chip">\${p}</span>\`).join("")||'<span style="color:#334155">—</span>';
+    const used=pages.map(p=>\`<span class="used-chip">\${p}</span>\`).join("")||'<span style="color:var(--text-faint)">—</span>';
     const statusBadge=m.status==='indirect'?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(245,158,11,.12);color:#F59E0B;font-weight:600;margin-left:4px">INDIRECT</span>':m.status==='unused'?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,.12);color:#EF4444;font-weight:600;margin-left:4px">UNUSED</span>':'';
     return \`<tr class="\${sc(m.status)}"><td><span class="field-name" onclick="openLineage('measure','\${m.name}')">\${m.name}</span>\${statusBadge}</td><td><span class="field-table">\${m.table}</span></td><td><span class="usage-count \${uc(m.usageCount)}">\${m.usageCount}</span></td><td><span class="usage-count \${uc(m.pageCount)}">\${m.pageCount}</span></td><td>\${deps}</td><td>\${used}</td><td><span class="format-str">\${m.formatString||'—'}</span></td></tr>\`;
   }).join("");
@@ -1120,7 +1167,7 @@ function renderColumns(){
   if(searchTerms.columns){const q=searchTerms.columns.toLowerCase();items=items.filter(c=>c.name.toLowerCase().includes(q)||c.table.toLowerCase().includes(q));}
   document.getElementById("tbody-columns").innerHTML=items.map(c=>{
     const pages=[...new Set(c.usedIn.map(u=>u.pageName))];
-    const used=pages.map(p=>\`<span class="used-chip">\${p}</span>\`).join("")||'<span style="color:#334155">—</span>';
+    const used=pages.map(p=>\`<span class="used-chip">\${p}</span>\`).join("")||'<span style="color:var(--text-faint)">—</span>';
     const sb=c.isSlicerField?'<span class="slicer-badge">SLICER</span>':'';
     const statusBadge=c.status==='indirect'?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(245,158,11,.12);color:#F59E0B;font-weight:600;margin-left:4px">INDIRECT</span>':c.status==='unused'?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(239,68,68,.12);color:#EF4444;font-weight:600;margin-left:4px">UNUSED</span>':'';
     return \`<tr class="\${sc(c.status)}"><td><span class="field-name" onclick="openLineage('column','\${c.name}')">\${c.name}</span>\${sb}\${statusBadge}</td><td><span class="field-table">\${c.table}</span></td><td><span class="mono" style="font-size:11px;color:#64748B">\${c.dataType}</span></td><td><span class="usage-count \${uc(c.usageCount)}">\${c.usageCount}</span></td><td><span class="usage-count \${uc(c.pageCount)}">\${c.pageCount}</span></td><td>\${used}</td></tr>\`;
@@ -1199,6 +1246,7 @@ function openLineage(type,name){
             </div>\`).join(""):\`<div class="lc downstream empty"><div class="lc-name" style="color:#EF4444">Not used</div><div class="lc-sub">Orphaned measure</div></div>\`}
         </div>
       </div>\`;
+    addCopyButtons();
   }
   else if(type==="column"){
     const c=DATA.columns.find(x=>x.name===name);
@@ -1455,7 +1503,7 @@ function sortTable(t,k){const s=sortState[t];if(s.key===k)s.desc=!s.desc;else{s.
 function filterTable(t,v){searchTerms[t]=v;t==="measures"?renderMeasures():renderColumns();}
 function toggleUnused(t){showUnusedOnly[t]=!showUnusedOnly[t];document.getElementById("btn-unused-"+(t==="measures"?"m":"c")).classList.toggle("active");t==="measures"?renderMeasures():renderColumns();}
 
-renderSummary();renderTabs();renderMeasures();renderColumns();renderRelationships();renderFunctions();renderCalcGroups();renderPages();renderUnused();switchTab("measures");
+renderSummary();renderTabs();renderMeasures();renderColumns();renderRelationships();renderFunctions();renderCalcGroups();renderPages();renderUnused();switchTab("measures");addCopyButtons();
 
 // Auto-refresh: 5-minute countdown with stale detection
 (function(){
