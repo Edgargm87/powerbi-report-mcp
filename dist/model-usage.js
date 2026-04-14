@@ -957,8 +957,8 @@ function generateHTML(data, reportName) {
   .page-section-title .line{flex:1;height:1px;background:var(--border-soft)}
   .page-visual-row{display:flex;align-items:center;gap:10px;padding:6px 10px;border-radius:6px;transition:background .1s;margin-bottom:2px}
   .page-visual-row:hover{background:var(--surface-alt)}
-  .page-visual-type{font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;width:100px;flex-shrink:0}
-  .page-visual-title{font-size:13px;font-weight:600;color:var(--text-body);flex:0 0 200px;min-width:200px}
+  .page-visual-type{font-size:11px;color:var(--text-dim);font-family:'JetBrains Mono',monospace;width:150px;flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .page-visual-title{font-size:13px;font-weight:600;color:var(--text-body);flex:0 0 220px;min-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .page-visual-bindings{display:flex;flex-wrap:wrap;gap:3px}
   .page-type-summary{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
   .page-type-chip{font-size:10px;padding:3px 8px;border-radius:4px;background:var(--surface-alt);color:var(--text-muted);border:1px solid var(--border);font-family:'JetBrains Mono',monospace}
