@@ -19,8 +19,13 @@ export interface VisualSpec {
     textContent?: string;
     textColor?: string;
     textAlign?: "left" | "center" | "right";
+    textVAlign?: "top" | "middle" | "bottom";
+    textFont?: string;
     textSize?: number;
     textBold?: boolean;
+    textItalic?: boolean;
+    textUnderline?: boolean;
+    textPadding?: number;
     title?: string;
     containerFormat?: Array<{
         category: string;
@@ -50,6 +55,21 @@ export interface FieldSpecInput {
 }
 /** Visual types that have no data binding and no default font formatting */
 export declare const NO_DATA_VISUAL_TYPES: Set<string>;
+/**
+ * Friendly font name → PBIR font stack, as written by Power BI Desktop.
+ * Each stack is the exact string that goes inside the `fontFamily` DAX literal
+ * (the outer `'…'` wrapper and the `'name'` → `''name''` escaping are added by
+ * the caller). Keys are case-insensitive when looked up.
+ */
+export declare const POWER_BI_FONT_STACKS: Record<string, string>;
+/**
+ * Resolve a user-supplied font value into the raw stack string that goes
+ * inside a `fontFamily` DAX literal (without the outer quote wrapper).
+ *
+ * - If `font` matches a known friendly name (case-insensitive), use the mapped stack.
+ * - Otherwise use `font` verbatim (power-user escape hatch for custom stacks).
+ */
+export declare function resolveFontStack(font: string): string;
 /** Visual types that require howCreated: "InsertVisualButton" in the JSON */
 export declare const INSERT_BUTTON_VISUAL_TYPES: Set<string>;
 /** All slicer visual types */
@@ -130,8 +150,17 @@ export declare const VisualSpecSchema: z.ZodObject<{
         center: "center";
         right: "right";
     }>>;
+    textVAlign: z.ZodOptional<z.ZodEnum<{
+        top: "top";
+        middle: "middle";
+        bottom: "bottom";
+    }>>;
+    textFont: z.ZodOptional<z.ZodString>;
     textSize: z.ZodOptional<z.ZodNumber>;
     textBold: z.ZodOptional<z.ZodBoolean>;
+    textItalic: z.ZodOptional<z.ZodBoolean>;
+    textUnderline: z.ZodOptional<z.ZodBoolean>;
+    textPadding: z.ZodOptional<z.ZodNumber>;
     title: z.ZodOptional<z.ZodString>;
     containerFormat: z.ZodOptional<z.ZodArray<z.ZodObject<{
         category: z.ZodString;

@@ -33,8 +33,13 @@ export interface VisualSpec {
   textContent?: string;
   textColor?: string;
   textAlign?: "left" | "center" | "right";
+  textVAlign?: "top" | "middle" | "bottom";
+  textFont?: string;
   textSize?: number;
   textBold?: boolean;
+  textItalic?: boolean;
+  textUnderline?: boolean;
+  textPadding?: number;
   title?: string;
   containerFormat?: Array<{ category: string; properties: Record<string, string | number | boolean> }>;
   visualFormat?: Array<{ category: string; properties: Record<string, string | number | boolean> }>;
@@ -62,6 +67,50 @@ export interface FieldSpecInput {
 export const NO_DATA_VISUAL_TYPES = new Set([
   "textbox", "basicShape", "shape", "image", "actionButton", "pageNavigator",
 ]);
+
+/**
+ * Friendly font name → PBIR font stack, as written by Power BI Desktop.
+ * Each stack is the exact string that goes inside the `fontFamily` DAX literal
+ * (the outer `'…'` wrapper and the `'name'` → `''name''` escaping are added by
+ * the caller). Keys are case-insensitive when looked up.
+ */
+export const POWER_BI_FONT_STACKS: Record<string, string> = {
+  "Segoe UI":           "'Segoe UI', wf_segoe-ui_normal, helvetica, arial, sans-serif",
+  "Segoe UI Bold":      "'Segoe UI Bold', wf_segoe-ui_bold, helvetica, arial, sans-serif",
+  "Segoe UI Light":     "'Segoe UI Light', wf_segoe-ui_light, helvetica, arial, sans-serif",
+  "Segoe UI Semibold":  "'Segoe UI Semibold', wf_segoe-ui_semibold, helvetica, arial, sans-serif",
+  "DIN":                "wf_standard-font, helvetica, arial, sans-serif",
+  "Arial":              "Arial, helvetica, sans-serif",
+  "Arial Black":        "'Arial Black', Arial, helvetica, sans-serif",
+  "Calibri":            "Calibri, helvetica, arial, sans-serif",
+  "Cambria":            "Cambria, Georgia, serif",
+  "Candara":            "Candara, Calibri, Arial, helvetica, sans-serif",
+  "Comic Sans MS":      "'Comic Sans MS', 'Marker Felt', sans-serif",
+  "Consolas":           "Consolas, 'Courier New', Courier, monospace",
+  "Constantia":         "Constantia, Georgia, serif",
+  "Corbel":             "Corbel, Candara, Calibri, Arial, helvetica, sans-serif",
+  "Courier New":        "'Courier New', Courier, monospace",
+  "Georgia":            "Georgia, serif",
+  "Lucida Console":     "'Lucida Console', monospace",
+  "Tahoma":             "Tahoma, Verdana, Segoe, sans-serif",
+  "Times New Roman":    "'Times New Roman', Times, serif",
+  "Trebuchet MS":       "'Trebuchet MS', Tahoma, Verdana, Segoe, sans-serif",
+  "Verdana":            "Verdana, Geneva, sans-serif",
+};
+
+/**
+ * Resolve a user-supplied font value into the raw stack string that goes
+ * inside a `fontFamily` DAX literal (without the outer quote wrapper).
+ *
+ * - If `font` matches a known friendly name (case-insensitive), use the mapped stack.
+ * - Otherwise use `font` verbatim (power-user escape hatch for custom stacks).
+ */
+export function resolveFontStack(font: string): string {
+  const key = Object.keys(POWER_BI_FONT_STACKS).find(
+    (k) => k.toLowerCase() === font.toLowerCase()
+  );
+  return key ? POWER_BI_FONT_STACKS[key] : font;
+}
 
 /** Visual types that require howCreated: "InsertVisualButton" in the JSON */
 export const INSERT_BUTTON_VISUAL_TYPES = new Set(["actionButton", "pageNavigator", "image"]);
@@ -131,9 +180,26 @@ export const VisualSpecSchema = z.object({
   textAlign: z
     .enum(["left", "center", "right"])
     .optional()
-    .describe("Text alignment"),
+    .describe("Horizontal text alignment"),
+  textVAlign: z
+    .enum(["top", "middle", "bottom"])
+    .optional()
+    .describe("Vertical text alignment (shape only)"),
+  textFont: z
+    .string()
+    .optional()
+    .describe(
+      "Font family for shape text. Friendly names like 'Segoe UI Bold', 'Arial', 'DIN' " +
+        "are auto-mapped to the full Power BI font stack; unknown values are used verbatim."
+    ),
   textSize: z.number().optional().describe("Font size in pt"),
   textBold: z.boolean().optional().describe("Bold text"),
+  textItalic: z.boolean().optional().describe("Italic text (shape only)"),
+  textUnderline: z.boolean().optional().describe("Underlined text (shape only)"),
+  textPadding: z
+    .number()
+    .optional()
+    .describe("Inner padding in px applied to all 4 sides of shape text"),
   title: z.string().optional(),
   containerFormat: z
     .array(FormatCategorySchema)
@@ -219,8 +285,13 @@ export function createAndSaveVisual(
     textContent,
     textColor,
     textAlign,
+    textVAlign,
+    textFont,
     textSize,
     textBold,
+    textItalic,
+    textUnderline,
+    textPadding,
     title,
     containerFormat,
     visualFormat,
@@ -338,25 +409,75 @@ export function createAndSaveVisual(
       outline: [{ properties: { show: { expr: { Literal: { Value: "false" } } } } }],
     };
     if (textContent) {
-      const textStyle: Record<string, unknown> = {};
-      if (textColor) textStyle.color = textColor;
-      if (textBold) textStyle.fontWeight = "bold";
-      if (textSize) textStyle.fontSize = `${textSize}pt`;
-      shapeObjs.general = [
+      // Shape text lives in objects.text as a two-entry format-object array:
+      //   [0] show toggle (no selector)
+      //   [1] properties with selector { id: "default" }
+      //
+      // Escape single quotes for the DAX literal by doubling them.
+      const escapedText = textContent.replace(/'/g, "''");
+      const textProps: Record<string, unknown> = {
+        text: { expr: { Literal: { Value: `'${escapedText}'` } } },
+      };
+      if (textColor) {
+        // Hex → solid literal
+        textProps.fontColor = {
+          solid: { color: { expr: { Literal: { Value: `'${textColor}'` } } } },
+        };
+      } else {
+        // Default → theme data color 1 (matches Power BI Desktop default)
+        textProps.fontColor = {
+          solid: { color: { expr: { ThemeDataColor: { ColorId: 1, Percent: 0 } } } },
+        };
+      }
+      if (textAlign) {
+        textProps.horizontalAlignment = {
+          expr: { Literal: { Value: `'${textAlign}'` } },
+        };
+      }
+      if (textVAlign) {
+        textProps.verticalAlignment = {
+          expr: { Literal: { Value: `'${textVAlign}'` } },
+        };
+      }
+      if (textPadding !== undefined) {
+        const pad = `${Math.round(textPadding)}L`;
+        textProps.leftMargin = { expr: { Literal: { Value: pad } } };
+        textProps.topMargin = { expr: { Literal: { Value: pad } } };
+        textProps.rightMargin = { expr: { Literal: { Value: pad } } };
+        textProps.bottomMargin = { expr: { Literal: { Value: pad } } };
+      }
+      // Font decorations — all confirmed against Power BI Desktop output.
+      if (textBold) {
+        textProps.bold = { expr: { Literal: { Value: "true" } } };
+      }
+      if (textItalic) {
+        textProps.italic = { expr: { Literal: { Value: "true" } } };
+      }
+      if (textUnderline) {
+        textProps.underline = { expr: { Literal: { Value: "true" } } };
+      }
+      if (textSize) {
+        textProps.fontSize = { expr: { Literal: { Value: `${textSize}D` } } };
+      }
+      if (textFont) {
+        // Resolve friendly name to the full Power BI font stack, then wrap as
+        // a DAX literal — CSS-level single quotes in the stack (e.g.
+        // `'Segoe UI Bold'`) must be doubled inside the DAX literal.
+        const stack = resolveFontStack(textFont);
+        const escapedStack = stack.replace(/'/g, "''");
+        textProps.fontFamily = {
+          expr: { Literal: { Value: `'${escapedStack}'` } },
+        };
+      }
+      shapeObjs.text = [
         {
           properties: {
-            paragraphs: [
-              {
-                textRuns: [
-                  {
-                    value: textContent,
-                    ...(Object.keys(textStyle).length ? { textStyle } : {}),
-                  },
-                ],
-                horizontalTextAlignment: textAlign || "center",
-              },
-            ],
+            show: { expr: { Literal: { Value: "true" } } },
           },
+        },
+        {
+          properties: textProps,
+          selector: { id: "default" },
         },
       ];
     }

@@ -1,636 +1,316 @@
-<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
+<!-- doc-version: 2.0 | Last updated: 2026-04-14 -->
 # Skill: Wireframes — Report Layout Patterns
 
-All layouts use canvas **1280 × 720** (16:9), `displayOption: "FitToPage"`.
-Standard margin: **10px** on all sides. Gap between elements: **10px**.
-Z-order: create background shapes first (lower z), data visuals on top (higher z).
+All layouts use canvas **1280 x 720** (16:9), `displayOption: "FitToPage"`.
+
+**Rules (MUST follow):**
+- Page margins: **20px** left, **20px** right, **6px** bottom (top 0).
+- Usable content width: **1240px** (1280 - 20 - 20).
+- Usable content height: **714px** (720 - 6) — the bottom 6px is breathing room.
+- Gap between visuals: **5px** horizontal and vertical.
+- Page title banner: **x:0, y:0, width:1280, height:52** (exempt from margins).
+- First content row starts at **y:57** (banner 52 + gap 5).
+- Last row bottom edge must be **≤ 714**.
+- Every layout in this file has been validated against
+  `src/wireframe-validator.ts` — run
+  `node scripts/test-wireframe-validator.js` to verify.
+
+> **Why this matters:** The validator refuses any non-banner visual at x<20,
+> with right-edge > 1260, or bottom-edge > 714. If you copy numbers from
+> memory and get the margin wrong, every visual on the page fails margin
+> and overlap checks. Prefer the validated layouts below, or compute widths
+> from the spacing formula and re-verify with the validator.
 
 ---
 
-## Layout 1 — Basic Grid (3 rows)
+## Spacing Formula
+
+For N equal-width visuals in a row:
 
 ```
-┌──────────────────────────────────────┐
-│  Card │  Card  │  Card  │  Card      │  y=10, h=140
-├───────┴────────┼────────┴────────────┤
-│   Left Half    │    Right Half       │  y=160, h=260
-├────────────────┴────────────────────┤
-│  Third   │  Third   │  Third        │  y=430, h=270
-└──────────────────────────────────────┘
+visual_width = (1240 - (N - 1) * 5) / N
 ```
 
-**Shapes:**
-```
-// 4 top cards (w=307 each, gap=10)
-{ x:10,  y:10, w:307, h:140 }
-{ x:327, y:10, w:307, h:140 }
-{ x:644, y:10, w:307, h:140 }
-{ x:961, y:10, w:307, h:140 }
-// 2 halves
-{ x:10,  y:160, w:625, h:260 }
-{ x:645, y:160, w:625, h:260 }
-// 3 thirds
-{ x:10,  y:430, w:413, h:270 }
-{ x:433, y:430, w:413, h:270 }
-{ x:856, y:430, w:413, h:270 }
-```
+| Visuals in row | Each width | Gap total | x positions                        |
+|----------------|------------|-----------|------------------------------------|
+| 1              | 1240       | 0         | 20                                 |
+| 2              | 617 / 618  | 5         | 20, 642                            |
+| 3              | 410        | 10        | 20, 435, 850                       |
+| 4              | 306        | 15        | 20, 331, 642, 953                  |
+| 5              | 244        | 20        | 20, 269, 518, 767, 1016            |
+| 6              | 203        | 25        | 20, 228, 436, 644, 852, 1060       |
+
+For unequal splits:
+- 2/3 + 1/3: `wider = 823, narrow = 412` (left x=20, right x=848)
+- 1/3 + 2/3: `narrow = 412, wider = 823` (left x=20, right x=437)
+- 1/2 + 1/2: `617 / 618`               (left x=20, right x=642)
 
 ---
 
-## Layout 2 — Classic Dashboard
+## Layout A — Dashboard (5 KPIs, 2 Charts, 3 Details)
 
 ```
-┌─────────────────────────────────────┐
-│           HEADER BAR                │  y=10, h=40
-├──────┬──────┬──────┬────────────────┤
-│ KPI  │ KPI  │ KPI  │ KPI            │  y=60, h=100
-├──────┴──────┼──────┴────────────────┤
-│  Chart L    │   Chart R             │  y=170, h=240
-├──────┬──────┼──────┬────────────────┤
-│ Chart│ Chart│       Chart           │  y=420, h=290
-└──────┴──────┴──────┴────────────────┘
++--[1280]---------------------------------------------------------------+
+|  BANNER (0,0) 1280x52  #1B2A4A                                       | y:0
++--[20px margin]------------------------------------------------[20px]--+
+|  CARD1    |5| CARD2    |5| CARD3    |5| CARD4    |5| CARD5          | y:57
+|  244x90       244x90       244x90       244x90       244x90          |
++-----------------------------------------------------------------------+
+|  CHART-LEFT                |5| CHART-RIGHT                           | y:152
+|  617x280                       618x280                               |
++-----------------------------------------------------------------------+
+|  DETAIL-1       |5| DETAIL-2       |5| DETAIL-3                     | y:437
+|  410x277            410x277            410x277                       |
++-----------------------------------------------------------------------+
+                                                                   y:714
 ```
 
-**Shapes:**
-```
-// Header
-{ x:10, y:10, w:1260, h:40, z:1000 }
-// 4 KPI cards
-{ x:10,  y:60, w:300, h:100, z:2000 }
-{ x:320, y:60, w:300, h:100, z:3000 }
-{ x:630, y:60, w:300, h:100, z:4000 }
-{ x:940, y:60, w:330, h:100, z:5000 }
-// 2 mid charts
-{ x:10,  y:170, w:625, h:240, z:6000 }
-{ x:645, y:170, w:625, h:240, z:7000 }
-// 3 bottom charts
-{ x:10,  y:420, w:405, h:290, z:8000 }
-{ x:425, y:420, w:405, h:290, z:9000 }
-{ x:840, y:420, w:430, h:290, z:10000 }
-```
+**Visuals:** 11  |  **Coverage:** 93.7%  |  **Bottom:** 714
+
+| Visual      | x    | y    | width | height | z     |
+|-------------|------|------|-------|--------|-------|
+| Banner      | 0    | 0    | 1280  | 52     | 0     |
+| Card 1      | 20   | 57   | 244   | 90     | 1000  |
+| Card 2      | 269  | 57   | 244   | 90     | 2000  |
+| Card 3      | 518  | 57   | 244   | 90     | 3000  |
+| Card 4      | 767  | 57   | 244   | 90     | 4000  |
+| Card 5      | 1016 | 57   | 244   | 90     | 5000  |
+| Chart Left  | 20   | 152  | 617   | 280    | 6000  |
+| Chart Right | 642  | 152  | 618   | 280    | 7000  |
+| Detail 1    | 20   | 437  | 410   | 277    | 8000  |
+| Detail 2    | 435  | 437  | 410   | 277    | 9000  |
+| Detail 3    | 850  | 437  | 410   | 277    | 10000 |
 
 ---
 
-## Layout 3 — Sidebar Layout
+## Layout B — Analysis (Chart + KPI Sidebar, Full-Width Table)
 
 ```
-┌───┬──────────────────────────────────┐
-│   │         HEADER BAR               │  y=10, h=40
-│   ├──────┬──────┬──────┬─────────────┤
-│ S │ Card │ Card │ Card │  Card       │  y=60, h=100
-│ I ├──────┴──────┴──────┘             │
-│ D │         Main Chart               │  y=170, h=540
-│ E │                    ├─────────────┤
-│ B │                    │  Mini       │  y=170, h=260
-│ A │                    ├─────────────┤
-│ R │                    │  Mini       │  y=440, h=270
-└───┴────────────────────┴─────────────┘
++--[1280]---------------------------------------------------------------+
+|  BANNER (0,0) 1280x52                                                | y:0
++--[20px margin]------------------------------------------------[20px]--+
+|  SLICER-1           |5| SLICER-2           |5| SLICER-3             | y:57
+|  410x40                 410x40                 410x40                |
++-----------------------------------------------------------------------+
+|  MAIN CHART (2/3 width)         |5| KPI-1               412x93     | y:102
+|  823x380                           KPI-2               412x93      |
+|                                    KPI-3               412x93      |
+|                                    KPI-4               412x86      |
++-----------------------------------------------------------------------+
+|  TABLE (full width) 1240x227                                         | y:487
++-----------------------------------------------------------------------+
+                                                                   y:714
 ```
 
-**Shapes:**
-```
-// Left sidebar (full height)
-{ x:10, y:10, w:160, h:700, z:1000 }
-// Content header
-{ x:180, y:10, w:1090, h:40, z:2000 }
-// 4 top cards
-{ x:180, y:60, w:260, h:100, z:3000 }
-{ x:450, y:60, w:260, h:100, z:4000 }
-{ x:720, y:60, w:260, h:100, z:5000 }
-{ x:990, y:60, w:280, h:100, z:6000 }
-// Large main chart
-{ x:180, y:170, w:710, h:540, z:7000 }
-// Right mini charts
-{ x:900, y:170, w:370, h:260, z:8000 }
-{ x:900, y:440, w:370, h:270, z:9000 }
-```
+**Visuals:** 10  |  **Coverage:** 93.5%  |  **Bottom:** 714
+
+| Visual      | x    | y    | width | height | z     |
+|-------------|------|------|-------|--------|-------|
+| Banner      | 0    | 0    | 1280  | 52     | 0     |
+| Slicer 1    | 20   | 57   | 410   | 40     | 1000  |
+| Slicer 2    | 435  | 57   | 410   | 40     | 2000  |
+| Slicer 3    | 850  | 57   | 410   | 40     | 3000  |
+| Main Chart  | 20   | 102  | 823   | 380    | 4000  |
+| KPI 1       | 848  | 102  | 412   | 93     | 5000  |
+| KPI 2       | 848  | 200  | 412   | 93     | 6000  |
+| KPI 3       | 848  | 298  | 412   | 93     | 7000  |
+| KPI 4       | 848  | 396  | 412   | 86     | 8000  |
+| Table       | 20   | 487  | 1240  | 227    | 9000  |
+
+KPI stack bottom: `102 + 93 + 5 + 93 + 5 + 93 + 5 + 86 = 482`, matches chart bottom (`102 + 380 = 482`).
 
 ---
 
-## Layout 4 — Hero Layout
+## Layout C — KPI Summary (6 Cards, Wide Chart)
 
 ```
-┌─────────────────────────────────────┐
-│           HEADER BAR                │  y=10, h=40
-├─────────────────────┬───────────────┤
-│                     │  Top Right    │  y=60, h=140
-│   HERO / MAIN       ├───────────────┤
-│   (large featured)  │  Mid Right    │  y=210, h=140
-│                     ├───────────────┤
-│   x=10, w=750, h=470│  Bot Right    │  y=360, h=170
-├──────────┬──────────┴───────────────┤
-│  Strip 1 │  Strip 2  │  Strip 3     │  y=540, h=170
-└──────────┴───────────┴──────────────┘
++--[1280]---------------------------------------------------------------+
+|  BANNER (0,0) 1280x52                                                | y:0
++--[20px margin]------------------------------------------------[20px]--+
+|  CARD-1         |5| CARD-2         |5| CARD-3                        | y:57
+|  410x120            410x120            410x120                       |
++-----------------------------------------------------------------------+
+|  CARD-4         |5| CARD-5         |5| CARD-6                        | y:182
+|  410x120            410x120            410x120                       |
++-----------------------------------------------------------------------+
+|  CHART (full width) 1240x407                                         | y:307
++-----------------------------------------------------------------------+
+                                                                   y:714
 ```
 
-**Shapes:**
-```
-// Header
-{ x:10, y:10, w:1260, h:40, z:1000 }
-// Hero (big left)
-{ x:10, y:60, w:750, h:470, z:2000 }
-// Right stack (3 panels)
-{ x:770, y:60,  w:500, h:140, z:3000 }
-{ x:770, y:210, w:500, h:140, z:4000 }
-{ x:770, y:360, w:500, h:170, z:5000 }
-// Bottom strip (3 equal)
-{ x:10,  y:540, w:400, h:170, z:6000 }
-{ x:420, y:540, w:400, h:170, z:7000 }
-{ x:830, y:540, w:440, h:170, z:8000 }
-```
+**Visuals:** 8  |  **Coverage:** 94.2%  |  **Bottom:** 714
+
+| Visual  | x    | y    | width | height | z    |
+|---------|------|------|-------|--------|------|
+| Banner  | 0    | 0    | 1280  | 52     | 0    |
+| Card 1  | 20   | 57   | 410   | 120    | 1000 |
+| Card 2  | 435  | 57   | 410   | 120    | 2000 |
+| Card 3  | 850  | 57   | 410   | 120    | 3000 |
+| Card 4  | 20   | 182  | 410   | 120    | 4000 |
+| Card 5  | 435  | 182  | 410   | 120    | 5000 |
+| Card 6  | 850  | 182  | 410   | 120    | 6000 |
+| Chart   | 20   | 307  | 1240  | 407    | 7000 |
+
+Columns align across rows: 20 / 435 / 850.
 
 ---
 
-## Layout 5 — Magazine Z-Layout
+## Layout D — Sidebar Nav (160px Rail + KPI Row + 2 Charts + Table)
 
-Follows the eye's natural Z reading path: top-left → top-right → diagonal → bottom-left → bottom-right.
+Content area starts at **x:185** (20 margin + 160 rail + 5 gap).
+Content width = **1075px** (1280 - 185 - 20).
 
 ```
-┌─────────────────────────────────────┐
-│           HEADER BAR                │  y=10, h=40
-├─────────────────────┬───────┬───────┤
-│                     │ Top R1│ Top R2│  y=60
-│   BIG FEATURE       ├───────┼───────┤  h=300 (left)
-│   (dominant visual) │ Mid R1│ Mid R2│  h=140+150 (right)
-├──────────┬──────────┴───────┴───────┤
-│ Bottom 1 │  Bottom 2  │  Bottom 3   │  y=370, h=340
-└──────────┴────────────┴─────────────┘
++--[1280]---------------------------------------------------------------+
+|  BANNER (0,0) 1280x52                                                | y:0
++-----------------------------------------------------------------------+
+|  NAV  |5| KPI1  |5| KPI2  |5| KPI3  |5| KPI4                        | y:57
+|  160  |  265x90    265x90    265x90    265x90                       |
+|  x    +----------------------------------------------------------+  |
+|  657  |  CHART-LEFT 535x280      |5| CHART-RIGHT 535x280          | y:152
+|       +----------------------------------------------------------+  |
+|       |  DETAIL TABLE 1075x277                                    | y:437
+|       +----------------------------------------------------------+  |
++-----------------------------------------------------------------------+
+                                                                   y:714
 ```
 
-**Shapes:**
-```
-// Header
-{ x:10, y:10, w:1260, h:40, z:1000 }
-// Big feature left
-{ x:10, y:60, w:625, h:300, z:2000 }
-// Right column top (2 side by side)
-{ x:645, y:60,  w:305, h:140, z:3000 }
-{ x:960, y:60,  w:310, h:140, z:4000 }
-// Right column mid (2 side by side)
-{ x:645, y:210, w:305, h:150, z:5000 }
-{ x:960, y:210, w:310, h:150, z:6000 }
-// Bottom 3
-{ x:10,  y:370, w:405, h:340, z:7000 }
-{ x:425, y:370, w:405, h:340, z:8000 }
-{ x:840, y:370, w:430, h:340, z:9000 }
-```
+**Visuals:** 9  |  **Coverage:** 93.3%  |  **Bottom:** 714
+
+| Visual      | x    | y    | width | height | z    |
+|-------------|------|------|-------|--------|------|
+| Banner      | 0    | 0    | 1280  | 52     | 0    |
+| Nav Rail    | 20   | 57   | 160   | 657    | 1000 |
+| KPI 1       | 185  | 57   | 265   | 90     | 2000 |
+| KPI 2       | 455  | 57   | 265   | 90     | 3000 |
+| KPI 3       | 725  | 57   | 265   | 90     | 4000 |
+| KPI 4       | 995  | 57   | 265   | 90     | 5000 |
+| Chart Left  | 185  | 152  | 535   | 280    | 6000 |
+| Chart Right | 725  | 152  | 535   | 280    | 7000 |
+| Detail      | 185  | 437  | 1075  | 277    | 8000 |
+
+Content-area KPIs: `(1075 - 3*5) / 4 = 265`. Content charts: `(1075 - 5) / 2 = 535`.
 
 ---
 
-## Layout 6 — F-Layout
-
-Mirrors how users scan dashboards: strong top row, then down the left.
+## Layout E — 3x3 Tile Grid (9 Equal Tiles)
 
 ```
-┌─────────────────────────────────────┐
-│           HEADER BAR                │  y=10, h=40
-├──────┬──────┬──────┬──────┬─────────┤
-│ Card1│ Card2│ Card3│ Card4│  Card5  │  y=60, h=110  (5 equal cards)
-├──────┴──────┴──────┴──┬───┴─────────┤
-│   Wide Chart (left)   │  Chart R    │  y=180, h=230
-├──────────────────┬────┴──┬──────────┤
-│  Large Bottom L  │  sm  │  Tall R  │  y=420, h=290
-│                  │  sm  │          │
-└──────────────────┴──────┴──────────┘
++--[1280]---------------------------------------------------------------+
+|  BANNER (0,0) 1280x52                                                | y:0
++-----------------------------------------------------------------------+
+|  TILE 1    |5| TILE 2    |5| TILE 3                                  | y:57
+|  410x215       410x215       410x215                                 |
++-----------------------------------------------------------------------+
+|  TILE 4    |5| TILE 5    |5| TILE 6                                  | y:277
+|  410x215       410x215       410x215                                 |
++-----------------------------------------------------------------------+
+|  TILE 7    |5| TILE 8    |5| TILE 9                                  | y:497
+|  410x215       410x215       410x215                                 |
++-----------------------------------------------------------------------+
+                                                                   y:712
 ```
 
-**Shapes:**
-```
-// Header
-{ x:10,   y:10, w:1260, h:40, z:1000 }
-// 5 top cards
-{ x:10,   y:60, w:238, h:110, z:2000 }
-{ x:258,  y:60, w:238, h:110, z:3000 }
-{ x:506,  y:60, w:238, h:110, z:4000 }
-{ x:754,  y:60, w:238, h:110, z:5000 }
-{ x:1002, y:60, w:268, h:110, z:6000 }
-// Mid row
-{ x:10,  y:180, w:840, h:230, z:7000 }
-{ x:860, y:180, w:410, h:230, z:8000 }
-// Bottom
-{ x:10,  y:420, w:615, h:290, z:9000 }
-{ x:635, y:420, w:300, h:135, z:10000 }
-{ x:635, y:565, w:300, h:145, z:11000 }
-{ x:945, y:420, w:325, h:290, z:12000 }
-```
+**Visuals:** 10  |  **Coverage:** 93.2%  |  **Bottom:** 712
+
+| Visual | x    | y    | width | height | z     |
+|--------|------|------|-------|--------|-------|
+| Banner | 0    | 0    | 1280  | 52     | 0     |
+| Tile 1 | 20   | 57   | 410   | 215    | 1000  |
+| Tile 2 | 435  | 57   | 410   | 215    | 2000  |
+| Tile 3 | 850  | 57   | 410   | 215    | 3000  |
+| Tile 4 | 20   | 277  | 410   | 215    | 4000  |
+| Tile 5 | 435  | 277  | 410   | 215    | 5000  |
+| Tile 6 | 850  | 277  | 410   | 215    | 6000  |
+| Tile 7 | 20   | 497  | 410   | 215    | 7000  |
+| Tile 8 | 435  | 497  | 410   | 215    | 8000  |
+| Tile 9 | 850  | 497  | 410   | 215    | 9000  |
+
+Column alignment across rows: 20 / 435 / 850.
+Row gaps: `57+215+5 = 277`, `277+215+5 = 497`, `497+215 = 712` (leaves 8px below > 6px min).
 
 ---
 
-## Layout 7 — Hub and Spoke
+## Common Mistakes (and How the Validator Catches Them)
 
-Central focal chart surrounded by supporting context panels.
+| Mistake                                             | Validator error      |
+|-----------------------------------------------------|----------------------|
+| Rounded up width (e.g. 245x5 cards -> right edge 1265) | `RIGHT_MARGIN`       |
+| 10px gap from an older skill doc                    | `WRONG_GAP_H` / `V`  |
+| Non-banner visual at x=0 (full page width)          | `LEFT_MARGIN`        |
+| Forgot to set x/y -> visual lands at (0,0)          | `SILENT_DEFAULT`     |
+| Two visuals with overlapping bounding boxes         | `OVERLAP`            |
+| Row pushes past y:714 (6px bottom margin)           | `BOTTOM_MARGIN`      |
+| Row pushes past y:720 (off the canvas)              | `OUT_OF_BOUNDS`      |
+| Width/height <= 0                                   | `NEGATIVE_DIMENSION` |
 
-```
-┌─────────────────────────────────────┐
-│           HEADER BAR                │  y=10, h=40
-├────────┬──────────────────┬─────────┤
-│ Spoke  │    Spoke Top     │  Spoke  │
-│ Left   │   x=530, y=60    │  Right  │
-│ Top    │   w=220, h=125   │  Top    │
-│        ├──────────────────┤         │
-│        │                  │         │
-│        │   HUB (centre)   │         │
-│        │  x=390, y=195    │         │
-│        │  w=500, h=300    │         │
-│        ├──────────────────┤         │
-│ Spoke  │   Spoke Bottom   │  Spoke  │
-│ Left   │   x=530, y=505   │  Right  │
-│ Bottom │   w=220, h=165   │  Bottom │
-└────────┴──────────────────┴─────────┘
+Run the validator from Node on any layout:
+
+```js
+const { validateWireframe, formatReport } = require("./dist/wireframe-validator");
+const visuals = [ /* { id, visualType, x, y, width, height } ... */ ];
+console.log(formatReport(validateWireframe(visuals)));
 ```
 
-**Shapes:**
-```
-// Header
-{ x:10, y:10, w:1260, h:40, z:1000 }
-// Centre hub
-{ x:390, y:195, w:500, h:300, z:2000 }
-// Top spoke
-{ x:530, y:60,  w:220, h:125, z:3000 }
-// Left spokes
-{ x:10,  y:110, w:300, h:160, z:4000 }
-{ x:10,  y:440, w:300, h:175, z:6000 }
-// Right spokes
-{ x:970, y:110, w:300, h:160, z:5000 }
-{ x:970, y:440, w:300, h:175, z:7000 }
-// Bottom spoke
-{ x:530, y:505, w:220, h:165, z:8000 }
-```
+Or import from TypeScript:
 
----
-
-## Layout 8 — KPI Banner + Body
-
-Full-width KPI strip at top, charts below. Best for executive dashboards.
-
-```
-┌─────────────────────────────────────┐
-│           HEADER BAR                │  y=10, h=40
-├──────┬──────┬──────┬──────┬─────────┤
-│ KPI  │ KPI  │ KPI  │ KPI  │  KPI   │  y=60, h=120  (5 KPIs)
-├──────┴──────┼──────┴──────┴─────────┤
-│  Chart L    │    Chart R            │  y=190, h=240
-├──────┬──────┼──────┬────────────────┤
-│ Bot 1│ Bot 2│       Bot 3           │  y=440, h=270
-└──────┴──────┴──────┴────────────────┘
-```
-
-**Shapes:**
-```
-// Header
-{ x:10, y:10, w:1260, h:40, z:1000 }
-// 5 KPI cards
-{ x:10,   y:60, w:238, h:120, z:2000 }
-{ x:258,  y:60, w:238, h:120, z:3000 }
-{ x:506,  y:60, w:238, h:120, z:4000 }
-{ x:754,  y:60, w:238, h:120, z:5000 }
-{ x:1002, y:60, w:268, h:120, z:6000 }
-// 2 mid charts
-{ x:10,  y:190, w:625, h:240, z:7000 }
-{ x:645, y:190, w:625, h:240, z:8000 }
-// 3 bottom charts
-{ x:10,  y:440, w:400, h:270, z:9000 }
-{ x:420, y:440, w:400, h:270, z:10000 }
-{ x:830, y:440, w:440, h:270, z:11000 }
+```ts
+import { validateWireframe, formatReport } from "./wireframe-validator";
 ```
 
 ---
 
-## Layout 9 — Left Nav Sidebar
+## Placement Procedure
 
-Persistent navigation rail on the left for multi-section reports.
+When building a page, follow this order:
 
-```
-┌───┬──────────────────────────────────┐
-│   │         HEADER BAR               │  y=10, h=40
-│ N ├──────┬──────┬──────┬─────────────┤
-│ A │ Card │ Card │ Card │  Card       │  y=60, h=110
-│ V ├──────┴──────┴──────┤             │
-│   │                    │  Panel R1   │  y=180, h=260
-│ R │  Main Content      ├─────────────┤
-│ A │  x=180, y=180      │  Panel R2   │  y=450, h=270
-│ I │  w=720, h=540      │             │
-│ L │                    │             │
-└───┴────────────────────┴─────────────┘
-```
-
-**Shapes:**
-```
-// Nav rail (full height)
-{ x:10, y:10, w:160, h:700, z:1000 }
-// Content header
-{ x:180, y:10, w:1090, h:40, z:2000 }
-// 4 top cards
-{ x:180, y:60, w:255, h:110, z:3000 }
-{ x:445, y:60, w:255, h:110, z:4000 }
-{ x:710, y:60, w:255, h:110, z:5000 }
-{ x:975, y:60, w:295, h:110, z:6000 }
-// Main content
-{ x:180, y:180, w:720, h:540, z:7000 }
-// Right panels
-{ x:910, y:180, w:360, h:260, z:8000 }
-{ x:910, y:450, w:360, h:270, z:9000 }
-```
+1. Create the page at **1280 x 720**.
+2. Place the banner at **(0, 0, 1280, 52)** as the first visual.
+3. Decide how many rows the content needs and how many visuals per row.
+4. Compute widths via the spacing formula: `(1240 - (N-1)*5) / N`.
+5. Compute y top-down: each row `y = previous row y + previous row height + 5`.
+6. Compute x left-to-right: first visual `x = 20`, next `x = prev x + prev width + 5`.
+7. Verify last visual right edge = **1260** (`1280 - 20`).
+8. Verify last row bottom <= **714** (`720 - 6` bottom margin).
+9. Run the validator. Fix any reported errors before committing.
 
 ---
 
-## Layout 10 — Grid Tile Layout
+## Batch-Creation Template
 
-Uniform 3×3 grid — each tile the same size, no hierarchy.
-
-```
-┌─────────────────────────────────────┐
-│           HEADER BAR                │  y=10, h=40
-├───────────┬───────────┬─────────────┤
-│  Tile 1   │  Tile 2   │   Tile 3   │  y=60, h=210
-├───────────┼───────────┼─────────────┤
-│  Tile 4   │  Tile 5   │   Tile 6   │  y=280, h=210
-├───────────┼───────────┼─────────────┤
-│  Tile 7   │  Tile 8   │   Tile 9   │  y=500, h=210
-└───────────┴───────────┴─────────────┘
-```
-
-**Shapes:**
-```
-// Header
-{ x:10, y:10, w:1260, h:40, z:1000 }
-// Row 1 (y=60)
-{ x:10,  y:60, w:413, h:210, z:2000 }
-{ x:433, y:60, w:413, h:210, z:3000 }
-{ x:856, y:60, w:414, h:210, z:4000 }
-// Row 2 (y=280)
-{ x:10,  y:280, w:413, h:210, z:5000 }
-{ x:433, y:280, w:413, h:210, z:6000 }
-{ x:856, y:280, w:414, h:210, z:7000 }
-// Row 3 (y=500)
-{ x:10,  y:500, w:413, h:210, z:8000 }
-{ x:433, y:500, w:413, h:210, z:9000 }
-{ x:856, y:500, w:414, h:210, z:10000 }
-```
-
----
-
-## Layout 11 — Top-Down Narrative
-
-Tells a sequential story: title → metrics → main insight → supporting → footnote.
-
-```
-┌─────────────────────────────────────┐
-│           HEADER BAR          y=10  │
-├─────────────────────────────────────┤
-│      TITLE / SUBTITLE BAR     y=60  │  h=55
-├──────┬──────┬──────┬──────┬─────────┤
-│ M1   │ M2   │ M3   │ M4   │  M5    │  y=125, h=90  (5 metrics)
-├──────┴──────┴──────┴──────┴─────────┤
-│         WIDE INSIGHT CHART    y=225  │  h=195
-├──────────────────┬──────────────────┤
-│   Detail Left    │  Detail Right    │  y=430, h=155
-├──────────────────┴──────────────────┤
-│         FOOTNOTE / CONTEXT    y=595  │  h=115
-└─────────────────────────────────────┘
-```
-
-**Shapes:**
-```
-// Header
-{ x:10, y:10,  w:1260, h:40,  z:1000 }
-// Title bar
-{ x:10, y:60,  w:1260, h:55,  z:2000 }
-// 5 metric cards
-{ x:10,   y:125, w:240, h:90, z:3000 }
-{ x:260,  y:125, w:240, h:90, z:4000 }
-{ x:510,  y:125, w:240, h:90, z:5000 }
-{ x:760,  y:125, w:240, h:90, z:6000 }
-{ x:1010, y:125, w:260, h:90, z:7000 }
-// Wide chart
-{ x:10, y:225, w:1260, h:195, z:8000 }
-// 2 detail panels
-{ x:10,  y:430, w:620, h:155, z:9000 }
-{ x:640, y:430, w:630, h:155, z:10000 }
-// Footnote strip
-{ x:10, y:595, w:1260, h:115, z:11000 }
-```
-
----
-
-## Layout 12 — Master Detail
-
-Left panel = master list / navigation. Right = detail view for selected item.
-
-```
-┌─────────────────────────────────────┐
-│           HEADER BAR                │  y=10, h=40
-├──────────────┬──────────────────────┤
-│ Master label │  Detail label        │  y=60, h=35
-├──────────────┼──────────┬───────────┤
-│              │ Detail   │ Detail    │  y=105, h=100
-│  Master List │  Top L   │  Top R    │
-│  x=10, y=105 ├──────────┴───────────┤
-│  w=480, h=285│  Detail Wide         │  y=215, h=175
-│              ├──────────┬───────────┤
-├──────────────┤ Detail   │ Detail    │  y=400, h=310
-│  Master Bot  │  Bot L   │  Bot R    │
-│  x=10, y=400 │          │           │
-│  w=480, h=310│          │           │
-└──────────────┴──────────┴───────────┘
-```
-
-**Shapes:**
-```
-// Header
-{ x:10, y:10, w:1260, h:40, z:1000 }
-// Section labels
-{ x:10,  y:60, w:480, h:35, z:2000 }
-{ x:500, y:60, w:770, h:35, z:5000 }
-// Master panels
-{ x:10, y:105, w:480, h:285, z:3000 }
-{ x:10, y:400, w:480, h:310, z:4000 }
-// Detail top (2 + wide)
-{ x:500, y:105, w:375, h:100, z:6000 }
-{ x:885, y:105, w:385, h:100, z:7000 }
-{ x:500, y:215, w:770, h:175, z:8000 }
-// Detail bottom (2)
-{ x:500, y:400, w:375, h:310, z:9000 }
-{ x:885, y:400, w:385, h:310, z:10000 }
-```
-
----
-
-## Layout 13 — Quadrant Layout
-
-2×2 grid with section labels. Each quadrant represents a strategic axis.
-
-```
-┌─────────────────────────────────────┐
-│           HEADER BAR                │  y=10, h=40
-├─────────────────┬───────────────────┤
-│ [Label Q1 TL]  │ [Label Q2 TR]     │  y=60, h=30
-├─────────────────┼───────────────────┤
-│                 │                   │
-│   Quadrant TL   │   Quadrant TR     │  y=100, h=290
-│   x=10, w=625   │   x=645, w=625    │
-│                 │                   │
-├─────────────────┼───────────────────┤
-│ [Label Q3 BL]  │ [Label Q4 BR]     │  y=400, h=30
-├─────────────────┼───────────────────┤
-│                 │                   │
-│   Quadrant BL   │   Quadrant BR     │  y=440, h=270
-│                 │                   │
-└─────────────────┴───────────────────┘
-```
-
-**Shapes:**
-```
-// Header
-{ x:10, y:10, w:1260, h:40, z:1000 }
-// Top labels
-{ x:10,  y:60, w:625, h:30, z:2000 }
-{ x:645, y:60, w:625, h:30, z:4000 }
-// Top quadrants
-{ x:10,  y:100, w:625, h:290, z:3000 }
-{ x:645, y:100, w:625, h:290, z:5000 }
-// Bottom labels
-{ x:10,  y:400, w:625, h:30, z:6000 }
-{ x:645, y:400, w:625, h:30, z:8000 }
-// Bottom quadrants
-{ x:10,  y:440, w:625, h:270, z:7000 }
-{ x:645, y:440, w:625, h:270, z:9000 }
-```
-
----
-
-## Layout 14 — Shneiderman (Overview + Detail)
-
-Based on Shneiderman's mantra: *Overview first, zoom and filter, details on demand.*
-Large overview left + filter controls right + drill-down panels bottom.
-
-```
-┌─────────────────────────────────────┐
-│           HEADER BAR                │  y=10, h=40
-├───────────────────────┬─────────────┤
-│                       │  Filter 1   │  y=60, h=70
-│   OVERVIEW (large)    ├─────────────┤
-│                       │  Filter 2   │  y=140, h=70
-│   x=10, y=60          ├─────────────┤
-│   w=840, h=340        │  Filter 3   │  y=220, h=70
-│                       ├─────────────┤
-│                       │  Filter 4   │  y=300, h=100
-├──────────┬────────────┴─────────────┤
-│ Detail 1 │  Detail 2  │  Detail 3   │  y=410, h=300
-└──────────┴────────────┴─────────────┘
-```
-
-**Shapes:**
-```
-// Header
-{ x:10, y:10,  w:1260, h:40, z:1000 }
-// Overview
-{ x:10, y:60,  w:840,  h:340, z:2000 }
-// Right filters (4 stacked)
-{ x:860, y:60,  w:410, h:70,  z:3000 }
-{ x:860, y:140, w:410, h:70,  z:4000 }
-{ x:860, y:220, w:410, h:70,  z:5000 }
-{ x:860, y:300, w:410, h:100, z:6000 }
-// Bottom detail panels
-{ x:10,  y:410, w:400, h:300, z:7000 }
-{ x:420, y:410, w:400, h:300, z:8000 }
-{ x:830, y:410, w:440, h:300, z:9000 }
-```
-
----
-
-## Layout 15 — 3 Pillars
-
-Three equal columns, each with: pillar label → KPI metric → body chart → footer detail.
-
-```
-┌─────────────────────────────────────┐
-│           HEADER BAR                │  y=10, h=40
-├──────────────┬──────────────┬───────┤
-│  [Pillar 1]  │  [Pillar 2]  │ [P3] │  y=60, h=45   (labels)
-├──────────────┼──────────────┼───────┤
-│   KPI card   │   KPI card   │ KPI  │  y=115, h=100
-├──────────────┼──────────────┼───────┤
-│              │              │       │
-│  Body Chart  │  Body Chart  │ Body │  y=225, h=225
-│              │              │       │
-├──────────────┼──────────────┼───────┤
-│  Footer      │  Footer      │ Foot │  y=460, h=250
-└──────────────┴──────────────┴───────┘
-```
-
-**Shapes:**
-```
-// Header
-{ x:10, y:10, w:1260, h:40, z:1000 }
-// Pillar labels
-{ x:10,  y:60, w:410, h:45, z:2000 }
-{ x:430, y:60, w:410, h:45, z:3000 }
-{ x:850, y:60, w:420, h:45, z:4000 }
-// KPI row
-{ x:10,  y:115, w:410, h:100, z:5000 }
-{ x:430, y:115, w:410, h:100, z:6000 }
-{ x:850, y:115, w:420, h:100, z:7000 }
-// Body
-{ x:10,  y:225, w:410, h:225, z:8000 }
-{ x:430, y:225, w:410, h:225, z:9000 }
-{ x:850, y:225, w:420, h:225, z:10000 }
-// Footer
-{ x:10,  y:460, w:410, h:250, z:11000 }
-{ x:430, y:460, w:410, h:250, z:12000 }
-{ x:850, y:460, w:420, h:250, z:13000 }
-```
-
----
-
-## Wireframe Workflow
-
-```
-1. create_page (w:1280, h:720)
-2. add_visual (batch) — all shapes in one call, background first (low z)
-3. add_visual (batch) — slicers, cards, charts on top (higher z auto-increments)
-4. set_report_theme — apply brand colours globally
-5. apply_theme (optional) — per-page container overrides
-```
-
-### Creating shapes in batch mode
 ```json
 {
-  "pageId": "<id>",
+  "pageId": "<page-id>",
   "visuals": [
-    { "visualType": "shape", "x": 10, "y": 10, "width": 1260, "height": 40,
-      "shapeType": "rectangle", "fillColor": "#1F3864" },
-    { "visualType": "shape", "x": 10, "y": 60, "width": 300, "height": 100,
-      "shapeType": "rectangle", "fillColor": "#FFFFFF",
-      "textContent": "KPI 1", "textColor": "#1F3864", "textBold": true, "textSize": 10 },
-    ...
+    { "visualType": "shape", "x": 0, "y": 0, "width": 1280, "height": 52,
+      "shapeType": "rectangle", "fillColor": "#1B2A4A",
+      "textContent": "Page Title", "textColor": "#FFFFFF",
+      "textBold": true, "textSize": 20 },
+
+    { "visualType": "card", "x": 20,  "y": 57, "width": 244, "height": 90 },
+    { "visualType": "card", "x": 269, "y": 57, "width": 244, "height": 90 },
+    { "visualType": "card", "x": 518, "y": 57, "width": 244, "height": 90 },
+    { "visualType": "card", "x": 767, "y": 57, "width": 244, "height": 90 },
+    { "visualType": "card", "x": 1016,"y": 57, "width": 244, "height": 90 }
   ]
 }
 ```
 
+Rules:
+- Always include explicit `x`, `y`, `width`, `height` — never rely on defaults.
+- Banner first, data visuals next. Z-order auto-increments by add order.
+- If a row requires unequal widths, round **down** on all but the last visual
+  and give the remainder to the last one (so the right edge lands on 1260).
+
 ---
 
-## Quick Reference — Standard Measurements
+## Z-Order Convention
 
-| Element | x | y | w | h | Notes |
-|---|---|---|---|---|---|
-| Full-width header | 10 | 10 | 1260 | 40 | |
-| Full-width title bar | 10 | 60 | 1260 | 55 | below header |
-| Left sidebar (nav) | 10 | 10 | 160 | 700 | full height |
-| Content header (with sidebar) | 180 | 10 | 1090 | 40 | |
-| 4 KPI cards | 10/320/630/940 | 60 | 300/300/300/330 | 100 | |
-| 5 KPI cards | 10/258/506/754/1002 | 60 | 238×4+268 | 120 | |
-| 2 halves | 10/645 | — | 625/625 | — | |
-| 3 thirds | 10/433/856 | — | 413/413/414 | — | |
-| 3×3 tile | 10/433/856 | varies | 413/413/414 | 210 | |
-| 2 columns (left nav) | 180/910 | — | 720/360 | — | |
-| Bottom slicer | 10/240/460/680/900 | 660 | 200 | 44 | 5-slicer row |
+| Layer          | Z-order range | Examples                        |
+|----------------|---------------|---------------------------------|
+| Base visuals   | 0 - 999       | Banner, background shapes       |
+| Content visuals| 1000 - 9999   | Cards, charts, tables, slicers  |
+| Overlays       | 10000+        | Buttons, bookmarks, annotations |
 
-## Z-order Convention
-
-- **1000** — background panels, header bar
-- **2000–5000** — content area shapes
-- **5000–10000** — foreground data visuals
-- **11000+** — overlays, labels, badges
-
-Always create shapes **before** data visuals so z-order stays correct automatically.
+The banner is always z-order 0. Content visuals increment in reading order
+(top-left to bottom-right).
