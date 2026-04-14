@@ -1120,16 +1120,18 @@ function uc(n){return n===0?"zero":n<=1?"low":"good"}
 function renderSummary(){
   const t=DATA.totals;
   const totalOrphan=t.measuresUnused+t.columnsUnused;
+  const hiddenCount=(DATA.hiddenPages||[]).length;
+  const visibleCount=t.pages-hiddenCount;
   const tipDirect=\`Fields bound to at least one visual (data well, filter, or conditional formatting). \${t.measuresDirect} measures · \${t.columnsDirect} columns.\`;
   const tipIndirect=\`Not on any visual, but referenced by direct measures via DAX or used in a relationship — keep these. \${t.measuresIndirect} measures · \${t.columnsIndirect} columns.\`;
   const tipUnused=\`Not referenced anywhere in the report — safe to remove. \${t.measuresUnused} measures · \${t.columnsUnused} columns.\`;
-  const tipPages=\`Total pages in the report.\`;
+  const tipPages=\`Total pages in the report. \${visibleCount} visible · \${hiddenCount} hidden (tooltip / drillthrough / nav-suppressed).\`;
   const tipVisuals=\`Total visuals across all pages.\`;
   document.getElementById("summary").innerHTML=\`
     <div class="stat has-tip" data-tooltip="\${tipDirect}"><div class="stat-value good">\${t.measuresDirect+t.columnsDirect}</div><div class="stat-label">Direct</div><div class="stat-detail">\${t.measuresDirect}M · \${t.columnsDirect}C</div></div>
     <div class="stat has-tip" data-tooltip="\${tipIndirect}"><div class="stat-value \${t.measuresIndirect+t.columnsIndirect>0?'warn':''}">\${t.measuresIndirect+t.columnsIndirect}</div><div class="stat-label">Indirect</div><div class="stat-detail">\${t.measuresIndirect}M · \${t.columnsIndirect}C</div></div>
     <div class="stat has-tip" data-tooltip="\${tipUnused}"><div class="stat-value \${totalOrphan>0?'danger':''}">\${totalOrphan}</div><div class="stat-label">Unused</div><div class="stat-detail">\${t.measuresUnused}M · \${t.columnsUnused}C</div></div>
-    <div class="stat has-tip" data-tooltip="\${tipPages}"><div class="stat-value">\${t.pages}</div><div class="stat-label">Pages</div></div>
+    <div class="stat has-tip" data-tooltip="\${tipPages}"><div class="stat-value">\${t.pages}</div><div class="stat-label">Pages</div><div class="stat-detail">\${visibleCount}V · \${hiddenCount}H</div></div>
     <div class="stat has-tip" data-tooltip="\${tipVisuals}"><div class="stat-value">\${t.visuals}</div><div class="stat-label">Visuals</div></div>
   \`;
 }
