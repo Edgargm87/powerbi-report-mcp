@@ -1,4 +1,4 @@
-<!-- doc-version: 1.3 | Last updated: 2026-04-15 -->
+<!-- doc-version: 1.4 | Last updated: 2026-04-15 -->
 # Contributing to powerbi-report-mcp
 
 Thanks for your interest in contributing to the Power BI Report MCP server. This guide covers everything you need to get started, add features, and test your changes.
@@ -240,6 +240,8 @@ These are enforced by the pre-commit hook (`npm run hooks:install`) and by `.git
 Run all three in one shot with `npm run test:all`.
 
 If a pre-commit gate fails and you genuinely need to skip it for an emergency, use `git commit --no-verify` — but CI runs the same gates on the push, so a broken commit won't survive the PR.
+
+**First time seeing a red ✗ on a commit or PR?** See [`docs/ci-checks.md`](docs/ci-checks.md) for a walkthrough of how the GitHub Actions check system works — trigger chain, how to read the job view, how to find the failing step, and how to reproduce the failure locally. It's written for contributors who've never set up a CI workflow before.
 
 ### Manual QA (unchanged — no automation replaces PBI Desktop round-trip)
 
