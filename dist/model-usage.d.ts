@@ -150,6 +150,37 @@ interface ModelFunction {
     expression: string;
     description: string;
 }
+export interface ModelFieldInventory {
+    /** table name → { columns: Set<columnName>, measures: Set<measureName> } */
+    tables: Map<string, {
+        columns: Set<string>;
+        measures: Set<string>;
+    }>;
+    /** All table names (for nearest-match suggestions on typos). */
+    tableNames: string[];
+    /** Extension measures (stored in reportExtensions.json, not the model). */
+    extensionMeasures: Map<string, Set<string>>;
+    /** Timestamp when built — useful for debugging cache behaviour. */
+    builtAt: number;
+}
+/**
+ * Build (or return cached) field inventory for a report.
+ *
+ * Uses the same `findSemanticModelPath` + `parseModel` pipeline as
+ * `buildFullData`, but only keeps tables / columns / measures. Adds
+ * extension-measures from `reportExtensions.json` so measures authored at
+ * the report layer are accepted as valid bind targets.
+ *
+ * Returns `null` when:
+ *   - the sibling `.SemanticModel` folder is missing
+ *   - the model file(s) can't be parsed
+ *   - any other I/O error
+ *
+ * Callers MUST treat `null` as "cannot validate" (degrade to silent skip),
+ * never as "model is empty". This keeps live-connect and offline workflows
+ * working.
+ */
+export declare function getModelFieldInventory(reportPath: string): ModelFieldInventory | null;
 export declare function buildFullData(reportPath: string): FullData;
 export declare function generateHTML(data: FullData, reportName: string): string;
 /** Output dir inside the MCP project: .usage/<report-name>/ */

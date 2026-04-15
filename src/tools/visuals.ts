@@ -9,9 +9,10 @@ import {
   DataColorSchema,
   createAndSaveVisual,
 } from "../helpers/createVisual.js";
-import type { VisualSpec } from "../helpers/createVisual.js";
+import type { VisualSpec, FieldSpecInput } from "../helpers/createVisual.js";
 import type { ServerContext } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
+import { runBindingValidation } from "../helpers/bindingValidation.js";
 
 export function registerVisualTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
@@ -206,6 +207,12 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       textSize: z.number().optional(),
       textBold: z.boolean().optional(),
       title: z.string().optional(),
+      strictBindings: z
+        .boolean()
+        .optional()
+        .describe(
+          "Binding validation: true=strict (fail on unknown field, default), false=warn (proceed with warnings). Omit for env default (MCP_BINDING_VALIDATION)."
+        ),
       containerFormat: z.array(FormatCategorySchema).optional().describe("Inline container formatting"),
       visualFormat: z.array(FormatCategorySchema).optional().describe("Inline visual formatting"),
       dataColors: z.array(DataColorSchema).optional().describe("Inline data point colors"),
@@ -286,6 +293,42 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
         };
       }
 
+      // Binding validation (strict / warn / off).
+      // Flatten bindings across every spec in the call so one validator pass
+      // covers the whole batch. Fields with no bindings (shapes, text,
+      // buttons, images) contribute nothing and are skipped.
+      const allBindings: Array<{ bucket: string; fields: FieldSpecInput[] }> = [];
+      for (const spec of specs) {
+        if (spec.bindings) {
+          for (const b of spec.bindings) {
+            allBindings.push({
+              bucket: b.bucket,
+              fields: b.fields as FieldSpecInput[],
+            });
+          }
+        }
+      }
+      const validation = runBindingValidation(ctx.project, allBindings, params.strictBindings);
+      if (!validation.proceed) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: false,
+                  error: validation.message,
+                  bindingErrors: validation.errors,
+                  mode: validation.mode,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
       const results: Array<{ visualId: string; visualType: string }> = [];
       for (let i = 0; i < specs.length; i++) {
         const result = createAndSaveVisual(ctx.project, pageId, specs[i], maxZ + (i + 1) * 1000);
@@ -293,11 +336,20 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       }
 
       invalidateCache();
+      const response: Record<string, unknown> = {
+        success: true,
+        pageId,
+        created: results,
+      };
+      if (validation.errors.length > 0) {
+        response.bindingWarnings = validation.errors;
+        response.bindingWarningMessage = validation.message;
+      }
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({ success: true, pageId, created: results }, null, 2),
+            text: JSON.stringify(response, null, 2),
           },
         ],
       };

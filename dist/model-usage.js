@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.findSemanticModelPath = findSemanticModelPath;
+exports.getModelFieldInventory = getModelFieldInventory;
 exports.buildFullData = buildFullData;
 exports.generateHTML = generateHTML;
 exports.getUsageDir = getUsageDir;
@@ -513,6 +514,114 @@ function parseModel(modelPath) {
         return parseTmdlModel(modelPath);
     }
     return parseBimModel(modelPath);
+}
+let fieldInventoryCache = null;
+/** Invalidate the field-inventory cache (called from invalidateCache()). */
+function invalidateFieldInventoryCache() {
+    fieldInventoryCache = null;
+}
+/**
+ * Build (or return cached) field inventory for a report.
+ *
+ * Uses the same `findSemanticModelPath` + `parseModel` pipeline as
+ * `buildFullData`, but only keeps tables / columns / measures. Adds
+ * extension-measures from `reportExtensions.json` so measures authored at
+ * the report layer are accepted as valid bind targets.
+ *
+ * Returns `null` when:
+ *   - the sibling `.SemanticModel` folder is missing
+ *   - the model file(s) can't be parsed
+ *   - any other I/O error
+ *
+ * Callers MUST treat `null` as "cannot validate" (degrade to silent skip),
+ * never as "model is empty". This keeps live-connect and offline workflows
+ * working.
+ */
+function getModelFieldInventory(reportPath) {
+    if (fieldInventoryCache && fieldInventoryCache.reportPath === reportPath) {
+        return fieldInventoryCache.inventory;
+    }
+    let rawModel = null;
+    try {
+        const modelPath = findSemanticModelPath(reportPath);
+        rawModel = parseModel(modelPath);
+    }
+    catch {
+        // Missing .SemanticModel or parse failure — degrade to null so validation
+        // is skipped rather than failing every bind call.
+        return null;
+    }
+    if (!rawModel)
+        return null;
+    const tables = new Map();
+    const getTable = (name) => {
+        let t = tables.get(name);
+        if (!t) {
+            t = { columns: new Set(), measures: new Set() };
+            tables.set(name, t);
+        }
+        return t;
+    };
+    for (const c of rawModel.columns) {
+        if (!c.table || !c.name)
+            continue;
+        getTable(c.table).columns.add(c.name);
+    }
+    for (const m of rawModel.measures) {
+        if (!m.table || !m.name)
+            continue;
+        getTable(m.table).measures.add(m.name);
+    }
+    // Calc-group tables expose their calc items as measures to the report layer.
+    for (const cg of rawModel.calcGroups ?? []) {
+        if (!cg.name)
+            continue;
+        const t = getTable(cg.name);
+        for (const item of cg.items ?? []) {
+            if (item.name)
+                t.measures.add(item.name);
+        }
+    }
+    // Extension measures — reportExtensions.json lives under the .Report folder.
+    const extensionMeasures = new Map();
+    try {
+        const extPath = path.join(reportPath, "definition", "reportExtensions.json");
+        if (fs.existsSync(extPath)) {
+            const ext = JSON.parse(fs.readFileSync(extPath, "utf8"));
+            for (const entity of ext?.entities ?? []) {
+                const tableName = entity?.name;
+                if (!tableName)
+                    continue;
+                let set = extensionMeasures.get(tableName);
+                if (!set) {
+                    set = new Set();
+                    extensionMeasures.set(tableName, set);
+                }
+                for (const m of entity?.measures ?? []) {
+                    if (m?.name)
+                        set.add(m.name);
+                }
+                // Extension measures also live under their parent table in the
+                // unified inventory so measure lookups succeed without special-casing.
+                const tbl = getTable(tableName);
+                for (const m of entity?.measures ?? []) {
+                    if (m?.name)
+                        tbl.measures.add(m.name);
+                }
+            }
+        }
+    }
+    catch {
+        // Extension file corrupt / unreadable — skip, don't fail the whole build.
+    }
+    const inventory = {
+        tables,
+        tableNames: [...tables.keys()],
+        extensionMeasures,
+        builtAt: Date.now(),
+    };
+    fieldInventoryCache = { reportPath, inventory };
+    return inventory;
 }
 // ═══════════════════════════════════════════════════════════════════════════════
 // Step 3: Parse DAX Dependencies
@@ -1816,6 +1925,7 @@ function regenerate() {
 }
 function invalidateCache() {
     usageCache = null;
+    invalidateFieldInventoryCache();
     setTimeout(() => regenerate(), 50);
 }
 function onFileChange(filename) {

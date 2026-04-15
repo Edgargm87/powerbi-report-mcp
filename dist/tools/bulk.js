@@ -6,6 +6,7 @@ const pbir_js_1 = require("../pbir.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
 const formatting_js_1 = require("../helpers/formatting.js");
 const model_usage_js_1 = require("../model-usage.js");
+const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
 // Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk).
 // The explicit `z.ZodType<T[]>` return cast is required because `z.preprocess` widens
 // the output to `unknown` under strict mode — which breaks downstream `z.infer` chains
@@ -138,9 +139,38 @@ function registerBulkTools(server, ctx) {
             .describe("Rebuild auto-filters for each visual"),
         confirmBulk: zod_1.z.coerce.boolean().optional().default(false)
             .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
-    }, async ({ pageId, updates, autoFilters, confirmBulk }) => {
+        strictBindings: zod_1.z
+            .boolean()
+            .optional()
+            .describe("Binding validation: true=strict (default, fail on unknown field), false=warn (proceed with warnings). Omit for env default."),
+    }, async ({ pageId, updates, autoFilters, confirmBulk, strictBindings }) => {
         if (updates.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
             return bulkSafetyError("rebind", updates.length);
+        }
+        // Binding validation — flatten every update's bindings into one pass.
+        // A single unknown field in the batch fails the whole call in strict
+        // mode; individual visual lookups still run per-entry below.
+        const allBindings = [];
+        for (const { bindings } of updates) {
+            for (const b of bindings) {
+                allBindings.push({ bucket: b.bucket, fields: b.fields });
+            }
+        }
+        const validation = (0, bindingValidation_js_1.runBindingValidation)(ctx.project, allBindings, strictBindings);
+        if (!validation.proceed) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({
+                            success: false,
+                            error: validation.message,
+                            bindingErrors: validation.errors,
+                            mode: validation.mode,
+                        }, null, 2),
+                    },
+                ],
+            };
         }
         const updated = [];
         const errors = [];
@@ -214,11 +244,21 @@ function registerBulkTools(server, ctx) {
             }
         }
         (0, model_usage_js_1.invalidateCache)();
+        const bulkResponse = {
+            success: true,
+            updated: updated.length,
+            ids: updated,
+            errors,
+        };
+        if (validation.errors.length > 0) {
+            bulkResponse.bindingWarnings = validation.errors;
+            bulkResponse.bindingWarningMessage = validation.message;
+        }
         return {
             content: [
                 {
                     type: "text",
-                    text: JSON.stringify({ success: true, updated: updated.length, ids: updated, errors }),
+                    text: JSON.stringify(bulkResponse),
                 },
             ],
         };

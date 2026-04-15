@@ -8,9 +8,11 @@ import {
   parseFieldSpec,
   SLICER_VISUAL_TYPES,
 } from "../helpers/createVisual.js";
+import type { FieldSpecInput } from "../helpers/createVisual.js";
 import { applyFormattingToTarget } from "../helpers/formatting.js";
 import type { ServerContext } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
+import { runBindingValidation } from "../helpers/bindingValidation.js";
 
 // Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk).
 // The explicit `z.ZodType<T[]>` return cast is required because `z.preprocess` widens
@@ -172,10 +174,46 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
         .describe("Rebuild auto-filters for each visual"),
       confirmBulk: z.coerce.boolean().optional().default(false)
         .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
+      strictBindings: z
+        .boolean()
+        .optional()
+        .describe(
+          "Binding validation: true=strict (default, fail on unknown field), false=warn (proceed with warnings). Omit for env default."
+        ),
     },
-    async ({ pageId, updates, autoFilters, confirmBulk }) => {
+    async ({ pageId, updates, autoFilters, confirmBulk, strictBindings }) => {
       if (updates.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
         return bulkSafetyError("rebind", updates.length);
+      }
+
+      // Binding validation — flatten every update's bindings into one pass.
+      // A single unknown field in the batch fails the whole call in strict
+      // mode; individual visual lookups still run per-entry below.
+      const allBindings: Array<{ bucket: string; fields: FieldSpecInput[] }> = [];
+      for (const { bindings } of updates) {
+        for (const b of bindings) {
+          allBindings.push({ bucket: b.bucket, fields: b.fields as FieldSpecInput[] });
+        }
+      }
+      const validation = runBindingValidation(ctx.project, allBindings, strictBindings);
+      if (!validation.proceed) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: false,
+                  error: validation.message,
+                  bindingErrors: validation.errors,
+                  mode: validation.mode,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
       }
 
       const updated: string[] = [];
@@ -254,11 +292,21 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
       }
 
       invalidateCache();
+      const bulkResponse: Record<string, unknown> = {
+        success: true,
+        updated: updated.length,
+        ids: updated,
+        errors,
+      };
+      if (validation.errors.length > 0) {
+        bulkResponse.bindingWarnings = validation.errors;
+        bulkResponse.bindingWarningMessage = validation.message;
+      }
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({ success: true, updated: updated.length, ids: updated, errors }),
+            text: JSON.stringify(bulkResponse),
           },
         ],
       };

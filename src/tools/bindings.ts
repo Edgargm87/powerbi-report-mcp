@@ -3,8 +3,10 @@ import { z } from "zod";
 import { buildQueryRef, buildNativeQueryRef, buildAutoFilters, VISUAL_BUCKETS } from "../pbir.js";
 import type { Projection, QueryState } from "../pbir.js";
 import { BucketBindingSchema, parseFieldSpec, SLICER_VISUAL_TYPES } from "../helpers/createVisual.js";
+import type { FieldSpecInput } from "../helpers/createVisual.js";
 import type { ServerContext } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
+import { runBindingValidation } from "../helpers/bindingValidation.js";
 
 export function registerBindingTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
@@ -18,8 +20,40 @@ export function registerBindingTools(server: McpServer, ctx: ServerContext): voi
       visualId: z.string().describe("The visual ID"),
       bindings: z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, z.array(BucketBindingSchema)).describe("New data bindings"),
       autoFilters: z.boolean().optional().default(true),
+      strictBindings: z
+        .boolean()
+        .optional()
+        .describe(
+          "Binding validation: true=strict (default, fail on unknown field), false=warn (proceed with warnings). Omit for env default."
+        ),
     },
-    async ({ pageId, visualId, bindings, autoFilters }) => {
+    async ({ pageId, visualId, bindings, autoFilters, strictBindings }) => {
+      // Binding validation — before any write.
+      const validationBindings = bindings.map((b) => ({
+        bucket: b.bucket,
+        fields: b.fields as FieldSpecInput[],
+      }));
+      const validation = runBindingValidation(ctx.project, validationBindings, strictBindings);
+      if (!validation.proceed) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: false,
+                  error: validation.message,
+                  bindingErrors: validation.errors,
+                  mode: validation.mode,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
       const visual = ctx.project.getVisual(pageId, visualId);
       const vType = visual.visual.visualType;
 
@@ -86,8 +120,13 @@ export function registerBindingTools(server: McpServer, ctx: ServerContext): voi
 
       ctx.project.saveVisual(pageId, visualId, visual);
       invalidateCache();
+      const response: Record<string, unknown> = { success: true, visualId };
+      if (validation.errors.length > 0) {
+        response.bindingWarnings = validation.errors;
+        response.bindingWarningMessage = validation.message;
+      }
       return {
-        content: [{ type: "text", text: JSON.stringify({ success: true, visualId }) }],
+        content: [{ type: "text", text: JSON.stringify(response) }],
       };
     }
   );

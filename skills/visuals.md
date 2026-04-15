@@ -253,6 +253,47 @@ When you get a safety-gate error:
 - If you didn't, narrow the id list (e.g. filter by type or name prefix using `list_visuals` results).
 - Never set `confirmBulk: true` reflexively — the gate exists to force a second thought.
 
+### Binding validation
+
+`add_visual`, `update_visual_bindings`, and `bulk_bind` all validate every field reference against the semantic model **before any write**. A typo like `Sales[FooBar]` used to silently produce a broken visual that only surfaced when the user opened PBI Desktop — now it fails the call upfront with a structured error and "did you mean" suggestions.
+
+**How it works.** The validator reads the sibling `.SemanticModel` folder (same source as `model_usage`), builds a per-table inventory of columns and measures, and checks each `FieldSpecInput` in the `bindings` array. Extension measures from `reportExtensions.json` are merged in. Calc-group items are exposed as measures. When the model can't be located (live-connect, missing sibling folder, parse error) validation **silently skips** — it never blocks a legitimate workflow just because the model is unreadable.
+
+**Three modes**, controlled per-call via `strictBindings` or globally via the `MCP_BINDING_VALIDATION` env var:
+
+| Mode | Per-call | Env var | Behaviour on unknown field |
+|------|----------|---------|----------------------------|
+| **strict** (default) | `strictBindings: true` | `MCP_BINDING_VALIDATION=strict` | Call errors out, nothing is written |
+| **warn** | `strictBindings: false` | `MCP_BINDING_VALIDATION=warn` | Call proceeds, errors attached as `bindingWarnings` |
+| **off** | — | `MCP_BINDING_VALIDATION=off` | Validation skipped entirely |
+
+Precedence: per-call param > env var > default (strict).
+
+**Error reasons.** Each validation error carries a stable `reason` code:
+- `table_not_found` — entity name doesn't match any table
+- `column_not_found` / `measure_not_found` — field not in table for its kind
+- `type_mismatch_column_is_measure` — spec says `type: "column"` but it's actually a measure
+- `type_mismatch_measure_is_column` — spec says `type: "measure"` but it's a column (use `type: "aggregation"` instead)
+- `parse_error` — field shorthand doesn't match `Table[Column]` pattern
+
+**Example strict-mode error response:**
+```json
+{
+  "success": false,
+  "error": "Binding validation failed (2 issues):\n  • Sales[FooBar] (column): column not found in table 'Sales'. Did you mean: Sales[Quantity]?\n  • Slaes[Total Sales] (measure): table 'Slaes' not found in model. Did you mean: Sales[Total Sales]?\nValidation runs against the sibling .SemanticModel folder + report extension measures. To bypass for a single call set strictBindings: false, or set MCP_BINDING_VALIDATION=off globally.",
+  "bindingErrors": [ /* structured per-error objects */ ],
+  "mode": "strict"
+}
+```
+
+**What to do when you hit a validation error:**
+1. Read the error list — every unknown field is named with its suggested replacement.
+2. If the suggestion is right, fix the spec and re-issue. Most errors are one-character typos or wrong casing.
+3. If the field genuinely doesn't exist yet (e.g. you're binding against a measure that a sibling MCP is about to add), set `strictBindings: false` on that single call to let it through as a warning. Don't set `MCP_BINDING_VALIDATION=off` globally — you'd lose the safety net for every other call.
+4. If the field exists but the validator can't see it, the sibling `.SemanticModel` folder may be missing or stale. Run `model_usage` first to confirm; if that also can't find the field, the model is the source of truth and the binding really is broken.
+
+Case-sensitivity: field names are matched exactly — `sales[quantity]` is treated as a missing table. PBI Desktop is case-sensitive here too. The "did you mean" suggestions use case-insensitive Levenshtein, so a casing mistake will surface the correctly-cased name as the top suggestion.
+
 ## Common workflows
 
 ### Create a page then populate it

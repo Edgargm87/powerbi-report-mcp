@@ -5,6 +5,7 @@ const zod_1 = require("zod");
 const pbir_js_1 = require("../pbir.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
 const model_usage_js_1 = require("../model-usage.js");
+const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
 function registerVisualTools(server, ctx) {
     // ============================================================
     // TOOL: get_visual_types
@@ -175,6 +176,10 @@ function registerVisualTools(server, ctx) {
         textSize: zod_1.z.number().optional(),
         textBold: zod_1.z.boolean().optional(),
         title: zod_1.z.string().optional(),
+        strictBindings: zod_1.z
+            .boolean()
+            .optional()
+            .describe("Binding validation: true=strict (fail on unknown field, default), false=warn (proceed with warnings). Omit for env default (MCP_BINDING_VALIDATION)."),
         containerFormat: zod_1.z.array(createVisual_js_1.FormatCategorySchema).optional().describe("Inline container formatting"),
         visualFormat: zod_1.z.array(createVisual_js_1.FormatCategorySchema).optional().describe("Inline visual formatting"),
         dataColors: zod_1.z.array(createVisual_js_1.DataColorSchema).optional().describe("Inline data point colors"),
@@ -254,17 +259,57 @@ function registerVisualTools(server, ctx) {
                 ],
             };
         }
+        // Binding validation (strict / warn / off).
+        // Flatten bindings across every spec in the call so one validator pass
+        // covers the whole batch. Fields with no bindings (shapes, text,
+        // buttons, images) contribute nothing and are skipped.
+        const allBindings = [];
+        for (const spec of specs) {
+            if (spec.bindings) {
+                for (const b of spec.bindings) {
+                    allBindings.push({
+                        bucket: b.bucket,
+                        fields: b.fields,
+                    });
+                }
+            }
+        }
+        const validation = (0, bindingValidation_js_1.runBindingValidation)(ctx.project, allBindings, params.strictBindings);
+        if (!validation.proceed) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({
+                            success: false,
+                            error: validation.message,
+                            bindingErrors: validation.errors,
+                            mode: validation.mode,
+                        }, null, 2),
+                    },
+                ],
+            };
+        }
         const results = [];
         for (let i = 0; i < specs.length; i++) {
             const result = (0, createVisual_js_1.createAndSaveVisual)(ctx.project, pageId, specs[i], maxZ + (i + 1) * 1000);
             results.push(result);
         }
         (0, model_usage_js_1.invalidateCache)();
+        const response = {
+            success: true,
+            pageId,
+            created: results,
+        };
+        if (validation.errors.length > 0) {
+            response.bindingWarnings = validation.errors;
+            response.bindingWarningMessage = validation.message;
+        }
         return {
             content: [
                 {
                     type: "text",
-                    text: JSON.stringify({ success: true, pageId, created: results }, null, 2),
+                    text: JSON.stringify(response, null, 2),
                 },
             ],
         };

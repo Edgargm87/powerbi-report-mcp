@@ -5,6 +5,7 @@ const zod_1 = require("zod");
 const pbir_js_1 = require("../pbir.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
 const model_usage_js_1 = require("../model-usage.js");
+const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
 function registerBindingTools(server, ctx) {
     // ============================================================
     // TOOL: update_visual_bindings
@@ -14,7 +15,32 @@ function registerBindingTools(server, ctx) {
         visualId: zod_1.z.string().describe("The visual ID"),
         bindings: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(createVisual_js_1.BucketBindingSchema)).describe("New data bindings"),
         autoFilters: zod_1.z.boolean().optional().default(true),
-    }, async ({ pageId, visualId, bindings, autoFilters }) => {
+        strictBindings: zod_1.z
+            .boolean()
+            .optional()
+            .describe("Binding validation: true=strict (default, fail on unknown field), false=warn (proceed with warnings). Omit for env default."),
+    }, async ({ pageId, visualId, bindings, autoFilters, strictBindings }) => {
+        // Binding validation — before any write.
+        const validationBindings = bindings.map((b) => ({
+            bucket: b.bucket,
+            fields: b.fields,
+        }));
+        const validation = (0, bindingValidation_js_1.runBindingValidation)(ctx.project, validationBindings, strictBindings);
+        if (!validation.proceed) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({
+                            success: false,
+                            error: validation.message,
+                            bindingErrors: validation.errors,
+                            mode: validation.mode,
+                        }, null, 2),
+                    },
+                ],
+            };
+        }
         const visual = ctx.project.getVisual(pageId, visualId);
         const vType = visual.visual.visualType;
         const queryState = {};
@@ -77,8 +103,13 @@ function registerBindingTools(server, ctx) {
         }
         ctx.project.saveVisual(pageId, visualId, visual);
         (0, model_usage_js_1.invalidateCache)();
+        const response = { success: true, visualId };
+        if (validation.errors.length > 0) {
+            response.bindingWarnings = validation.errors;
+            response.bindingWarningMessage = validation.message;
+        }
         return {
-            content: [{ type: "text", text: JSON.stringify({ success: true, visualId }) }],
+            content: [{ type: "text", text: JSON.stringify(response) }],
         };
     });
 }
