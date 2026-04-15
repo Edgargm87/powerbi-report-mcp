@@ -37,3 +37,6 @@ jobs:
 
       - name: Run wireframe-validator suite
         run: npm run test:wireframe
+
+      - name: Run binding-validator suite
+        run: npm run test:binding

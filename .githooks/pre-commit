@@ -41,4 +41,12 @@ node scripts/test-wireframe-validator.js >/dev/null || {
   exit 1
 }
 
-echo "[pre-commit] ✓ audit + validator pass"
+echo "[pre-commit] running binding-validator suite..."
+node scripts/test-binding-validator.js >/dev/null || {
+  echo ""
+  echo "✗ binding-validator suite failed — the validator that checks field refs"
+  echo "  at bind time has a regression. Run 'npm run test:binding' to see which."
+  exit 1
+}
+
+echo "[pre-commit] ✓ audit + wireframe + binding pass"
