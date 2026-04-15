@@ -6,8 +6,10 @@ const pbir_js_1 = require("../pbir.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
 const formatting_js_1 = require("../helpers/formatting.js");
 const model_usage_js_1 = require("../model-usage.js");
-// Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk).
+// The explicit `z.ZodType<T[]>` return cast is required because `z.preprocess` widens
+// the output to `unknown` under strict mode — which breaks downstream `z.infer` chains
+// (e.g. `bindings: parseArray(...)` would destructure as `unknown` instead of `T[]`).
 function parseArray(schema) {
     return zod_1.z.preprocess((val) => (typeof val === "string" ? JSON.parse(val) : val), zod_1.z.array(schema));
 }

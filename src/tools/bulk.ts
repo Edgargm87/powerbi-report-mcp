@@ -12,13 +12,15 @@ import { applyFormattingToTarget } from "../helpers/formatting.js";
 import type { ServerContext } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
 
-// Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk)
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function parseArray<T>(schema: z.ZodType<T>) {
+// Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk).
+// The explicit `z.ZodType<T[]>` return cast is required because `z.preprocess` widens
+// the output to `unknown` under strict mode — which breaks downstream `z.infer` chains
+// (e.g. `bindings: parseArray(...)` would destructure as `unknown` instead of `T[]`).
+function parseArray<T>(schema: z.ZodType<T>): z.ZodType<T[]> {
   return z.preprocess(
     (val) => (typeof val === "string" ? JSON.parse(val) : val),
     z.array(schema)
-  );
+  ) as unknown as z.ZodType<T[]>;
 }
 
 export function registerBulkTools(server: McpServer, ctx: ServerContext): void {

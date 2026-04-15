@@ -85,35 +85,81 @@ export declare const FieldSpecSchema: z.ZodObject<{
     field: z.ZodOptional<z.ZodString>;
     entity: z.ZodOptional<z.ZodString>;
     property: z.ZodOptional<z.ZodString>;
-    type: z.ZodEnum<{
-        measure: "measure";
-        column: "column";
-        aggregation: "aggregation";
-    }>;
+    type: z.ZodEnum<["column", "measure", "aggregation"]>;
     aggregation: z.ZodOptional<z.ZodString>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    type: "measure" | "column" | "aggregation";
+    aggregation?: string | undefined;
+    entity?: string | undefined;
+    property?: string | undefined;
+    field?: string | undefined;
+}, {
+    type: "measure" | "column" | "aggregation";
+    aggregation?: string | undefined;
+    entity?: string | undefined;
+    property?: string | undefined;
+    field?: string | undefined;
+}>;
 export declare const BucketBindingSchema: z.ZodObject<{
     bucket: z.ZodString;
     fields: z.ZodArray<z.ZodObject<{
         field: z.ZodOptional<z.ZodString>;
         entity: z.ZodOptional<z.ZodString>;
         property: z.ZodOptional<z.ZodString>;
-        type: z.ZodEnum<{
-            measure: "measure";
-            column: "column";
-            aggregation: "aggregation";
-        }>;
+        type: z.ZodEnum<["column", "measure", "aggregation"]>;
         aggregation: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>>;
-}, z.core.$strip>;
+    }, "strip", z.ZodTypeAny, {
+        type: "measure" | "column" | "aggregation";
+        aggregation?: string | undefined;
+        entity?: string | undefined;
+        property?: string | undefined;
+        field?: string | undefined;
+    }, {
+        type: "measure" | "column" | "aggregation";
+        aggregation?: string | undefined;
+        entity?: string | undefined;
+        property?: string | undefined;
+        field?: string | undefined;
+    }>, "many">;
+}, "strip", z.ZodTypeAny, {
+    bucket: string;
+    fields: {
+        type: "measure" | "column" | "aggregation";
+        aggregation?: string | undefined;
+        entity?: string | undefined;
+        property?: string | undefined;
+        field?: string | undefined;
+    }[];
+}, {
+    bucket: string;
+    fields: {
+        type: "measure" | "column" | "aggregation";
+        aggregation?: string | undefined;
+        entity?: string | undefined;
+        property?: string | undefined;
+        field?: string | undefined;
+    }[];
+}>;
 export declare const FormatCategorySchema: z.ZodObject<{
     category: z.ZodString;
-    properties: z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>;
-}, z.core.$strip>;
+    properties: z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean]>>;
+}, "strip", z.ZodTypeAny, {
+    properties: Record<string, string | number | boolean>;
+    category: string;
+}, {
+    properties: Record<string, string | number | boolean>;
+    category: string;
+}>;
 export declare const DataColorSchema: z.ZodObject<{
     color: z.ZodString;
     seriesName: z.ZodOptional<z.ZodString>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    color: string;
+    seriesName?: string | undefined;
+}, {
+    color: string;
+    seriesName?: string | undefined;
+}>;
 export declare const VisualSpecSchema: z.ZodObject<{
     visualType: z.ZodString;
     x: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
@@ -126,43 +172,50 @@ export declare const VisualSpecSchema: z.ZodObject<{
             field: z.ZodOptional<z.ZodString>;
             entity: z.ZodOptional<z.ZodString>;
             property: z.ZodOptional<z.ZodString>;
-            type: z.ZodEnum<{
-                measure: "measure";
-                column: "column";
-                aggregation: "aggregation";
-            }>;
+            type: z.ZodEnum<["column", "measure", "aggregation"]>;
             aggregation: z.ZodOptional<z.ZodString>;
-        }, z.core.$strip>>;
-    }, z.core.$strip>>>;
+        }, "strip", z.ZodTypeAny, {
+            type: "measure" | "column" | "aggregation";
+            aggregation?: string | undefined;
+            entity?: string | undefined;
+            property?: string | undefined;
+            field?: string | undefined;
+        }, {
+            type: "measure" | "column" | "aggregation";
+            aggregation?: string | undefined;
+            entity?: string | undefined;
+            property?: string | undefined;
+            field?: string | undefined;
+        }>, "many">;
+    }, "strip", z.ZodTypeAny, {
+        bucket: string;
+        fields: {
+            type: "measure" | "column" | "aggregation";
+            aggregation?: string | undefined;
+            entity?: string | undefined;
+            property?: string | undefined;
+            field?: string | undefined;
+        }[];
+    }, {
+        bucket: string;
+        fields: {
+            type: "measure" | "column" | "aggregation";
+            aggregation?: string | undefined;
+            entity?: string | undefined;
+            property?: string | undefined;
+            field?: string | undefined;
+        }[];
+    }>, "many">>;
     autoFilters: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
-    slicerMode: z.ZodOptional<z.ZodEnum<{
-        Basic: "Basic";
-        Dropdown: "Dropdown";
-    }>>;
+    slicerMode: z.ZodOptional<z.ZodEnum<["Basic", "Dropdown"]>>;
     multiSelect: z.ZodOptional<z.ZodBoolean>;
-    shapeType: z.ZodOptional<z.ZodEnum<{
-        rectangle: "rectangle";
-        rectangleRounded: "rectangleRounded";
-        line: "line";
-        tabCutCorner: "tabCutCorner";
-        tabCutTopCorners: "tabCutTopCorners";
-        tabRoundCorner: "tabRoundCorner";
-        tabRoundTopCorners: "tabRoundTopCorners";
-    }>>;
+    shapeType: z.ZodOptional<z.ZodEnum<["rectangle", "rectangleRounded", "line", "tabCutCorner", "tabCutTopCorners", "tabRoundCorner", "tabRoundTopCorners"]>>;
     shapeRotation: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
     fillColor: z.ZodOptional<z.ZodString>;
     textContent: z.ZodOptional<z.ZodString>;
     textColor: z.ZodOptional<z.ZodString>;
-    textAlign: z.ZodOptional<z.ZodEnum<{
-        left: "left";
-        center: "center";
-        right: "right";
-    }>>;
-    textVAlign: z.ZodOptional<z.ZodEnum<{
-        top: "top";
-        middle: "middle";
-        bottom: "bottom";
-    }>>;
+    textAlign: z.ZodOptional<z.ZodEnum<["left", "center", "right"]>>;
+    textVAlign: z.ZodOptional<z.ZodEnum<["top", "middle", "bottom"]>>;
     textFont: z.ZodOptional<z.ZodString>;
     textSize: z.ZodOptional<z.ZodNumber>;
     textBold: z.ZodOptional<z.ZodBoolean>;
@@ -172,31 +225,140 @@ export declare const VisualSpecSchema: z.ZodObject<{
     title: z.ZodOptional<z.ZodString>;
     containerFormat: z.ZodOptional<z.ZodArray<z.ZodObject<{
         category: z.ZodString;
-        properties: z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>;
-    }, z.core.$strip>>>;
+        properties: z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean]>>;
+    }, "strip", z.ZodTypeAny, {
+        properties: Record<string, string | number | boolean>;
+        category: string;
+    }, {
+        properties: Record<string, string | number | boolean>;
+        category: string;
+    }>, "many">>;
     visualFormat: z.ZodOptional<z.ZodArray<z.ZodObject<{
         category: z.ZodString;
-        properties: z.ZodRecord<z.ZodString, z.ZodUnion<readonly [z.ZodString, z.ZodNumber, z.ZodBoolean]>>;
-    }, z.core.$strip>>>;
+        properties: z.ZodRecord<z.ZodString, z.ZodUnion<[z.ZodString, z.ZodNumber, z.ZodBoolean]>>;
+    }, "strip", z.ZodTypeAny, {
+        properties: Record<string, string | number | boolean>;
+        category: string;
+    }, {
+        properties: Record<string, string | number | boolean>;
+        category: string;
+    }>, "many">>;
     dataColors: z.ZodOptional<z.ZodArray<z.ZodObject<{
         color: z.ZodString;
         seriesName: z.ZodOptional<z.ZodString>;
-    }, z.core.$strip>>>;
+    }, "strip", z.ZodTypeAny, {
+        color: string;
+        seriesName?: string | undefined;
+    }, {
+        color: string;
+        seriesName?: string | undefined;
+    }>, "many">>;
     imageUrl: z.ZodOptional<z.ZodString>;
-    imageScaling: z.ZodOptional<z.ZodEnum<{
-        fill: "fill";
-        fit: "fit";
-        normal: "normal";
-    }>>;
+    imageScaling: z.ZodOptional<z.ZodEnum<["fit", "fill", "normal"]>>;
     buttonText: z.ZodOptional<z.ZodString>;
-    buttonAction: z.ZodOptional<z.ZodEnum<{
-        pageNavigation: "pageNavigation";
-        URL: "URL";
-        bookmark: "bookmark";
-        back: "back";
-    }>>;
+    buttonAction: z.ZodOptional<z.ZodEnum<["pageNavigation", "URL", "bookmark", "back"]>>;
     buttonActionTarget: z.ZodOptional<z.ZodString>;
-}, z.core.$strip>;
+}, "strip", z.ZodTypeAny, {
+    width: number;
+    height: number;
+    x: number;
+    y: number;
+    visualType: string;
+    autoFilters: boolean;
+    shapeRotation: number;
+    bindings?: {
+        bucket: string;
+        fields: {
+            type: "measure" | "column" | "aggregation";
+            aggregation?: string | undefined;
+            entity?: string | undefined;
+            property?: string | undefined;
+            field?: string | undefined;
+        }[];
+    }[] | undefined;
+    title?: string | undefined;
+    slicerMode?: "Basic" | "Dropdown" | undefined;
+    multiSelect?: boolean | undefined;
+    shapeType?: "rectangle" | "rectangleRounded" | "line" | "tabCutCorner" | "tabCutTopCorners" | "tabRoundCorner" | "tabRoundTopCorners" | undefined;
+    fillColor?: string | undefined;
+    textContent?: string | undefined;
+    textColor?: string | undefined;
+    textAlign?: "left" | "center" | "right" | undefined;
+    textVAlign?: "top" | "middle" | "bottom" | undefined;
+    textFont?: string | undefined;
+    textSize?: number | undefined;
+    textBold?: boolean | undefined;
+    textItalic?: boolean | undefined;
+    textUnderline?: boolean | undefined;
+    textPadding?: number | undefined;
+    containerFormat?: {
+        properties: Record<string, string | number | boolean>;
+        category: string;
+    }[] | undefined;
+    visualFormat?: {
+        properties: Record<string, string | number | boolean>;
+        category: string;
+    }[] | undefined;
+    dataColors?: {
+        color: string;
+        seriesName?: string | undefined;
+    }[] | undefined;
+    imageUrl?: string | undefined;
+    imageScaling?: "fill" | "fit" | "normal" | undefined;
+    buttonText?: string | undefined;
+    buttonAction?: "pageNavigation" | "URL" | "bookmark" | "back" | undefined;
+    buttonActionTarget?: string | undefined;
+}, {
+    visualType: string;
+    bindings?: {
+        bucket: string;
+        fields: {
+            type: "measure" | "column" | "aggregation";
+            aggregation?: string | undefined;
+            entity?: string | undefined;
+            property?: string | undefined;
+            field?: string | undefined;
+        }[];
+    }[] | undefined;
+    title?: string | undefined;
+    width?: number | undefined;
+    height?: number | undefined;
+    x?: number | undefined;
+    y?: number | undefined;
+    autoFilters?: boolean | undefined;
+    slicerMode?: "Basic" | "Dropdown" | undefined;
+    multiSelect?: boolean | undefined;
+    shapeType?: "rectangle" | "rectangleRounded" | "line" | "tabCutCorner" | "tabCutTopCorners" | "tabRoundCorner" | "tabRoundTopCorners" | undefined;
+    shapeRotation?: number | undefined;
+    fillColor?: string | undefined;
+    textContent?: string | undefined;
+    textColor?: string | undefined;
+    textAlign?: "left" | "center" | "right" | undefined;
+    textVAlign?: "top" | "middle" | "bottom" | undefined;
+    textFont?: string | undefined;
+    textSize?: number | undefined;
+    textBold?: boolean | undefined;
+    textItalic?: boolean | undefined;
+    textUnderline?: boolean | undefined;
+    textPadding?: number | undefined;
+    containerFormat?: {
+        properties: Record<string, string | number | boolean>;
+        category: string;
+    }[] | undefined;
+    visualFormat?: {
+        properties: Record<string, string | number | boolean>;
+        category: string;
+    }[] | undefined;
+    dataColors?: {
+        color: string;
+        seriesName?: string | undefined;
+    }[] | undefined;
+    imageUrl?: string | undefined;
+    imageScaling?: "fill" | "fit" | "normal" | undefined;
+    buttonText?: string | undefined;
+    buttonAction?: "pageNavigation" | "URL" | "bookmark" | "back" | undefined;
+    buttonActionTarget?: string | undefined;
+}>;
 export declare function parseFieldSpec(spec: FieldSpecInput): FieldRef;
 export declare function createAndSaveVisual(project: PbirProject, pageId: string, spec: VisualSpec, baseZ: number): {
     visualId: string;
