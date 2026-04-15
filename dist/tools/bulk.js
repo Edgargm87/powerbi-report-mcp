@@ -13,14 +13,51 @@ const model_usage_js_1 = require("../model-usage.js");
 function parseArray(schema) {
     return zod_1.z.preprocess((val) => (typeof val === "string" ? JSON.parse(val) : val), zod_1.z.array(schema));
 }
+// ---------------------------------------------------------------------------
+// Safety gate for bulk operations.
+//
+// Why: an agent that calls `list_visuals` and then pipes every id straight
+// into `bulk_delete_visuals` can wipe an entire page in one call with no
+// second thought. The gate forces the agent to explicitly acknowledge the
+// size of the operation when it crosses a threshold — matching the pattern
+// in MinaSaad1/pbi-cli where every bulk command requires an explicit filter
+// flag to prevent accidental mass operations.
+//
+// Rule: if the operation would touch more than BULK_CONFIRM_THRESHOLD items
+// and `confirmBulk !== true`, return a structured error instead of running.
+// The error names the count and tells the agent exactly how to proceed.
+// ---------------------------------------------------------------------------
+const BULK_CONFIRM_THRESHOLD = 5;
+function bulkSafetyError(verb, count) {
+    return {
+        content: [
+            {
+                type: "text",
+                text: JSON.stringify({
+                    success: false,
+                    error: `Safety gate: this call would ${verb} ${count} visuals (threshold ${BULK_CONFIRM_THRESHOLD}). ` +
+                        `Set confirmBulk: true to proceed, or reduce the list to ≤${BULK_CONFIRM_THRESHOLD} items.`,
+                    count,
+                    threshold: BULK_CONFIRM_THRESHOLD,
+                    confirmBulkRequired: true,
+                }),
+            },
+        ],
+    };
+}
 function registerBulkTools(server, ctx) {
     // ============================================================
     // TOOL: bulk_delete_visuals
     // ============================================================
-    server.tool("bulk_delete_visuals", "Delete multiple visuals from a page in one call.", {
+    server.tool("bulk_delete_visuals", "Delete multiple visuals from a page in one call. Set confirmBulk:true when deleting >5.", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualIds: parseArray(zod_1.z.string()).describe("Visual IDs to delete"),
-    }, async ({ pageId, visualIds }) => {
+        confirmBulk: zod_1.z.coerce.boolean().optional().default(false)
+            .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals. Guards against accidental page wipes.`),
+    }, async ({ pageId, visualIds, confirmBulk }) => {
+        if (visualIds.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
+            return bulkSafetyError("delete", visualIds.length);
+        }
         const deleted = [];
         const errors = [];
         for (const vid of visualIds) {
@@ -45,7 +82,7 @@ function registerBulkTools(server, ctx) {
     // ============================================================
     // TOOL: bulk_update_format
     // ============================================================
-    server.tool("bulk_update_format", "Apply the same formatting to multiple visuals in one call. target='container' for title/background/border, 'visual' for axes/legend/labels.", {
+    server.tool("bulk_update_format", "Apply the same formatting to multiple visuals in one call. target='container' for title/background/border, 'visual' for axes/legend/labels. Set confirmBulk:true when formatting >5.", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualIds: parseArray(zod_1.z.string()).describe("Visual IDs to format"),
         formatting: parseArray(createVisual_js_1.FormatCategorySchema).describe("Formatting to apply to all visuals"),
@@ -54,7 +91,12 @@ function registerBulkTools(server, ctx) {
             .optional()
             .default("visual")
             .describe("'container' = title/background/border, 'visual' = axes/labels/legend"),
-    }, async ({ pageId, visualIds, formatting, target }) => {
+        confirmBulk: zod_1.z.coerce.boolean().optional().default(false)
+            .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
+    }, async ({ pageId, visualIds, formatting, target, confirmBulk }) => {
+        if (visualIds.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
+            return bulkSafetyError("format", visualIds.length);
+        }
         const updated = [];
         const errors = [];
         for (const vid of visualIds) {
@@ -83,7 +125,7 @@ function registerBulkTools(server, ctx) {
     // ============================================================
     // TOOL: bulk_bind
     // ============================================================
-    server.tool("bulk_bind", "Update data bindings on multiple visuals in one call. Each entry specifies a visualId and its new bindings. Replaces existing bindings entirely.", {
+    server.tool("bulk_bind", "Update data bindings on multiple visuals in one call. Each entry specifies a visualId and its new bindings. Replaces existing bindings entirely. Set confirmBulk:true when rebinding >5.", {
         pageId: zod_1.z.string().describe("The page ID"),
         updates: parseArray(zod_1.z.object({
             visualId: zod_1.z.string().describe("Visual ID to rebind"),
@@ -94,7 +136,12 @@ function registerBulkTools(server, ctx) {
             .optional()
             .default(true)
             .describe("Rebuild auto-filters for each visual"),
-    }, async ({ pageId, updates, autoFilters }) => {
+        confirmBulk: zod_1.z.coerce.boolean().optional().default(false)
+            .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
+    }, async ({ pageId, updates, autoFilters, confirmBulk }) => {
+        if (updates.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
+            return bulkSafetyError("rebind", updates.length);
+        }
         const updated = [];
         const errors = [];
         for (const { visualId, bindings } of updates) {

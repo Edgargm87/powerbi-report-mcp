@@ -172,3 +172,22 @@ Before writing custom DAX, check these pre-built SVG libraries:
 - **DaxLib.SVG** — 3-tier API: Viz.*/Compound.*/Element.* for area, bars, boxplot, heatmap, jitter, line, pill, progress
 - **PowerBI MacGuyver Toolbox** — 20+ bar, 14+ line, 24+ KPI templates
 - **Kerry Kolosko Templates** — Sparklines, data bars, gauges, KPI cards, waterfalls
+
+## Where the DAX Actually Lives
+
+SVG measures are **model-level DAX**, not report-layer JSON. This MCP (`powerbi-report-mcp`) doesn't author DAX — it only binds existing measures into visuals. When you need a new SVG measure:
+
+- **Primary path** — use the sibling `powerbi-modeling-mcp` (Microsoft's official modeling MCP) via `measure_operations(Create)` with `dataType: "String"` and `dataCategory: "ImageUrl"`. That MCP ships its own skill documentation; it is the authority for anything that lives in the semantic model.
+- **Fallback** — if the measure must be report-scoped (no write access to the model, or the DAX shouldn't leak into other reports), use `manage_extension_measures(add)` with `dataType: "Text"`. Extension measures are stored in `reportExtensions.json` inside the `.Report` folder and behave like model measures for binding purposes.
+
+Once the measure exists (in either location), come back to this MCP for the `add_visual` / `format_visual` steps listed in the Workflow section above.
+
+### Canonical DAX references
+
+If you're writing the SVG construction by hand (rather than having Claude compose it), these are the free, authoritative sources for DAX syntax and patterns. They're the same references Microsoft Learn links to:
+
+- **[daxpatterns.com](https://www.daxpatterns.com/)** — SQLBI pattern library
+- **[dax.guide](https://dax.guide/)** — SQLBI DAX function reference
+- **[Microsoft DAX reference](https://learn.microsoft.com/en-us/dax/dax-function-reference)** — official function docs
+
+Nothing in the templates above is proprietary — they use standard DAX functions (`SWITCH`, `CONCATENATEX`, `SUMMARIZE`, `DIVIDE`, `FORMAT`, `MAXX`, `HASONEVALUE`) combined with SVG string concatenation. If an agent doesn't recognize a function in one of the templates, those three links are the places to look it up.

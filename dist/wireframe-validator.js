@@ -218,13 +218,52 @@ function validateWireframe(visuals) {
             }
         }
     }
-    // --- Column alignment across rows ---
-    // docs/wireframes.md suggests column boundaries should align across rows, but
-    // this is aspirational: equal-split rows with different column counts (5 cards
-    // vs 2 charts vs 3 details) mathematically can't share left edges. The
-    // alignment rule is a soft guideline best judged visually, not mechanically,
-    // so we skip it here. The hard rules (margins, gaps, bounds, overlaps) are
-    // enough to catch the bugs that actually break layouts.
+    // --- Column alignment across rows (constrained, warning-level) ---
+    //
+    // The general "columns should align across all rows" rule is impossible to
+    // enforce when adjacent rows have different column counts (5 cards vs 3
+    // details can't share x-positions). BUT: when two adjacent rows have the
+    // *same* number of visuals, they almost certainly want the same column
+    // grid — and when they drift by 2-3px, that drift is visually obvious and
+    // makes the layout look sloppy even though every hard rule passes.
+    //
+    // Rule: for any pair of rows where
+    //   - row A and row B have the same visual count (N ≥ 2)
+    //   - row B starts within `(gap + tolerance)` of row A's bottom edge (i.e.
+    //     they're visually adjacent, not separated by another row)
+    //   - corresponding visuals' x-positions drift by > ALIGN_TOLERANCE px
+    // emit a COLUMN_MISALIGN warning naming the offending pair.
+    //
+    // Borrowed from the Kurt Buhler "vertical column alignment across rows"
+    // dataviz principle; the tolerance keeps rounding noise from firing.
+    const ALIGN_TOLERANCE = 1; // px
+    for (let i = 0; i < rows.length - 1; i++) {
+        const rowA = rows[i];
+        const rowB = rows[i + 1];
+        if (rowA.length < 2 || rowA.length !== rowB.length)
+            continue;
+        // Adjacency check: row B's top edge should be close to row A's bottom edge
+        const rowABottom = Math.max(...rowA.map((v) => v.y + v.height));
+        const rowBTop = Math.min(...rowB.map((v) => v.y));
+        const rowGap = rowBTop - rowABottom;
+        if (rowGap < 0 || rowGap > exports.CANVAS.gap + 10)
+            continue; // not visually adjacent
+        // Column drift check
+        for (let k = 0; k < rowA.length; k++) {
+            const a = rowA[k];
+            const b = rowB[k];
+            const xDrift = Math.abs(a.x - b.x);
+            const wDrift = Math.abs(a.width - b.width);
+            if (xDrift > ALIGN_TOLERANCE || wDrift > ALIGN_TOLERANCE) {
+                issues.push({
+                    severity: "warning",
+                    code: "COLUMN_MISALIGN",
+                    message: `Column ${k + 1}: ${label(a)} (x=${a.x}, w=${a.width}) does not align with ${label(b)} (x=${b.x}, w=${b.width}) in the next row. Same-count adjacent rows should share a column grid.`,
+                    visuals: [label(a), label(b)],
+                });
+            }
+        }
+    }
     // --- Stats ---
     const totalArea = visuals.reduce((s, v) => s + v.width * v.height, 0);
     const coverage = (totalArea / (exports.CANVAS.width * exports.CANVAS.height)) * 100;

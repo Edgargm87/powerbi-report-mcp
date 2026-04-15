@@ -1,8 +1,24 @@
-<!-- doc-version: 2.1 | Last updated: 2026-04-15 -->
+<!-- doc-version: 2.2 | Last updated: 2026-04-15 -->
 # Power BI Report Design Principles
 
 > This file covers **principles** (typography, color, slicer placement, KPI patterns).
 > For the **mechanical layout rules** (margins, gaps, validated layouts, batch templates) see `skills/wireframes.md` — that file is the canonical source of truth and is verified against `src/wireframe-validator.ts`.
+
+## Mental Model — Before You Place A Single Visual
+
+Most "bad" Power BI reports aren't broken because of formatting or colors. They're broken because whoever built them started placing visuals before deciding what question the page answers. If you skip this section you will produce pages that technically pass the wireframe validator and still feel cluttered, redundant, or unreadable.
+
+**Step 1 — Name the page's one job.** Every page answers exactly one question. "How did we do last quarter?", "Which customers are at risk?", "What's the pipeline looking like?". If you can't write that question in one sentence, don't place any visuals yet — ask the user. Two-question pages become two pages.
+
+**Step 2 — Pick the headline number.** The page's job translates to a single most-important metric. That metric goes in the largest, leftmost, top-most card (the spot the eye hits first in English-reading left-to-right layouts). Everything else on the page is context or breakdown for that one number. If two metrics feel equally important, you probably have two pages.
+
+**Step 3 — Context before detail.** After the headline, the next row is *how we got here* — trend, variance vs prior period, variance vs target. After that comes the *breakdown* — which segment, customer, product contributed. Detail tables go last, at the bottom, for users who want to audit. This is the 3-30-300 rule expressed as layout: the 3-second viewer only sees the headline, the 30-second viewer gets the trend row, the 300-second viewer drills into the tables.
+
+**Step 4 — Delete rather than add.** Every visual competes for attention. A page with 8 visuals where 5 matter reads worse than a page with 5 visuals where all 5 matter. When you can't decide whether a chart belongs on the page, the default is: delete it. If the user asks where it went, you've just learned it actually matters — put it back. If they don't, you saved everyone cognitive load.
+
+**Step 5 — Pre-attentive attributes are a budget.** Position, size, color, and motion are the four things the human eye processes before conscious thought. You have roughly **one** of each to spend per page. If every card is red, nothing is urgent. If every chart is a different color, nothing is emphasized. If five things move, the eye gives up. Spend the color budget on the one thing you want the viewer to notice.
+
+These are not invented rules — they're the common core of every serious dataviz reference (Stephen Few's *Information Dashboard Design*, Cole Nussbaumer Knaflic's *Storytelling with Data*, Edward Tufte's *The Visual Display of Quantitative Information*, IBCS standards). Read one of those books once and the specific patterns below will make sense as consequences of the mental model rather than arbitrary rules.
 
 ## Layout Standards
 

@@ -26,6 +26,20 @@ function run(name, visuals, expectOk) {
   return pass;
 }
 
+// Variant that asserts a specific issue code is present in the report.
+// Used for warning-level checks (e.g. COLUMN_MISALIGN) where report.ok
+// would still be true but we want to verify the warning fired.
+function runExpectCode(name, visuals, expectedCode) {
+  const report = validateWireframe(visuals);
+  const hit = report.issues.some((i) => i.code === expectedCode);
+  const icon = hit ? "✓" : "✗";
+  console.log(`\n${"═".repeat(79)}`);
+  console.log(`${icon} ${name}   (expected issue code ${expectedCode}, got ${hit ? "present" : "MISSING"})`);
+  console.log("═".repeat(79));
+  console.log(formatReport(report));
+  return hit;
+}
+
 // --- positive cases --------------------------------------------------------
 
 // Layout A — Dashboard: 5 cards, 2 charts, 3 details (11 visuals)
@@ -165,6 +179,22 @@ const badBottomMargin = [
   { id: "Table",  visualType: "tableEx",  x: 15, y: 442, width: 1250, height: 276 }, // bottom=718 > 714
 ];
 
+// BAD 8 — Column drift between same-count adjacent rows.
+// Two rows of 3 visuals each. Row 1 uses columns 15 / 434 / 852 (widths 414).
+// Row 2 uses 18 / 434 / 852 — the first column drifts by 3px, which passes
+// every hard rule (margins ok, gaps ok, no overlap) but looks misaligned.
+// The validator should emit a COLUMN_MISALIGN warning (severity: warning,
+// so report.ok stays true — we assert the code, not ok).
+const badColumnDrift = [
+  banner,
+  { id: "Row1 Col1", visualType: "card", x: 15,  y: 57,  width: 414, height: 120 },
+  { id: "Row1 Col2", visualType: "card", x: 434, y: 57,  width: 413, height: 120 },
+  { id: "Row1 Col3", visualType: "card", x: 852, y: 57,  width: 413, height: 120 },
+  { id: "Row2 Col1", visualType: "card", x: 18,  y: 182, width: 411, height: 120 }, // x drifted +3, w -3
+  { id: "Row2 Col2", visualType: "card", x: 434, y: 182, width: 413, height: 120 },
+  { id: "Row2 Col3", visualType: "card", x: 852, y: 182, width: 413, height: 120 },
+];
+
 // --- run ------------------------------------------------------------------
 
 console.log("Power BI Report Wireframe Validator — Test Suite");
@@ -184,6 +214,7 @@ results.push(run("BAD 4 — Overlapping cards", badOverlap, false));
 results.push(run("BAD 5 — Silent default (0,0) for non-banner", badSilentDefault, false));
 results.push(run("BAD 6 — Bottom edge overflow (762 > 720)", badBottomOverflow, false));
 results.push(run("BAD 7 — Bottom margin violation (718 > 714)", badBottomMargin, false));
+results.push(runExpectCode("BAD 8 — Column drift between same-count rows (warning)", badColumnDrift, "COLUMN_MISALIGN"));
 
 const passed = results.filter(Boolean).length;
 const total = results.length;

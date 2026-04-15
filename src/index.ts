@@ -193,7 +193,7 @@ async function main() {
 
   const server = new McpServer({
     name: "powerbi-report-mcp",
-    version: "0.5.9",
+    version: "0.6.0",
   });
 
   // Determine tool loading mode
@@ -310,7 +310,7 @@ async function main() {
   const transport = new StdioServerTransport();
   console.error("Power BI Report MCP Server starting...");
   console.error(`Report path: ${reportPath || "none (use set_report to connect)"}`);
-  console.error(`Version: 0.5.9`);
+  console.error(`Version: 0.6.0`);
   console.error(`Tools mode: ${loadAll ? "all" : "default"} (${activeTools.size} active, ${deferredTools.size} on-demand)`);
   console.error(loadAll ? "" : "Tip: Set MCP_TOOLS=all to load all tools at startup, or use the load_tools tool.");
   await server.connect(transport);

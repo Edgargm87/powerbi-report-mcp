@@ -23,18 +23,58 @@ function parseArray<T>(schema: z.ZodType<T>): z.ZodType<T[]> {
   ) as unknown as z.ZodType<T[]>;
 }
 
+// ---------------------------------------------------------------------------
+// Safety gate for bulk operations.
+//
+// Why: an agent that calls `list_visuals` and then pipes every id straight
+// into `bulk_delete_visuals` can wipe an entire page in one call with no
+// second thought. The gate forces the agent to explicitly acknowledge the
+// size of the operation when it crosses a threshold — matching the pattern
+// in MinaSaad1/pbi-cli where every bulk command requires an explicit filter
+// flag to prevent accidental mass operations.
+//
+// Rule: if the operation would touch more than BULK_CONFIRM_THRESHOLD items
+// and `confirmBulk !== true`, return a structured error instead of running.
+// The error names the count and tells the agent exactly how to proceed.
+// ---------------------------------------------------------------------------
+const BULK_CONFIRM_THRESHOLD = 5;
+
+function bulkSafetyError(verb: string, count: number) {
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify({
+          success: false,
+          error: `Safety gate: this call would ${verb} ${count} visuals (threshold ${BULK_CONFIRM_THRESHOLD}). ` +
+            `Set confirmBulk: true to proceed, or reduce the list to ≤${BULK_CONFIRM_THRESHOLD} items.`,
+          count,
+          threshold: BULK_CONFIRM_THRESHOLD,
+          confirmBulkRequired: true,
+        }),
+      },
+    ],
+  };
+}
+
 export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
   // TOOL: bulk_delete_visuals
   // ============================================================
   server.tool(
     "bulk_delete_visuals",
-    "Delete multiple visuals from a page in one call.",
+    "Delete multiple visuals from a page in one call. Set confirmBulk:true when deleting >5.",
     {
       pageId: z.string().describe("The page ID"),
       visualIds: parseArray(z.string()).describe("Visual IDs to delete"),
+      confirmBulk: z.coerce.boolean().optional().default(false)
+        .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals. Guards against accidental page wipes.`),
     },
-    async ({ pageId, visualIds }) => {
+    async ({ pageId, visualIds, confirmBulk }) => {
+      if (visualIds.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
+        return bulkSafetyError("delete", visualIds.length);
+      }
+
       const deleted: string[] = [];
       const errors: string[] = [];
 
@@ -64,7 +104,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
   server.tool(
     "bulk_update_format",
-    "Apply the same formatting to multiple visuals in one call. target='container' for title/background/border, 'visual' for axes/legend/labels.",
+    "Apply the same formatting to multiple visuals in one call. target='container' for title/background/border, 'visual' for axes/legend/labels. Set confirmBulk:true when formatting >5.",
     {
       pageId: z.string().describe("The page ID"),
       visualIds: parseArray(z.string()).describe("Visual IDs to format"),
@@ -74,8 +114,14 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
         .optional()
         .default("visual")
         .describe("'container' = title/background/border, 'visual' = axes/labels/legend"),
+      confirmBulk: z.coerce.boolean().optional().default(false)
+        .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
     },
-    async ({ pageId, visualIds, formatting, target }) => {
+    async ({ pageId, visualIds, formatting, target, confirmBulk }) => {
+      if (visualIds.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
+        return bulkSafetyError("format", visualIds.length);
+      }
+
       const updated: string[] = [];
       const errors: string[] = [];
 
@@ -110,7 +156,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
   server.tool(
     "bulk_bind",
-    "Update data bindings on multiple visuals in one call. Each entry specifies a visualId and its new bindings. Replaces existing bindings entirely.",
+    "Update data bindings on multiple visuals in one call. Each entry specifies a visualId and its new bindings. Replaces existing bindings entirely. Set confirmBulk:true when rebinding >5.",
     {
       pageId: z.string().describe("The page ID"),
       updates: parseArray(
@@ -124,8 +170,14 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
         .optional()
         .default(true)
         .describe("Rebuild auto-filters for each visual"),
+      confirmBulk: z.coerce.boolean().optional().default(false)
+        .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
     },
-    async ({ pageId, updates, autoFilters }) => {
+    async ({ pageId, updates, autoFilters, confirmBulk }) => {
+      if (updates.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
+        return bulkSafetyError("rebind", updates.length);
+      }
+
       const updated: string[] = [];
       const errors: string[] = [];
 

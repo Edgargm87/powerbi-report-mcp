@@ -235,11 +235,23 @@ Caveats:
 // Single
 { "pageId": "<id>", "visualId": "<id>" }
 
-// Bulk
+// Bulk — small operation (≤5 visuals), no confirmation required
 { "pageId": "<id>", "visualIds": ["<id1>", "<id2>", "<id3>"] }
+
+// Bulk — large operation (>5 visuals), requires confirmBulk
+{ "pageId": "<id>", "visualIds": ["<id1>", ..., "<id9>"], "confirmBulk": true }
 ```
 
 Both invalidate the model_usage cache.
+
+### Bulk safety gate
+
+`bulk_delete_visuals`, `bulk_update_format`, and `bulk_bind` all enforce a safety threshold: **if the operation would affect more than 5 visuals and `confirmBulk` is not set to `true`, the call errors out** with a structured message naming the count and the threshold. This prevents the common failure mode of "agent lists every visual on a page, pipes the id array straight into a bulk tool, and wipes the page."
+
+When you get a safety-gate error:
+- If you meant to operate on that many visuals, re-issue the call with `confirmBulk: true`.
+- If you didn't, narrow the id list (e.g. filter by type or name prefix using `list_visuals` results).
+- Never set `confirmBulk: true` reflexively — the gate exists to force a second thought.
 
 ## Common workflows
 
