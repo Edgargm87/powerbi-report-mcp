@@ -27,6 +27,13 @@ export interface VisualSpec {
   }>;
   autoFilters?: boolean;
   slicerMode?: "Basic" | "Dropdown";
+  /**
+   * Slicer selection mode. Applies to `slicer` and `listSlicer` types.
+   *   true  → multi-select (writes objects.selection.singleSelect = false)
+   *   false → single-select (writes objects.selection.singleSelect = true)
+   *   undefined → use Power BI default (Dropdown=single, Basic/listSlicer=multi)
+   */
+  multiSelect?: boolean;
   shapeType?: string;
   shapeRotation?: number;
   fillColor?: string;
@@ -167,6 +174,12 @@ export const VisualSpecSchema = z.object({
   bindings: z.array(BucketBindingSchema).optional().describe("Data bindings"),
   autoFilters: z.boolean().optional().default(true),
   slicerMode: z.enum(["Basic", "Dropdown"]).optional(),
+  multiSelect: z
+    .boolean()
+    .optional()
+    .describe(
+      "Slicer selection mode (slicer/listSlicer). true=multi-select (checkbox), false=single-select. Omit for PBI default."
+    ),
   shapeType: z
     .enum(["rectangle", "rectangleRounded", "line", "tabCutCorner", "tabCutTopCorners", "tabRoundCorner", "tabRoundTopCorners"])
     .optional(),
@@ -279,6 +292,7 @@ export function createAndSaveVisual(
     bindings,
     autoFilters = true,
     slicerMode,
+    multiSelect,
     shapeType,
     shapeRotation = 0,
     fillColor,
@@ -369,23 +383,39 @@ export function createAndSaveVisual(
   let visualObjects: Record<string, unknown> | undefined;
   if (visualType === "slicer") {
     const mode = slicerMode || "Dropdown";
-    // Dropdown: add strictSingleSelect=true (matches PBI default for dropdowns)
-    // Basic: just set mode, no extra selection properties
-    visualObjects =
-      mode === "Dropdown"
-        ? {
-            data: [{ properties: { mode: { expr: { Literal: { Value: `'${mode}'` } } } } }],
-            selection: [
-              {
-                properties: {
-                  strictSingleSelect: { expr: { Literal: { Value: "true" } } },
-                },
-              },
-            ],
-          }
-        : {
-            data: [{ properties: { mode: { expr: { Literal: { Value: `'${mode}'` } } } } }],
-          };
+    // Selection properties:
+    //   - multiSelect param wins when provided (writes singleSelect literal)
+    //   - Default for Dropdown (no multiSelect set): strictSingleSelect=true
+    //   - Default for Basic: nothing (PBI default = multi-select)
+    const selectionProps: Record<string, unknown> = {};
+    if (multiSelect !== undefined) {
+      selectionProps.singleSelect = {
+        expr: { Literal: { Value: multiSelect ? "false" : "true" } },
+      };
+    }
+    if (mode === "Dropdown" && multiSelect === undefined) {
+      selectionProps.strictSingleSelect = { expr: { Literal: { Value: "true" } } };
+    }
+    const slicerObjects: Record<string, unknown> = {
+      data: [{ properties: { mode: { expr: { Literal: { Value: `'${mode}'` } } } } }],
+    };
+    if (Object.keys(selectionProps).length > 0) {
+      slicerObjects.selection = [{ properties: selectionProps }];
+    }
+    visualObjects = slicerObjects;
+  } else if (visualType === "listSlicer" && multiSelect !== undefined) {
+    // listSlicer is always-expanded; only the selection mode is configurable here.
+    visualObjects = {
+      selection: [
+        {
+          properties: {
+            singleSelect: {
+              expr: { Literal: { Value: multiSelect ? "false" : "true" } },
+            },
+          },
+        },
+      ],
+    };
   } else if (visualType === "shape") {
     const tile = shapeType || "rectangle";
     const color = fillColor || "#D9D9D9";

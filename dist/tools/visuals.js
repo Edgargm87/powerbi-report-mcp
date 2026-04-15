@@ -106,6 +106,44 @@ function registerVisualTools(server, ctx) {
         if (Object.keys(bindings).length > 0)
             result.bindings = bindings;
         result.filterCount = visual.filterConfig?.filters?.length ?? 0;
+        // Slicer-specific surface area: mode + selection state.
+        // Detection rules:
+        //   slicerMode    ← objects.data[0].properties.mode.expr.Literal.Value (strip quotes)
+        //                   defaults: slicer→"Dropdown", listSlicer/textSlicer→n/a
+        //   multiSelect   ← objects.selection[0].properties.singleSelect.expr.Literal.Value
+        //                     "false" → multiSelect=true
+        //                     "true"  → multiSelect=false
+        //                     absent  → infer from PBI default (Dropdown=false, Basic/listSlicer=true)
+        const SLICER_TYPES = new Set(["slicer", "listSlicer", "textSlicer", "advancedSlicerVisual"]);
+        const vType = visual.visual.visualType;
+        if (SLICER_TYPES.has(vType)) {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const objs = visual.visual.objects;
+            let slicerMode;
+            if (vType === "slicer") {
+                const modeLit = objs?.data?.[0]?.properties?.mode?.expr?.Literal?.Value;
+                if (typeof modeLit === "string") {
+                    slicerMode = modeLit.replace(/^'|'$/g, "");
+                }
+                else {
+                    slicerMode = "Dropdown"; // PBI default
+                }
+                result.slicerMode = slicerMode;
+            }
+            const singleLit = objs?.selection?.[0]?.properties?.singleSelect?.expr?.Literal?.Value;
+            let multiSelect;
+            if (singleLit === "true") {
+                multiSelect = false;
+            }
+            else if (singleLit === "false") {
+                multiSelect = true;
+            }
+            else {
+                // No explicit setting — apply PBI default for the variant
+                multiSelect = vType === "slicer" ? slicerMode !== "Dropdown" : true;
+            }
+            result.multiSelect = multiSelect;
+        }
         return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
     });
     // ============================================================
@@ -122,6 +160,10 @@ function registerVisualTools(server, ctx) {
         bindings: zod_1.z.array(createVisual_js_1.BucketBindingSchema).optional(),
         autoFilters: zod_1.z.boolean().optional().default(true),
         slicerMode: zod_1.z.enum(["Basic", "Dropdown"]).optional(),
+        multiSelect: zod_1.z
+            .boolean()
+            .optional()
+            .describe("Slicer selection mode (slicer/listSlicer). true=multi-select, false=single-select. Omit for PBI default."),
         shapeType: zod_1.z
             .enum(["rectangle", "rectangleRounded", "line", "tabCutCorner", "tabCutTopCorners", "tabRoundCorner", "tabRoundTopCorners"])
             .optional(),
@@ -178,6 +220,7 @@ function registerVisualTools(server, ctx) {
                     bindings: params.bindings,
                     autoFilters: params.autoFilters,
                     slicerMode: params.slicerMode,
+                    multiSelect: params.multiSelect,
                     shapeType: params.shapeType,
                     shapeRotation: params.shapeRotation,
                     fillColor: params.fillColor,

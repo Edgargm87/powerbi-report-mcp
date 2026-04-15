@@ -1,10 +1,11 @@
-<!-- doc-version: 1.4 | Last updated: 2026-04-14 -->
+<!-- doc-version: 1.5 | Last updated: 2026-04-15 -->
 # Changelog — powerbi-report-mcp
 
 Each release has its own file in [`changelog/`](changelog/).
 
 | Version | Date | Highlights |
 |---------|------|------------|
+| [**0.5.5**](changelog/v0.5.5.md) | 2026-04-15 | Slicer **multi-select** support — new `multiSelect` param on `add_visual` writes `objects.selection.singleSelect`, and `get_visual` slim mode now surfaces `slicerMode` + `multiSelect` for all slicer types (with PBI-default fallback). Applies to `slicer` and `listSlicer`. **`reload_report` moved to `DEFAULT_TOOLS`** — the on-demand `load_tools` mechanism activates server-side but most LLM harnesses snapshot the MCP catalog at session start, so a lazy `reload_report` could be activated but never invoked. Defaulting closes the trap. |
 | [**0.5.4**](changelog/v0.5.4.md) | 2026-04-14 | Usage dashboard: **Calc Groups** tab (TMDL + BIM parser, per-item DAX expressions, precedence), **Tables tab** (PK/FK/relationship rendering, inferred PK detection), **light mode** with toggle and localStorage persistence, **KPI tooltips**, **copy-DAX button** on code blocks, **HIDDEN badge** for tooltip/drillthrough pages, dark-mode readability bump. **Wireframe validator** (`src/wireframe-validator.ts`) — pure function that catches out-of-bounds, overlaps, wrong margins/gaps, silent (0,0) defaults, rounding overflow, and the new **6px bottom margin** rule. **Shape text** — `createVisual.ts` now emits labels into the `objects.text` branch (was silently ignored via `general.paragraphs`), with friendly font names, bold/italic/underline, alignment, padding. **Skill rewrites** (`skills/shapes.md` v2.0 + `skills/wireframes.md` v2.0) matching the canonical constants, and a Python builder for the 5-page wireframe test report |
 | [**0.5.3**](changelog/v0.5.3.md) | 2026-04-13 | Usage dashboard: three-tier field classification, UDF functions tab, conditional formatting detection, native folder picker, standalone web app |
 | [**0.5.2**](changelog/v0.5.2.md) | 2026-04-12 | Bookmarks unparked (4 tools), `set_page_background`, `guide` knowledge layer (SVG visuals + report design topics) |

@@ -53,7 +53,7 @@ const guide_js_1 = require("./tools/guide.js");
 // Visual calculations parked — not registering until PBI Desktop supports programmatic creation
 // import { registerCalculationTools } from "./tools/calculations.js";
 // --- Tool loading modes ---
-// Default: only load core tools (~9) to reduce token overhead for LLM clients.
+// Default: only load core tools (~12) to reduce token overhead for LLM clients.
 // Set MCP_TOOLS=all to load all tools at startup.
 const DEFAULT_TOOLS = new Set([
     "set_report",
@@ -67,6 +67,11 @@ const DEFAULT_TOOLS = new Set([
     "set_report_theme",
     "bulk_bind",
     "model_usage",
+    // reload_report must be in the default set: load_tools can activate
+    // server-side tools mid-session, but most LLM harnesses snapshot the MCP
+    // tool catalog at startup, so a lazy-loaded reload_report can be activated
+    // but not invoked. Defaulting it avoids that trap.
+    "reload_report",
 ]);
 const ALL_TOOLS = {
     // Report management
@@ -85,7 +90,7 @@ const ALL_TOOLS = {
     auto_layout: "Auto-arrange visuals on a page",
     duplicate_page: "Duplicate an entire page",
     get_page_summary: "Get a detailed page summary",
-    reload_report: "Reload report from disk",
+    reload_report: "Reload report from disk (DEFAULT)",
     set_filter_pane: "Show or hide the report filter pane",
     set_page_background: "Set page canvas background color and/or wallpaper",
     set_visual_interaction: "Set cross-filter/highlight interaction between visuals",

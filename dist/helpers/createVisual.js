@@ -100,6 +100,10 @@ exports.VisualSpecSchema = zod_1.z.object({
     bindings: zod_1.z.array(exports.BucketBindingSchema).optional().describe("Data bindings"),
     autoFilters: zod_1.z.boolean().optional().default(true),
     slicerMode: zod_1.z.enum(["Basic", "Dropdown"]).optional(),
+    multiSelect: zod_1.z
+        .boolean()
+        .optional()
+        .describe("Slicer selection mode (slicer/listSlicer). true=multi-select (checkbox), false=single-select. Omit for PBI default."),
     shapeType: zod_1.z
         .enum(["rectangle", "rectangleRounded", "line", "tabCutCorner", "tabCutTopCorners", "tabRoundCorner", "tabRoundTopCorners"])
         .optional(),
@@ -192,7 +196,7 @@ function parseFieldSpec(spec) {
 // --- Create a single visual and save it ---
 function createAndSaveVisual(project, pageId, spec, baseZ) {
     const visualId = (0, pbir_js_1.generateId)();
-    const { x = 0, y = 0, width: rawWidth, height: rawHeight, bindings, autoFilters = true, slicerMode, shapeType, shapeRotation = 0, fillColor, textContent, textColor, textAlign, textVAlign, textFont, textSize, textBold, textItalic, textUnderline, textPadding, title, containerFormat, visualFormat, dataColors, imageUrl, imageScaling = "fit", buttonText, buttonAction, buttonActionTarget, } = spec;
+    const { x = 0, y = 0, width: rawWidth, height: rawHeight, bindings, autoFilters = true, slicerMode, multiSelect, shapeType, shapeRotation = 0, fillColor, textContent, textColor, textAlign, textVAlign, textFont, textSize, textBold, textItalic, textUnderline, textPadding, title, containerFormat, visualFormat, dataColors, imageUrl, imageScaling = "fit", buttonText, buttonAction, buttonActionTarget, } = spec;
     // Normalise basicShape → shape
     const visualType = spec.visualType === "basicShape" ? "shape" : spec.visualType;
     const slicerDefaultTypes = new Set(["slicer", "listSlicer", "textSlicer", "advancedSlicerVisual"]);
@@ -253,23 +257,40 @@ function createAndSaveVisual(project, pageId, spec, baseZ) {
     let visualObjects;
     if (visualType === "slicer") {
         const mode = slicerMode || "Dropdown";
-        // Dropdown: add strictSingleSelect=true (matches PBI default for dropdowns)
-        // Basic: just set mode, no extra selection properties
-        visualObjects =
-            mode === "Dropdown"
-                ? {
-                    data: [{ properties: { mode: { expr: { Literal: { Value: `'${mode}'` } } } } }],
-                    selection: [
-                        {
-                            properties: {
-                                strictSingleSelect: { expr: { Literal: { Value: "true" } } },
-                            },
+        // Selection properties:
+        //   - multiSelect param wins when provided (writes singleSelect literal)
+        //   - Default for Dropdown (no multiSelect set): strictSingleSelect=true
+        //   - Default for Basic: nothing (PBI default = multi-select)
+        const selectionProps = {};
+        if (multiSelect !== undefined) {
+            selectionProps.singleSelect = {
+                expr: { Literal: { Value: multiSelect ? "false" : "true" } },
+            };
+        }
+        if (mode === "Dropdown" && multiSelect === undefined) {
+            selectionProps.strictSingleSelect = { expr: { Literal: { Value: "true" } } };
+        }
+        const slicerObjects = {
+            data: [{ properties: { mode: { expr: { Literal: { Value: `'${mode}'` } } } } }],
+        };
+        if (Object.keys(selectionProps).length > 0) {
+            slicerObjects.selection = [{ properties: selectionProps }];
+        }
+        visualObjects = slicerObjects;
+    }
+    else if (visualType === "listSlicer" && multiSelect !== undefined) {
+        // listSlicer is always-expanded; only the selection mode is configurable here.
+        visualObjects = {
+            selection: [
+                {
+                    properties: {
+                        singleSelect: {
+                            expr: { Literal: { Value: multiSelect ? "false" : "true" } },
                         },
-                    ],
-                }
-                : {
-                    data: [{ properties: { mode: { expr: { Literal: { Value: `'${mode}'` } } } } }],
-                };
+                    },
+                },
+            ],
+        };
     }
     else if (visualType === "shape") {
         const tile = shapeType || "rectangle";

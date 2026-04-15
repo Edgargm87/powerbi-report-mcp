@@ -13,6 +13,13 @@ export interface VisualSpec {
     }>;
     autoFilters?: boolean;
     slicerMode?: "Basic" | "Dropdown";
+    /**
+     * Slicer selection mode. Applies to `slicer` and `listSlicer` types.
+     *   true  → multi-select (writes objects.selection.singleSelect = false)
+     *   false → single-select (writes objects.selection.singleSelect = true)
+     *   undefined → use Power BI default (Dropdown=single, Basic/listSlicer=multi)
+     */
+    multiSelect?: boolean;
     shapeType?: string;
     shapeRotation?: number;
     fillColor?: string;
@@ -132,6 +139,7 @@ export declare const VisualSpecSchema: z.ZodObject<{
         Basic: "Basic";
         Dropdown: "Dropdown";
     }>>;
+    multiSelect: z.ZodOptional<z.ZodBoolean>;
     shapeType: z.ZodOptional<z.ZodEnum<{
         rectangle: "rectangle";
         rectangleRounded: "rectangleRounded";
