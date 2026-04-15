@@ -1,4 +1,4 @@
-<!-- doc-version: 1.2 | Last updated: 2026-04-12 -->
+<!-- doc-version: 1.3 | Last updated: 2026-04-15 -->
 # Contributing to powerbi-report-mcp
 
 Thanks for your interest in contributing to the Power BI Report MCP server. This guide covers everything you need to get started, add features, and test your changes.
@@ -20,9 +20,12 @@ git clone <repo-url>
 cd powerbi-report-mcp
 npm install
 npm run build
+npm run hooks:install    # enable pre-commit audit + validator gates
 ```
 
 The `build` script runs `tsc` and prepends a shebang line to `dist/index.js` so it can run as a CLI tool.
+
+`hooks:install` points `core.hooksPath` at the `.githooks/` directory in the repo so every commit runs the skill-coverage audit and the wireframe-validator suite. See [section 6](#6-qa-expectations) for what the gates enforce.
 
 ---
 
@@ -176,16 +179,25 @@ const ALL_TOOLS: Record<string, string> = {
 
 ### Step 4: Decide on default vs. on-demand
 
-Tools in the `DEFAULT_TOOLS` set are loaded at startup. On-demand tools are available via `load_tools`.
+Tools are loaded into two tiers:
 
-**Criteria for default:** the tool is used in more than 50% of typical sessions. The current defaults are the core workflow tools (connect, list, create, add, format, bind, theme).
+- **Default (loaded at startup)**: the 12 core workflow tools. Listed in `src/default-tools.ts` — this file is the **single source of truth** for the default set and is read by both the runtime (`src/index.ts`) and the skill-coverage audit (`scripts/audit-skill-coverage.js`).
+- **On-demand (activated via `load_tools`)**: everything else. Not counted against session schema overhead unless activated.
 
-If your tool is specialized (e.g., filters, conditional formatting, bookmarks), leave it as on-demand. Add it to `DEFAULT_TOOLS` only if it becomes part of the standard workflow.
+**Criteria for default:** the tool is used in more than 50% of typical sessions and is part of the happy-path workflow (connect → orient → create page → add visuals → format → bind → theme → reload). Specialized tools (filters, conditional formatting, bookmarks, theme audit, etc.) stay on-demand.
 
-### Step 5: Update documentation
+To promote a tool to default, add its name to the exported `DEFAULT_TOOLS` set in `src/default-tools.ts`. Don't duplicate the list anywhere else.
 
+### Step 5: Update documentation (MANDATORY — enforced by CI)
+
+Every registered tool **must** have a backtick-wrapped mention (`` `tool_name` ``) in at least one `skills/*.md` file. The `scripts/audit-skill-coverage.js --strict` gate fails the pre-commit hook and CI if any tool has zero coverage.
+
+- **Default tools**: the mention should be meaningful — a parameter table, an example call, or a workflow snippet. Default tools are in every session; their skill doc is the LLM's primary reference.
+- **On-demand tools**: a single example call with the key parameters is usually enough.
+- New concept? Add a new `skills/<topic>.md` file. The `guide` tool discovers topics live from disk — no code change needed.
 - Add the tool to the tool reference table in `README.md`.
-- If the tool introduces a new concept, consider adding a skill file in `skills/`.
+
+Run `npm run audit` locally to see which tools are covered and by which skill files. The audit now tags default tools with `[DEFAULT]` in its output.
 
 ---
 
@@ -214,6 +226,22 @@ See the existing UAT rounds in `tests.md` for examples. Each round is dated and 
 ---
 
 ## 6. QA Expectations
+
+### Automated gates (run on every commit + in CI)
+
+These are enforced by the pre-commit hook (`npm run hooks:install`) and by `.github/workflows/ci.yml`. Both must pass or the commit / PR is blocked:
+
+| Gate | Command | What it checks |
+|---|---|---|
+| Build | `npm run build` | TypeScript compiles cleanly (strict mode) |
+| Skill coverage | `npm run audit:strict` | Every registered tool has a backtick mention in at least one `skills/*.md` file. Breaks out default vs on-demand tiers. Exits 1 on any miss. |
+| Wireframe validator | `npm run test:wireframe` | All 5 canonical layouts (A–E) still pass validation; all 7 negative cases still fail as expected. 12/12 required. |
+
+Run all three in one shot with `npm run test:all`.
+
+If a pre-commit gate fails and you genuinely need to skip it for an emergency, use `git commit --no-verify` — but CI runs the same gates on the push, so a broken commit won't survive the PR.
+
+### Manual QA (unchanged — no automation replaces PBI Desktop round-trip)
 
 Before submitting a change, verify these:
 

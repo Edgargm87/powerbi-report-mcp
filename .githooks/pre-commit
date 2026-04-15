@@ -1,0 +1,44 @@
+#!/bin/sh
+# ═══════════════════════════════════════════════════════════════════════════════
+# pre-commit hook — powerbi-report-mcp
+#
+# Runs the skill-coverage audit and the wireframe-validator suite before every
+# commit. Fails the commit if either gate fails.
+#
+# Install with:  npm run hooks:install
+# (That script sets core.hooksPath to .githooks so this file is the active hook.)
+#
+# Skip in emergencies with:  git commit --no-verify
+# (but please don't — CI runs the same checks and will reject the push.)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+set -e
+
+# Only run on changes that touch source/skills/scripts — docs-only and
+# changelog-only commits shouldn't trigger the whole gate.
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+RELEVANT=$(echo "$STAGED" | grep -E '^(src/|skills/|scripts/|package\.json|\.githooks/)' || true)
+
+if [ -z "$RELEVANT" ]; then
+  echo "[pre-commit] no source/skills/scripts changes — skipping audit + validator"
+  exit 0
+fi
+
+echo "[pre-commit] running skill-coverage audit..."
+node scripts/audit-skill-coverage.js --strict >/dev/null || {
+  echo ""
+  echo "✗ skill-coverage audit failed — at least one tool has no backtick mention"
+  echo "  in any skills/*.md file. Run 'npm run audit' to see which tools are"
+  echo "  missing, then add a mention to the relevant skill file."
+  exit 1
+}
+
+echo "[pre-commit] running wireframe-validator suite..."
+node scripts/test-wireframe-validator.js >/dev/null || {
+  echo ""
+  echo "✗ wireframe-validator suite failed — one or more canonical layouts no"
+  echo "  longer pass validation. Run 'npm run test:wireframe' to see which."
+  exit 1
+}
+
+echo "[pre-commit] ✓ audit + validator pass"

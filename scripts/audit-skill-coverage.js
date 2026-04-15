@@ -33,10 +33,30 @@ const ROOT = path.join(__dirname, "..");
 const TOOLS_DIR = path.join(ROOT, "src", "tools");
 const SKILLS_DIR = path.join(ROOT, "skills");
 const INDEX_FILE = path.join(ROOT, "src", "index.ts");
+const DEFAULT_TOOLS_FILE = path.join(ROOT, "src", "default-tools.ts");
 
 const args = process.argv.slice(2);
 const wantJson = args.includes("--json");
 const strict = args.includes("--strict");
+
+// ---------------------------------------------------------------------------
+// Step 0: parse the canonical DEFAULT_TOOLS set from src/default-tools.ts
+// ---------------------------------------------------------------------------
+
+function loadDefaultTools() {
+  if (!fs.existsSync(DEFAULT_TOOLS_FILE)) return new Set();
+  const src = fs.readFileSync(DEFAULT_TOOLS_FILE, "utf8");
+  // Match every quoted entry inside `new Set([ ... ])`. We deliberately
+  // don't try to parse TS — a flat regex over the literal entries is
+  // robust as long as the file stays a single Set declaration.
+  const set = new Set();
+  const re = /["']([a-zA-Z0-9_]+)["']/g;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    set.add(m[1]);
+  }
+  return set;
+}
 
 // ---------------------------------------------------------------------------
 // Step 1: collect every registered tool from src/tools/*.ts
@@ -121,8 +141,8 @@ function collectSkills() {
 // Step 3: for each tool, find skill mentions
 // ---------------------------------------------------------------------------
 
-function findCoverage(tools, skills) {
-  const coverage = []; // { tool, skills: [skillName, ...] }
+function findCoverage(tools, skills, defaultSet) {
+  const coverage = []; // { tool, skills: [skillName, ...], tier }
   for (const tool of tools) {
     // Require backtick-wrapped mention of the tool name.
     // Matches: `add_visual`, `add_visual(`, `add_visual({`, `add_visual:`
@@ -134,6 +154,7 @@ function findCoverage(tools, skills) {
       ...tool,
       skills: matched,
       covered: matched.length > 0,
+      tier: defaultSet.has(tool.name) ? "default" : "on-demand",
     });
   }
   return coverage;
@@ -143,9 +164,19 @@ function findCoverage(tools, skills) {
 // Step 4: render
 // ---------------------------------------------------------------------------
 
+function pct(num, denom) {
+  if (denom === 0) return "0.0";
+  return ((num / denom) * 100).toFixed(1);
+}
+
 function renderTable(coverage) {
   const covered = coverage.filter((c) => c.covered);
   const missing = coverage.filter((c) => !c.covered);
+
+  const def = coverage.filter((c) => c.tier === "default");
+  const ond = coverage.filter((c) => c.tier === "on-demand");
+  const defCovered = def.filter((c) => c.covered);
+  const ondCovered = ond.filter((c) => c.covered);
 
   console.log("");
   console.log("=".repeat(78));
@@ -155,9 +186,10 @@ function renderTable(coverage) {
   console.log(`Tools registered:   ${coverage.length}`);
   console.log(`With skill mention: ${covered.length}`);
   console.log(`Missing coverage:   ${missing.length}`);
-  console.log(
-    `Coverage:           ${((covered.length / coverage.length) * 100).toFixed(1)}%`
-  );
+  console.log(`Coverage:           ${pct(covered.length, coverage.length)}%`);
+  console.log("");
+  console.log(`  Default tools:    ${defCovered.length}/${def.length}  (${pct(defCovered.length, def.length)}%)`);
+  console.log(`  On-demand tools:  ${ondCovered.length}/${ond.length}  (${pct(ondCovered.length, ond.length)}%)`);
   console.log("");
 
   if (missing.length > 0) {
@@ -166,9 +198,16 @@ function renderTable(coverage) {
     console.log("─".repeat(78));
     const nameW = Math.max(...missing.map((m) => m.name.length));
     for (const m of missing) {
-      console.log(`  ${m.name.padEnd(nameW)}  ${m.file}`);
+      const tierTag = m.tier === "default" ? "[DEFAULT] " : "          ";
+      console.log(`  ${tierTag}${m.name.padEnd(nameW)}  ${m.file}`);
     }
     console.log("");
+    if (missing.some((m) => m.tier === "default")) {
+      console.log("⚠ A default tool is missing skill coverage — every default tool MUST");
+      console.log("  have a backtick mention in at least one skills/*.md file. These are");
+      console.log("  the tools loaded into every session and seen by every LLM client.");
+      console.log("");
+    }
   }
 
   console.log("─".repeat(78));
@@ -176,7 +215,8 @@ function renderTable(coverage) {
   console.log("─".repeat(78));
   const nameW2 = Math.max(...covered.map((c) => c.name.length), 1);
   for (const c of covered) {
-    console.log(`  ${c.name.padEnd(nameW2)}  → ${c.skills.join(", ")}`);
+    const tierTag = c.tier === "default" ? "[DEFAULT] " : "          ";
+    console.log(`  ${tierTag}${c.name.padEnd(nameW2)}  → ${c.skills.join(", ")}`);
   }
   console.log("");
 }
@@ -184,6 +224,8 @@ function renderTable(coverage) {
 function renderJson(coverage) {
   const covered = coverage.filter((c) => c.covered);
   const missing = coverage.filter((c) => !c.covered);
+  const def = coverage.filter((c) => c.tier === "default");
+  const ond = coverage.filter((c) => c.tier === "on-demand");
   console.log(
     JSON.stringify(
       {
@@ -191,10 +233,20 @@ function renderJson(coverage) {
           total: coverage.length,
           covered: covered.length,
           missing: missing.length,
-          coveragePct: Number(((covered.length / coverage.length) * 100).toFixed(1)),
+          coveragePct: Number(pct(covered.length, coverage.length)),
+          default: {
+            total: def.length,
+            covered: def.filter((c) => c.covered).length,
+            coveragePct: Number(pct(def.filter((c) => c.covered).length, def.length)),
+          },
+          onDemand: {
+            total: ond.length,
+            covered: ond.filter((c) => c.covered).length,
+            coveragePct: Number(pct(ond.filter((c) => c.covered).length, ond.length)),
+          },
         },
-        missing: missing.map((m) => ({ name: m.name, file: m.file })),
-        covered: covered.map((c) => ({ name: c.name, skills: c.skills })),
+        missing: missing.map((m) => ({ name: m.name, file: m.file, tier: m.tier })),
+        covered: covered.map((c) => ({ name: c.name, skills: c.skills, tier: c.tier })),
       },
       null,
       2
@@ -209,7 +261,8 @@ function renderJson(coverage) {
 function main() {
   const tools = collectTools();
   const skills = collectSkills();
-  const coverage = findCoverage(tools, skills);
+  const defaultSet = loadDefaultTools();
+  const coverage = findCoverage(tools, skills, defaultSet);
 
   if (wantJson) {
     renderJson(coverage);

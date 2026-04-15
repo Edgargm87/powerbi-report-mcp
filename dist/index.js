@@ -50,29 +50,14 @@ const bulk_js_1 = require("./tools/bulk.js");
 const model_usage_js_1 = require("./model-usage.js");
 const bookmarks_js_1 = require("./tools/bookmarks.js");
 const guide_js_1 = require("./tools/guide.js");
+const default_tools_js_1 = require("./default-tools.js");
 // Visual calculations parked — not registering until PBI Desktop supports programmatic creation
 // import { registerCalculationTools } from "./tools/calculations.js";
 // --- Tool loading modes ---
-// Default: only load core tools (~12) to reduce token overhead for LLM clients.
+// Default: only load the 12 core tools to reduce token overhead for LLM clients.
 // Set MCP_TOOLS=all to load all tools at startup.
-const DEFAULT_TOOLS = new Set([
-    "set_report",
-    "list_pages",
-    "list_visuals",
-    "create_page",
-    "add_visual",
-    "get_visual",
-    "format_visual",
-    "update_visual_bindings",
-    "set_report_theme",
-    "bulk_bind",
-    "model_usage",
-    // reload_report must be in the default set: load_tools can activate
-    // server-side tools mid-session, but most LLM harnesses snapshot the MCP
-    // tool catalog at startup, so a lazy-loaded reload_report can be activated
-    // but not invoked. Defaulting it avoids that trap.
-    "reload_report",
-]);
+// The DEFAULT_TOOLS set lives in src/default-tools.ts (single source of truth
+// shared with scripts/audit-skill-coverage.js).
 const ALL_TOOLS = {
     // Report management
     set_report: "Connect to a different Power BI report",
@@ -232,11 +217,11 @@ async function main() {
     }
     const server = new mcp_js_1.McpServer({
         name: "powerbi-report-mcp",
-        version: "0.5.2",
+        version: "0.5.9",
     });
     // Determine tool loading mode
     const loadAll = (process.env.MCP_TOOLS || "").toLowerCase() === "all";
-    const activeTools = new Set(loadAll ? Object.keys(ALL_TOOLS) : DEFAULT_TOOLS);
+    const activeTools = new Set(loadAll ? Object.keys(ALL_TOOLS) : default_tools_js_1.DEFAULT_TOOLS);
     // Store deferred tool registrations so load_tools can activate them later
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const deferredTools = new Map();
@@ -339,7 +324,7 @@ async function main() {
     const transport = new stdio_js_1.StdioServerTransport();
     console.error("Power BI Report MCP Server starting...");
     console.error(`Report path: ${reportPath || "none (use set_report to connect)"}`);
-    console.error(`Version: 0.5.8`);
+    console.error(`Version: 0.5.9`);
     console.error(`Tools mode: ${loadAll ? "all" : "default"} (${activeTools.size} active, ${deferredTools.size} on-demand)`);
     console.error(loadAll ? "" : "Tip: Set MCP_TOOLS=all to load all tools at startup, or use the load_tools tool.");
     await server.connect(transport);

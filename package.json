@@ -1,6 +1,6 @@
 {
   "name": "powerbi-report-mcp",
-  "version": "0.5.8",
+  "version": "0.5.9",
   "description": "MCP server for building Power BI reports (PBIR format)",
   "main": "dist/index.js",
   "bin": {
@@ -12,7 +12,12 @@
     "dev": "ts-node src/index.ts",
     "usage": "node dist/usage-cli.js",
     "usage:watch": "node dist/usage-cli.js --watch",
-    "usage:app": "node dist/usage-app.js"
+    "usage:app": "node dist/usage-app.js",
+    "audit": "node scripts/audit-skill-coverage.js",
+    "audit:strict": "node scripts/audit-skill-coverage.js --strict",
+    "test:wireframe": "node scripts/test-wireframe-validator.js",
+    "test:all": "npm run build && npm run audit:strict && npm run test:wireframe",
+    "hooks:install": "node scripts/install-hooks.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
