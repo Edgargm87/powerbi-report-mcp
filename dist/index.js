@@ -137,7 +137,7 @@ const ALL_TOOLS = {
     delete_bookmark: "Delete a bookmark",
     rename_bookmark: "Rename a bookmark",
     // Guide (knowledge layer)
-    guide: "Domain knowledge for PBI development — topics: svg-visuals, report-design",
+    guide: "Domain knowledge for PBI development — topics discovered live from skills/*.md",
     // Calculations — PARKED: visual calculations don't render when written programmatically
     // list_visual_calculations, add_visual_calculation, delete_visual_calculation
 };
