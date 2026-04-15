@@ -1,23 +1,37 @@
-<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
+<!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
 # Skill: Themes — Report-Level Branding & Global Styling
 
-## Overview
+## When to use
+Use these patterns to apply a brand-wide theme to a report — data colors, fonts, backgrounds, per-visual-type overrides — and to inspect, diff, list, or audit existing themes against the current report.
 
-Power BI has two layers of theming:
+## Tool surface
+
+| Tool | Purpose |
+|---|---|
+| `set_report_theme` | Write a custom theme JSON and link it from `report.json` |
+| `get_report_theme` | Inspect the currently applied theme — base + custom + full JSON |
+| `diff_report_theme` | Compare a proposed theme JSON against the current one — shows added/removed/changed |
+| `list_report_themes` | List every theme file in `StaticResources/RegisteredResources/` |
+| `remove_report_theme` | Unlink the custom theme (file is kept on disk) |
+| `audit_theme_compliance` | Find visuals on a page that override theme defaults |
+| `apply_theme` | Apply a built-in preset (`dark`/`light`/`corporate`/`blue-purple`) per page — see `skills/formatting.md` |
+
+## Two layers of theming
 
 | Layer | What it does | Tool |
 |---|---|---|
-| **Report theme** (JSON file) | Global defaults — data colours, fonts, backgrounds, per-visual type overrides. Affects ALL visuals without touching individual visual.json files. | `set_report_theme` |
-| **Container/visual formatting** | Per-visual overrides written into individual visual.json objects. | `apply_theme`, `format_visual`, inline `containerFormat`/`visualFormat` |
+| **Report theme** (JSON file) | Global defaults — data colors, fonts, backgrounds, per-visual-type overrides. Affects every visual without touching individual `visual.json` files. | `set_report_theme` |
+| **Per-visual formatting** | Container/visual format overrides written into individual `visual.json` files. | `format_visual`, inline `containerFormat`/`visualFormat`, `apply_theme` |
 
-**Always prefer `set_report_theme` for branding** — it's how Power BI is designed to be themed and requires no per-visual edits.
+**Always prefer `set_report_theme` for branding** — it's the canonical Power BI pattern and requires no per-visual edits. Use per-visual formatting only for exceptions on top of the theme.
 
-## set_report_theme
+---
 
-Writes the theme JSON to `StaticResources/RegisteredResources/` and updates `report.json`.
-Takes effect when the report is opened in Power BI Desktop.
+## `set_report_theme`
 
-### Minimal theme (data colours only)
+Writes the theme JSON to `StaticResources/RegisteredResources/<sanitised name><timestamp>.json` and updates `report.json` (`themeCollection.customTheme` + the `RegisteredResources` package). Takes effect when the report is reopened in Power BI Desktop.
+
+### Minimal — data colors only
 ```json
 {
   "name": "Corporate Blue",
@@ -25,7 +39,7 @@ Takes effect when the report is opened in Power BI Desktop.
 }
 ```
 
-### Full light theme
+### Light corporate
 ```json
 {
   "name": "Light Corporate",
@@ -39,7 +53,7 @@ Takes effect when the report is opened in Power BI Desktop.
 }
 ```
 
-### Full dark theme
+### Dark mode
 ```json
 {
   "name": "Dark Mode",
@@ -53,7 +67,7 @@ Takes effect when the report is opened in Power BI Desktop.
 }
 ```
 
-### With visualStyles (advanced — per-visual-type defaults)
+### Advanced — per-visual-type overrides
 ```json
 {
   "name": "Brand Theme",
@@ -62,7 +76,7 @@ Takes effect when the report is opened in Power BI Desktop.
   "visualStyles": {
     "*": {
       "*": {
-        "fontSize": [{ "value": 9 }],
+        "fontSize":   [{ "value": 9 }],
         "fontFamily": [{ "value": "Segoe UI" }]
       }
     },
@@ -75,46 +89,128 @@ Takes effect when the report is opened in Power BI Desktop.
 }
 ```
 
-## Theme JSON Properties
+`visualStyles` keys are visual types (`*` for any) → property categories (`*` for any) → arrays of property objects. Follow Power BI's published theme schema — the tool passes the object through without validating individual style entries.
+
+### Theme JSON properties
 
 | Property | Type | Description |
 |---|---|---|
 | `name` | string | Display name shown in Power BI |
-| `dataColors` | string[] | Series colour palette (6–12 hex values) |
+| `dataColors` | string[] | Series color palette (6–12 hex values) |
 | `background` | hex | Page canvas background |
-| `foreground` | hex | Primary text / title colour |
+| `foreground` | hex | Primary text / title color |
 | `foregroundNeutralSecondary` | hex | Secondary text (axis labels, subtitles) |
-| `backgroundLight` | hex | Card/panel light background variant |
+| `backgroundLight` | hex | Card / panel light background variant |
 | `backgroundNeutral` | hex | Neutral background variant |
 | `tableAccent` | hex | Table & matrix header accent |
 | `visualStyles` | object | Per-visual-type property overrides (advanced) |
 
-## Inspecting the current theme
+---
 
-```
-get_report_theme
+## `get_report_theme`
+
+Inspect what's currently applied:
+
+```json
+{}
 ```
 
 Returns:
-- `baseTheme` — built-in theme name (e.g. `"CY26SU02"`)
-- `customTheme` — custom theme filename (or null)
-- `customThemeContent` — full JSON of the applied custom theme
-
-## Removing a custom theme
-
-```
-remove_report_theme
+```json
+{
+  "baseTheme": "CY26SU02",
+  "customTheme": "Corporate_Brand1712345678901.json",
+  "customThemeContent": { "name": "...", "dataColors": [...], ... }
+}
 ```
 
-Unlinks the theme from `report.json`, reverting to the base theme. The theme file remains in `StaticResources/` and can be re-applied.
+`baseTheme` is the built-in PBI base; `customTheme` is the filename of the custom theme (or `null`); `customThemeContent` is the full parsed JSON of the applied custom theme (or `null` when none).
 
-## Listing available theme files
+---
 
+## `diff_report_theme`
+
+Preview what would change before applying. Returns four buckets — added, removed, changed, unchanged.
+
+```json
+{
+  "theme": {
+    "name": "Corporate Brand v2",
+    "dataColors": ["#0078D4", "#00BCF2", "#FFB900"],
+    "background": "#F8F9FA",
+    "foreground": "#1A1A1A"
+  }
+}
 ```
-list_report_themes
+
+Returns:
+```json
+{
+  "currentTheme": "Corporate_Brand1712345678901.json",
+  "summary": { "added": 1, "removed": 0, "changed": 2, "unchanged": 1 },
+  "added":   { "background": "#F8F9FA" },
+  "removed": [],
+  "changed": {
+    "dataColors": { "from": [...], "to": [...] },
+    "foreground": { "from": "#252423", "to": "#1A1A1A" }
+  }
+}
 ```
 
-Shows all `.json` files in `StaticResources/RegisteredResources/`.
+Use this before a destructive `set_report_theme` to confirm the delta — especially handy when you're rebuilding a brand JSON and want to confirm only the bits you changed are in flight.
+
+---
+
+## `list_report_themes`
+
+```json
+{}
+```
+
+Returns every `.json` file in `StaticResources/RegisteredResources/` with its filename, declared `name`, and top-level keys. Use this to find the right `customTheme.name` if you want to manually edit `report.json`, or to confirm a theme file actually exists before `remove_report_theme`.
+
+---
+
+## `remove_report_theme`
+
+```json
+{}
+```
+
+Removes `themeCollection.customTheme` and the `CustomTheme` entry from `resourcePackages` — reverts the report to the base theme. The `.json` file stays in `StaticResources` so you can re-apply it later by writing the same theme via `set_report_theme`.
+
+---
+
+## `audit_theme_compliance`
+
+Find visuals that override theme defaults via per-visual formatting. Useful after applying a new theme to spot stale overrides that are masking the new brand.
+
+```json
+{ "pageId": "<id>", "verbose": false }
+```
+
+Returns:
+```json
+{
+  "pageId": "<id>",
+  "totalVisuals": 12,
+  "compliantVisuals": 8,
+  "overrideVisuals": 4,
+  "summary": [
+    { "visualId": "...", "type": "columnChart", "title": "Sales by Month",
+      "overrides": ["dataPoint", "background"] }
+  ]
+}
+```
+
+Detection rules:
+- Scans `visual.visual.objects` and `visual.visual.visualContainerObjects` for any category set
+- Ignored as expected (not overrides): `objects.data`, `objects.selection`, `objects.general`, `visualContainerObjects.title`
+- Anything else counts as a per-visual override
+
+`verbose: true` returns the full per-category list under `details` instead of the slim `summary`. Use it when you want to know exactly which categories are overridden so you can clear them with `format_visual` or by deleting the per-visual property.
+
+---
 
 ## How themes are stored in PBIR
 
@@ -122,18 +218,18 @@ Shows all `.json` files in `StaticResources/RegisteredResources/`.
 {Name}.Report/
 ├── StaticResources/
 │   └── RegisteredResources/
-│       └── MyTheme1234567890.json   ← theme data
+│       └── Corporate_Brand1712345678901.json   ← theme JSON
 └── definition/
-    └── report.json                  ← themeCollection.customTheme references the file
+    └── report.json                              ← references the file
 ```
 
 `report.json` additions:
 ```json
 {
   "themeCollection": {
-    "baseTheme": { "name": "CY26SU02", "type": "SharedResources" },
+    "baseTheme":   { "name": "CY26SU02", "type": "SharedResources" },
     "customTheme": {
-      "name": "MyTheme1234567890.json",
+      "name": "Corporate_Brand1712345678901.json",
       "type": "RegisteredResources",
       "reportVersionAtImport": { "visual": "2.7.0", "report": "3.2.0", "page": "2.3.0" }
     }
@@ -143,33 +239,50 @@ Shows all `.json` files in `StaticResources/RegisteredResources/`.
       "name": "RegisteredResources",
       "type": "RegisteredResources",
       "items": [
-        { "name": "MyTheme1234567890.json", "path": "MyTheme1234567890.json", "type": "CustomTheme" }
+        { "name": "Corporate_Brand1712345678901.json",
+          "path": "Corporate_Brand1712345678901.json",
+          "type": "CustomTheme" }
       ]
     }
   ]
 }
 ```
 
-## Theme vs apply_theme
+---
 
-| | `set_report_theme` | `apply_theme` |
+## `set_report_theme` vs `apply_theme`
+
+|  | `set_report_theme` | `apply_theme` |
 |---|---|---|
-| How it works | Writes a JSON theme file; Power BI reads it globally | Edits individual `visual.json` containerFormat entries |
-| Scope | ALL visuals, ALL pages | One page at a time |
-| Reversible | `remove_report_theme` | Must manually reformat each visual |
-| Power BI "correct" way | ✅ Yes | ⚠️ Override layer only |
-| Use for | Brand colours, fonts, global style | Page-specific overrides on top of theme |
+| How it works | Writes a JSON theme file; PBI reads it globally | Edits per-visual `containerFormat` entries |
+| Scope | Whole report, every page | One page at a time |
+| Reversible | `remove_report_theme` | Must reformat each visual manually |
+| PBI canonical pattern | ✅ Yes | ⚠️ Override layer only |
+| Use for | Brand colors, fonts, global style | Page-specific tweaks on top of the theme |
 
-**Recommended workflow:** `set_report_theme` for brand → `apply_theme` or inline `containerFormat` for page-specific tweaks.
+**Recommended workflow:** `set_report_theme` for brand → `apply_theme` per page for stylized cards → inline `containerFormat` for one-off exceptions.
 
-## Workflow: Brand a report from scratch
+---
 
-1. `set_report_theme` with brand colours, background, foreground
-2. `reload_report` to see it applied in Power BI Desktop
-3. Use `apply_theme` on individual pages for border/background card styling on top
-4. Use inline `containerFormat` on specific visuals for exceptions
+## Workflow: brand a report from scratch
 
-## Common brand colour palettes
+1. `set_report_theme` with brand colors, background, foreground
+2. `audit_theme_compliance` per page — find existing overrides that would mask the theme
+3. `format_visual target=container` to clear any stale overrides on visuals you want to inherit the theme
+4. `reload_report` to see it in Power BI Desktop
+5. Use `apply_theme` or inline `containerFormat` only for genuine exceptions
+
+## Workflow: refresh an existing brand
+
+1. `get_report_theme` — read the current JSON
+2. Edit it locally
+3. `diff_report_theme` with the proposed new JSON — sanity-check the delta
+4. `set_report_theme` — write the new file
+5. `audit_theme_compliance` — confirm no surprise overrides remain
+
+---
+
+## Common brand color palettes
 
 ### Microsoft / Azure
 ```json

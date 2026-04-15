@@ -1,23 +1,81 @@
-<!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
-# Skill: Formatting — Visual Styling, Themes, Titles, Colors
+<!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
+# Skill: Formatting — Visual Styling, Titles, Colors, Conditional Format, Sort
 
-## Overview
-There are three layers of formatting in Power BI PBIR:
+## When to use
+Use these patterns to style visuals — backgrounds, borders, titles, axes, legend, data colors, conditional formatting, sort order, and apply preset themes to a whole page.
 
-| Layer | What it controls | Tool / where to set |
+## Tool surface
+
+| Tool | Purpose |
+|---|---|
+| `format_visual` | Apply formatting to one visual. Auto-routes container vs visual categories. |
+| `set_visual_title` | Quick-set title text/show/font/size/alignment without touching other formatting |
+| `set_datapoint_colors` | Override series or category colors |
+| `set_conditional_format` | Rules-based or gradient conditional background/title color |
+| `set_visual_sort` | Override the auto-sort with explicit sort fields and directions |
+| `apply_theme` | Apply a preset theme (`dark`/`light`/`corporate`/`blue-purple`) to all visuals on a page |
+| `bulk_update_format` | Same formatting payload across many visuals — see `skills/visuals.md` |
+
+For batch reformat across many visuals see `bulk_update_format`. For inline formatting at creation time see `add_visual` in `skills/visuals.md`.
+
+## The two formatting layers
+
+PBIR splits per-visual formatting into two trees:
+
+| Tree | What it holds | Example categories |
 |---|---|---|
-| Container | background, border, padding, title, dropShadow, visualHeader | `containerFormat` in `add_visual` or `format_visual target="container"` |
-| Visual objects | axes, legend, labels, lineStyles, dataPoint colors, slicer items | `visualFormat` in `add_visual` or `format_visual target="visual"` |
-| Title | text, show, fontSize, fontFamily, alignment, titleWrap | `set_visual_title` or title in `containerFormat` |
+| `visualContainerObjects` | The container chrome (the box around the visual) | `title`, `subTitle`, `background`, `border`, `padding`, `dropShadow`, `visualHeader`, `visualHeaderTooltip` |
+| `objects` | The visual's internal rendering | `categoryAxis`, `valueAxis`, `legend`, `labels`, `dataPoint`, `lineStyles`, `items`, `header`, `values` |
 
-## Inline formatting (recommended)
-Set formatting at creation time using `add_visual` inline params — no extra tool calls needed:
+`format_visual` routes between them automatically based on the category name — you don't need to know which tree a category lives in.
+
+## `format_visual` — auto-routing (default)
+
+```json
+{
+  "pageId": "<id>",
+  "visualId": "<id>",
+  "formatting": [
+    { "category": "background",   "properties": { "show": true, "color": "#FFFFFF", "transparency": 0 } },
+    { "category": "border",       "properties": { "show": true, "color": "#E0E0E0", "radius": 8 } },
+    { "category": "categoryAxis", "properties": { "show": true, "fontSize": 9 } },
+    { "category": "legend",       "properties": { "show": true, "position": "Bottom", "fontSize": 9 } }
+  ]
+}
+```
+
+`background` and `border` route to `visualContainerObjects`; `categoryAxis` and `legend` route to `objects`. One call, both trees written.
+
+### CONTAINER_CATEGORIES — the auto-routing set
+
+These category names always route to `visualContainerObjects`. Everything else goes to `objects`.
+
+```
+title, subTitle, background, border, padding,
+dropShadow, visualHeader, visualHeaderTooltip
+```
+
+### Forcing a target
+
+Pass `target: "container"` or `target: "visual"` to skip auto-routing — useful when you want to set a non-standard category against a specific tree.
+
+```json
+{ "pageId": "<id>", "visualId": "<id>", "target": "container",
+  "formatting": [{ "category": "background", "properties": { "show": true, "color": "#F0F4FF" } }] }
+```
+
+## Inline formatting at create time
+
+`add_visual` accepts `containerFormat`, `visualFormat`, and `dataColors` so you can style a visual in the same call that creates it. **Always prefer this** over a separate `format_visual` round-trip.
+
 ```json
 {
   "visualType": "columnChart",
+  "x": 20, "y": 80, "width": 560, "height": 300,
+  "title": "Revenue by Region",
   "containerFormat": [
-    { "category": "background", "properties": { "show": true, "color": "#FFFFFF", "transparency": 0 } },
-    { "category": "border",     "properties": { "show": true, "color": "#E0E0E0", "radius": 8 } },
+    { "category": "background",   "properties": { "show": true, "color": "#FFFFFF", "transparency": 0 } },
+    { "category": "border",       "properties": { "show": true, "color": "#E0E0E0", "radius": 8 } },
     { "category": "visualHeader", "properties": { "show": false } }
   ],
   "visualFormat": [
@@ -26,40 +84,25 @@ Set formatting at creation time using `add_visual` inline params — no extra to
     { "category": "labels",       "properties": { "show": true, "fontSize": 8 } }
   ],
   "dataColors": [
-    { "color": "#4A90D9" },
-    { "color": "#50B748" },
-    { "color": "#F5A623" }
+    { "color": "#4A90D9" }, { "color": "#50B748" }, { "color": "#F5A623" }
   ]
 }
 ```
 
-## format_visual
-Update formatting on an existing visual:
-```json
-// Container layer
-{ "pageId": "...", "visualId": "...", "target": "container",
-  "formatting": [
-    { "category": "background", "properties": { "show": true, "color": "#F0F4FF", "transparency": 0 } }
-  ] }
+`containerFormat` writes to `visualContainerObjects`; `visualFormat` writes to `objects`; `dataColors` is a shortcut for the first dataPoint series colors.
 
-// Visual layer
-{ "pageId": "...", "visualId": "...", "target": "visual",
-  "formatting": [
-    { "category": "legend", "properties": { "show": true, "position": "Bottom", "fontSize": 9 } }
-  ] }
-```
+## Property encoding (handled for you)
 
-## Property encoding rules
-The `buildFormattingProps` helper auto-encodes values:
+The `buildFormattingProps` helper auto-encodes raw JS values to PBIR literal expressions — you never write the wrapping yourself.
 
-| Value type | Example | PBIR encoding |
-|---|---|---|
-| Hex colour | `"#FF0000"` | `{ solid: { color: { expr: { Literal: { Value: "'#FF0000'" } } } } }` |
-| Boolean | `true` | `{ expr: { Literal: { Value: "true" } } }` |
-| Number | `8` | `{ expr: { Literal: { Value: "8D" } } }` |
-| String | `"Bottom"` | `{ expr: { Literal: { Value: "'Bottom'" } } }` |
+| You pass | PBIR encoding |
+|---|---|
+| `"#FF0000"` | `{ solid: { color: { expr: { Literal: { Value: "'#FF0000'" } } } } }` |
+| `true` / `false` | `{ expr: { Literal: { Value: "true" } } }` |
+| `8` (number) | `{ expr: { Literal: { Value: "8D" } } }` |
+| `"Bottom"` (string) | `{ expr: { Literal: { Value: "'Bottom'" } } }` |
 
-You never need to handle this manually — just pass raw JS values in `properties`.
+Numbers always get a `D` suffix (PBIR doubles). Strings and hex colors get wrapped in single quotes.
 
 ## Common container categories
 
@@ -68,63 +111,199 @@ You never need to handle this manually — just pass raw JS values in `propertie
 | `background` | `show`, `color`, `transparency` |
 | `border` | `show`, `color`, `radius` |
 | `title` | `show`, `text`, `fontSize`, `fontFamily`, `alignment`, `titleWrap` |
+| `subTitle` | `show`, `text`, `fontSize`, `fontColor` |
 | `padding` | `top`, `bottom`, `left`, `right` |
 | `dropShadow` | `show`, `position` (`"Outer"` / `"Inner"`) |
 | `visualHeader` | `show` |
+| `visualHeaderTooltip` | `show`, `text` |
 
 ## Common visual categories
 
 | category | Key properties |
 |---|---|
 | `categoryAxis` | `show`, `fontSize`, `fontFamily`, `gridlines` |
-| `valueAxis` | `show`, `fontSize`, `start`, `end` |
-| `legend` | `show`, `position`, `fontSize` |
+| `valueAxis` | `show`, `fontSize`, `start`, `end`, `gridlines` |
+| `legend` | `show`, `position` (`Top`/`Bottom`/`Left`/`Right`), `fontSize` |
 | `labels` | `show`, `fontSize`, `color` |
 | `lineStyles` | `strokeWidth`, `lineStyle` |
-| `items` | `textSize`, `fontFamily` (slicers) |
-| `header` | `textSize`, `fontFamily` (slicers) |
-| `dataPoint` | set via `set_datapoint_colors` or `dataColors` array |
+| `dataPoint` | Use `set_datapoint_colors` or `dataColors` array — manual edits get tricky |
+| `items` | `fontSize`, `fontFamily` (slicers) |
+| `header` | `fontSize`, `fontFamily` (slicers) |
+| `values` | Used for conditional gradient — set via `set_conditional_format` |
 
-## Themes
-Apply consistent styling to all visuals on a page in one call:
+## `set_visual_title`
+
+Quick-set the title without touching anything else:
 
 ```json
-{ "pageId": "...", "theme": "dark" }
-{ "pageId": "...", "theme": "light" }
-{ "pageId": "...", "theme": "corporate" }
-{ "pageId": "...", "theme": "blue-purple" }
-```
-
-Available themes: `dark`, `light`, `corporate`, `blue-purple`
-
-Themes skip `textbox`, `shape`, and `image` visuals automatically.
-Slicers use a separate `slicerContainerFormat` if defined in the theme.
-
-## set_visual_title
-Quick-set a title without touching other formatting:
-```json
-{ "pageId": "...", "visualId": "...",
+{
+  "pageId": "<id>", "visualId": "<id>",
   "title": "Revenue by Region",
   "show": true,
   "fontSize": 11,
-  "alignment": "left" }
+  "fontFamily": "'Segoe UI Semibold', wf_segoe-ui_semibold, helvetica, arial, sans-serif",
+  "alignment": "left",
+  "titleWrap": false
+}
 ```
 
-## set_datapoint_colors
-Override colours for specific series:
+Merges into the existing `title` properties — only the fields you pass are overwritten.
+
+## `set_datapoint_colors`
+
+Two modes depending on whether the chart has a Series bucket:
+
+### Series-based (default — metadata mode)
+Use for charts with a `Series` bucket — bar/column with breakdown, line with multiple series, etc.
+
 ```json
-{ "pageId": "...", "visualId": "...",
+{
+  "pageId": "<id>", "visualId": "<id>",
   "colors": [
     { "color": "#CD191C", "seriesName": "Actual" },
     { "color": "#4A90D9", "seriesName": "Budget" }
   ],
-  "defaultTransparency": 10 }
+  "defaultTransparency": 0
+}
 ```
 
-## Default fonts applied automatically
-`createAndSaveVisual` sets these defaults on every visual created:
-- Title: `fontSize: 8`, Segoe UI
-- Chart axes/legend/labels: `fontSize: 8`, Segoe UI
-- Slicer items/header: `textSize: 8`, Segoe UI
+### Category-based (data selector mode)
+**Required** for charts whose colored items are category values, not series names — `barChart`/`columnChart`/`pieChart`/`donutChart`/`treemap` with a single measure. Pass `categoryEntity` and `categoryProperty` to point at the category column:
 
-Override via `containerFormat` or `visualFormat` in the same `add_visual` call.
+```json
+{
+  "pageId": "<id>", "visualId": "<id>",
+  "categoryEntity": "Store",
+  "categoryProperty": "Region",
+  "colors": [
+    { "color": "#4A90D9", "seriesName": "North" },
+    { "color": "#50B748", "seriesName": "South" },
+    { "color": "#F5A623", "seriesName": "East" },
+    { "color": "#CD191C", "seriesName": "West" }
+  ]
+}
+```
+
+Without `categoryEntity`/`categoryProperty`, the colors land in metadata mode and PBI ignores them on category-based charts.
+
+## `set_conditional_format`
+
+Apply rules-based or gradient conditional formatting to a visual's container background or title font color.
+
+### Rules mode — discrete value → color
+
+```json
+{
+  "pageId": "<id>", "visualId": "<id>",
+  "property": "background",
+  "formatType": "rules",
+  "entity": "Sales",
+  "property2": "KPI Status",
+  "isMeasure": true,
+  "rules": [
+    { "comparisonKind": 0, "value": "Good",    "color": "#00B050" },
+    { "comparisonKind": 0, "value": "Warning", "color": "#FFC000" },
+    { "comparisonKind": 0, "value": "Bad",     "color": "#C00000" }
+  ],
+  "defaultColor": "#FFFFFF"
+}
+```
+
+`comparisonKind`: `0`=Equal, `1`=GT, `2`=GTE, `3`=LT, `4`=LTE, `5`=NotEqual.
+
+`property`: `"background"` (sets container background `color`) or `"title"` (sets title `fontColor`).
+
+`isMeasure`: `true` for DAX measure, `false` for column (auto-wrapped in `Aggregation Sum` so table/matrix projection stays valid).
+
+Rules write to `visualContainerObjects[property]` as a `Conditional.Cases` expression — first match wins, falls back to `defaultColor`.
+
+### Gradient mode — continuous value → color scale
+
+```json
+{
+  "pageId": "<id>", "visualId": "<id>",
+  "property": "background",
+  "formatType": "gradient",
+  "entity": "Sales",
+  "property2": "Margin %",
+  "isMeasure": true,
+  "minColor": "#C00000",
+  "midColor": "#FFC000",
+  "maxColor": "#00B050"
+}
+```
+
+Two-point gradient: omit `midColor`. Three-point: include it. Writes a `FillRule.linearGradient2`/`linearGradient3` into `objects.values` with a `dataViewWildcard` selector — PBI then colors each row of the table/matrix by its value of the driving field.
+
+### Clear
+
+```json
+{ "pageId": "<id>", "visualId": "<id>", "property": "background", "formatType": "clear" }
+```
+
+Removes the conditional definition from `visualContainerObjects`.
+
+## `set_visual_sort`
+
+Override the auto-sort with explicit sort fields and directions. Field uses `Table[Column]` shorthand.
+
+```json
+{
+  "pageId": "<id>", "visualId": "<id>",
+  "sort": [
+    { "field": "Sales[Total Revenue]", "type": "measure",     "direction": "Descending" },
+    { "field": "Date[Year]",           "type": "column",      "direction": "Ascending"  }
+  ],
+  "isDefaultSort": false
+}
+```
+
+`type`: `column` | `measure` | `aggregation`. For `aggregation`, also pass `aggregation`: `Sum`/`Avg`/`Count`/`Min`/`Max`/`CountNonNull`/`Median`/`StandardDeviation`/`Variance`.
+
+`direction`: `Ascending` | `Descending` (default Descending).
+
+`isDefaultSort: true` lets the user re-sort interactively in the report; `false` (default) locks it.
+
+The visual must already have a `query` (it must have data bindings) — sort can't be set on container-only visuals like shapes or buttons.
+
+## `apply_theme`
+
+Apply a named preset theme to every data visual on a page in one call.
+
+```json
+{ "pageId": "<id>", "theme": "corporate", "applyDataColors": true }
+```
+
+Available presets: `dark`, `light`, `corporate`, `blue-purple`.
+
+- Skips `textbox`, `shape`, `image`, `actionButton`, `pageNavigator` (they have their own styling)
+- Slicers use a separate `slicerContainerFormat` if the preset defines one
+- `applyDataColors: true` (default) repaints chart datapoint colors with the preset palette
+- For full report-level theming use `set_report_theme` — see `skills/themes.md`
+
+## Default fonts applied automatically
+
+`createAndSaveVisual` sets these on every visual at creation time:
+
+- Title: `fontSize: 8`, Segoe UI
+- Chart axes / legend / labels: `fontSize: 8`, Segoe UI
+- Slicer items / header: `fontSize: 8`, Segoe UI
+
+Override via `containerFormat` / `visualFormat` in the same `add_visual` call, or with `format_visual` afterwards.
+
+## Common workflows
+
+### Polish a freshly-created visual
+1. `add_visual` with inline `title`, `containerFormat`, `visualFormat`, `dataColors` — done in one call
+2. Only fall back to `format_visual` if you decide later to tweak
+
+### Apply consistent styling across the page
+- `apply_theme` for one of the four presets
+- `set_report_theme` for a full custom theme (see `skills/themes.md`)
+- `bulk_update_format` to push the same `containerFormat` payload onto a list of visual IDs (see `skills/visuals.md`)
+
+### Color-code a KPI card by its status measure
+- `set_conditional_format` with `formatType: "rules"`, `property: "background"`, three rules on a `KPI Status` measure → green/amber/red
+
+### Highlight a table row by margin
+- `set_conditional_format` with `formatType: "gradient"`, `property: "background"` and `entity`/`property2` pointing to your margin measure
