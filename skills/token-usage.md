@@ -1,4 +1,4 @@
-<!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
+<!-- doc-version: 2.1 | Last updated: 2026-04-15 -->
 # Skill: Token Usage — Minimising LLM Cost & Context
 
 Estimates based on Claude Sonnet. All figures are approximate.
@@ -12,18 +12,20 @@ Power BI report-building can be done in 5–6 well-chosen tool calls per page or
 
 ## Fixed session overhead (paid once)
 
-The MCP server ships with **12 default tools** loaded at startup (~3,500 tokens of schemas) and **42 on-demand tools** that aren't paid for unless you activate them via `load_tools`.
+The MCP server ships with **12 default tools** loaded at startup (~3,500 tokens of schemas) and **43 on-demand tools** that aren't paid for unless you activate them via `load_tools`. Total catalog: **55 tools**.
 
 | Item | Tokens | Notes |
 |---|---|---|
 | 12 default tool schemas | ~3,500 | The starting catalog |
 | `add_visual` schema alone | ~2,250 | Largest single schema |
 | `set_report` | ~40 | Connect once per session |
-| `get_page_summary` | ~60 | Orient on existing pages + visuals — replaces `list_pages` + N×`list_visuals` |
+| `list_pages` slim | ~40 | Orient on existing pages |
 | Model read (tables + columns) | ~430 | Read once, reuse field names all session |
 | **Session startup total** | **~4,000** | Amortised across all pages built |
 
 > **`MCP_TOOLS=all`** loads every tool at startup — adds ~7,500 tokens of schemas. Worth it only if you genuinely need to call non-default tools more than 2–3 times per session.
+
+> **`get_page_summary` is NOT default.** It's the lowest-token recon call (~100 tokens replaces `list_pages` + N×`list_visuals`), but you have to activate it first with `load_tools(["get_page_summary"])` — or set `MCP_TOOLS=all`. The trade-off: 1 `load_tools` call + the schema cost (~80 tokens) vs. saving 2–3 extra recon calls per session. Worth it on sessions that touch more than one page.
 
 ---
 
@@ -37,17 +39,74 @@ set_report_theme     bulk_bind            model_usage
 reload_report
 ```
 
-These cover the entire happy-path: connect → orient → create page → add visuals → format → bind → theme → reload. Almost every report build can be done with this set alone.
+These cover the entire happy-path: connect → orient → create page → add visuals → format → bind → theme → reload. Almost every report build can be done with this set alone. Single source of truth: `src/default-tools.ts`.
 
 ## On-demand tools (load via `load_tools`)
 
-42 additional tools — none load by default. Activate them when you need them:
+43 additional tools — none load by default. Activate them when you need them:
 
 ```json
 { "tools": ["set_visual_sort", "set_conditional_format", "duplicate_page"] }
 ```
 
 > **Harness caveat:** most LLM clients snapshot the tool catalog at session start. If your client behaves that way, `load_tools` activates server-side but the tools may not become invokable until the next session. Either start with `MCP_TOOLS=all` or use a harness that re-reads the catalog.
+
+---
+
+## Binding validation cost (v0.6.1)
+
+`add_visual`, `update_visual_bindings`, and `bulk_bind` now run every field reference through a model-backed validator **before any write**. The relevant question for this doc is: what does that cost in tokens?
+
+**Clean bindings → zero extra cost.** The validator reads the already-cached `ModelFieldInventory` (same cache as `model_usage`) and returns an empty error list. The success response is byte-for-byte identical to the pre-v0.6.1 version.
+
+**Broken bindings → tiny cost, massive saving.** When validation fires:
+
+| Response field | Tokens | Notes |
+|---|---|---|
+| `error` (strict mode) | ~80–150 | Formatted human-readable header + per-error line |
+| `bindingErrors[]` (structured) | ~40–80 per error | Each carries `reason`, `label`, `entity`, `property`, up to 3 suggestions |
+| `bindingWarnings[]` (warn mode) | same as above | Attached to a `success: true` response instead of replacing it |
+| `mode` | ~5 | One of `strict` / `warn` / `off` |
+
+A typical typo response (2–3 errors) is ~200–400 tokens total. That sounds like a cost until you compare it to the pre-v0.6.1 failure loop:
+
+```
+WITHOUT validation:
+  add_visual               → silent success (~200 tokens)
+  reload_report            → success (~35)
+  [user opens PBI Desktop, notices blank visual]
+  get_visual slim=false    → ~600 tokens
+  model_usage              → ~600–1,500 to find the real field name
+  update_visual_bindings   → ~250
+  reload_report            → ~35
+  Total: ~1,700–2,600 tokens + human round-trip
+```
+
+```
+WITH validation:
+  add_visual               → validation error (~400)
+  [agent reads "Did you mean Sales[Quantity]?", fixes spec]
+  add_visual               → success (~200)
+  Total: ~600 tokens, no human round-trip
+```
+
+**Net effect:** the validator is a token **saver** whenever it catches a real bug, and free when it doesn't. The only scenario where it adds cost without benefit is a deliberate bind against a field that isn't in the model yet (e.g. a sibling MCP is about to add it) — for that case, set `strictBindings: false` on the single call so the error downgrades to a warning and the write proceeds.
+
+**Environment override:** `MCP_BINDING_VALIDATION=off` disables validation globally (skip the cached-inventory lookup entirely, zero overhead, zero safety). Don't flip this unless you have a specific reason — you're turning off a free brake.
+
+---
+
+## Bulk safety gate cost (v0.6.0)
+
+`bulk_delete_visuals`, `bulk_update_format`, and `bulk_bind` all check a 5-visual threshold. When `confirmBulk: true` is needed but not set, the response is a ~80-token structured error:
+
+```json
+{ "success": false, "error": "Safety gate: ...", "count": 9, "threshold": 5, "confirmBulkRequired": true }
+```
+
+This looks like waste, but it's the gate for "accidentally pipe every id from `list_visuals` into `bulk_delete_visuals` and wipe the page" — the recovery cost for that mistake is a full page rebuild (~2,000 tokens in the best case). The gate costs ~80 tokens per miss; one prevented page-wipe pays for 25 gate errors.
+
+**Rule:** never set `confirmBulk: true` reflexively. The gate is free when you stay under 5, and cheap insurance when you don't.
 
 ---
 
@@ -62,7 +121,7 @@ These cover the entire happy-path: connect → orient → create page → add vi
 | `add_visual` batch — 13 data visuals | ~1,200 | ~200 | ~1,400 | 4 KPIs + 5 slicers + 4 charts |
 | Inline `title` per visual | ~20 | 0 | ~20 | No extra call |
 | Inline `containerFormat` per visual | ~80 | 0 | ~80 | No extra call |
-| `apply_theme` | ~20 | ~30 | ~50 | One call, whole page chrome |
+| `apply_theme` | ~20 | ~30 | ~50 | One call, whole page chrome — **on-demand**, costs one `load_tools` per session |
 | `set_report_theme` | ~150 | ~50 | ~200 | One call, global brand |
 | `bulk_update_format` (N visuals) | ~150 | ~50 | ~200 | One call, many visuals |
 | `bulk_bind` (N visuals) | ~250 | ~80 | ~330 | One call, many rebinds |
@@ -187,6 +246,10 @@ After each page, accumulated tool results grow the context window:
 | `list_visuals` slim=false | 🟡 Medium | Full position objects |
 | `model_usage` slim=true | 🟡 Medium | ~600–1,500 tokens, but cached & invaluable |
 | `model_usage` slim=false | 🔴 Expensive | Full DAX expressions, dependency graphs — only when needed |
+| Binding validation (clean) | 🟢 Free | No extra tokens, no extra round-trip |
+| Binding validation (error) | 🟢 Cheap | ~40–80 tokens per error, prevents multi-call rebuild cycle |
+| `confirmBulk` gate (passing) | 🟢 Free | Parameter check, no cost |
+| `confirmBulk` gate (blocked) | 🟢 Cheap | ~80 tokens, prevents ~2,000-token page-rebuild recovery |
 | Default tool schemas | 🔴 Fixed | ~3,500, unavoidable |
 | `MCP_TOOLS=all` schemas | 🔴 Fixed | ~11,000 — only worth it for tool-heavy sessions |
 
@@ -201,10 +264,13 @@ After each page, accumulated tool results grow the context window:
 5. **`/compact` every 3–4 pages** — biggest single lever for long sessions
 6. **`set_report_theme` once per report** — not once per page
 7. **Batch everything** — 1 `add_visual` with 13 visuals beats 13 `add_visual` calls
-8. **Use `get_page_summary` for recon** — not `list_pages` + N×`list_visuals`
-9. **Use `bulk_*` tools** when the same change applies to many visuals
+8. **Use `get_page_summary` for recon** — not `list_pages` + N×`list_visuals` (activate via `load_tools` once)
+9. **Use `bulk_*` tools** when the same change applies to many visuals (respects `confirmBulk` gate at >5 items)
 10. **Activate non-default tools sparingly** — each `load_tools` call adds schemas to context
 11. **Cache `model_usage`** — it auto-invalidates on file changes; don't re-call needlessly
+12. **Trust binding validation** (v0.6.1) — if a field ref is wrong, the validator will say so with a "did you mean" suggestion. Don't pre-read `model_usage` just to spell-check; let the validator do it.
+13. **Never set `strictBindings: false` reflexively** — only when you know the field will exist after a sibling write. The safety net is free.
+14. **Never set `confirmBulk: true` reflexively** — the gate is free when you stay under 5 visuals, and one prevented page-wipe pays for dozens of gate errors.
 
 ---
 
@@ -213,14 +279,16 @@ After each page, accumulated tool results grow the context window:
 ```
 Session start (once):
   set_report
+  load_tools(["get_page_summary","apply_theme"])   ← activate cheap recon + page-chrome tools
   get_page_summary        ← all pages + visuals in 1 call
-  (read model fields once)
+  model_usage             ← read model fields once (cached)
   set_report_theme        ← global brand, skip if already set
 
 Per page:
   create_page
   add_visual (batch)      ← shapes first (wireframe layer)
-  add_visual (batch)      ← all data visuals with inline title + containerFormat
+  add_visual (batch)      ← all data visuals with inline title + containerFormat + bindings
+                          ← bindings auto-validated (v0.6.1); typos fail upfront with suggestions
   apply_theme             ← container chrome polish, 1 call
   /compact every 3–4 pages
 
