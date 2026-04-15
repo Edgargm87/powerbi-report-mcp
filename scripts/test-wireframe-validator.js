@@ -29,97 +29,104 @@ function run(name, visuals, expectOk) {
 // --- positive cases --------------------------------------------------------
 
 // Layout A — Dashboard: 5 cards, 2 charts, 3 details (11 visuals)
+//   5 cards:  (1250 - 4×5) / 5 = 246
+//   2 charts: (1250 - 5)    / 2 = 622.5 → 622 + 623
+//   3 detail: (1250 - 2×5)  / 3 = 413.33 → 413 + 413 + 414
 const layoutA = [
   banner,
-  { id: "Card 1",       visualType: "card", x: 20,   y: 57,  width: 244, height: 90  },
-  { id: "Card 2",       visualType: "card", x: 269,  y: 57,  width: 244, height: 90  },
-  { id: "Card 3",       visualType: "card", x: 518,  y: 57,  width: 244, height: 90  },
-  { id: "Card 4",       visualType: "card", x: 767,  y: 57,  width: 244, height: 90  },
-  { id: "Slicer",       visualType: "slicer", x: 1016, y: 57, width: 244, height: 90 },
-  { id: "Chart Left",   visualType: "barChart", x: 20,  y: 152, width: 617, height: 280 },
-  { id: "Chart Right",  visualType: "lineChart", x: 642, y: 152, width: 618, height: 280 },
-  { id: "Detail 1",     visualType: "tableEx", x: 20,  y: 437, width: 410, height: 277 },
-  { id: "Detail 2",     visualType: "tableEx", x: 435, y: 437, width: 410, height: 277 },
-  { id: "Detail 3",     visualType: "tableEx", x: 850, y: 437, width: 410, height: 277 },
+  { id: "Card 1",       visualType: "card", x: 15,   y: 57,  width: 246, height: 90  },
+  { id: "Card 2",       visualType: "card", x: 266,  y: 57,  width: 246, height: 90  },
+  { id: "Card 3",       visualType: "card", x: 517,  y: 57,  width: 246, height: 90  },
+  { id: "Card 4",       visualType: "card", x: 768,  y: 57,  width: 246, height: 90  },
+  { id: "Slicer",       visualType: "slicer", x: 1019, y: 57, width: 246, height: 90 },
+  { id: "Chart Left",   visualType: "barChart", x: 15,  y: 152, width: 622, height: 280 },
+  { id: "Chart Right",  visualType: "lineChart", x: 642, y: 152, width: 623, height: 280 },
+  { id: "Detail 1",     visualType: "tableEx", x: 15,  y: 437, width: 413, height: 277 },
+  { id: "Detail 2",     visualType: "tableEx", x: 433, y: 437, width: 413, height: 277 },
+  { id: "Detail 3",     visualType: "tableEx", x: 851, y: 437, width: 414, height: 277 },
 ];
 
 // Layout B — Analysis: 3 slicers, main chart + 4 KPI sidebar, full-width table (10 visuals)
+//   3 slicers: 413 / 413 / 414  at x=15 / 433 / 851
+//   2/3 + 1/3 split: 830 + 415 (= 1245, +5 gap = 1250 usable)
 const layoutB = [
   banner,
-  { id: "Slicer 1",    visualType: "slicer",   x: 20,  y: 57,  width: 410, height: 40  },
-  { id: "Slicer 2",    visualType: "slicer",   x: 435, y: 57,  width: 410, height: 40  },
-  { id: "Slicer 3",    visualType: "slicer",   x: 850, y: 57,  width: 410, height: 40  },
-  { id: "Main Chart",  visualType: "comboChart", x: 20,  y: 102, width: 823, height: 380 },
-  { id: "KPI 1",       visualType: "card",     x: 848, y: 102, width: 412, height: 93  },
-  { id: "KPI 2",       visualType: "card",     x: 848, y: 200, width: 412, height: 93  },
-  { id: "KPI 3",       visualType: "card",     x: 848, y: 298, width: 412, height: 93  },
-  { id: "KPI 4",       visualType: "card",     x: 848, y: 396, width: 412, height: 86  },
-  { id: "Table",       visualType: "tableEx",  x: 20,  y: 487, width: 1240, height: 227 },
+  { id: "Slicer 1",    visualType: "slicer",   x: 15,  y: 57,  width: 413, height: 40  },
+  { id: "Slicer 2",    visualType: "slicer",   x: 433, y: 57,  width: 413, height: 40  },
+  { id: "Slicer 3",    visualType: "slicer",   x: 851, y: 57,  width: 414, height: 40  },
+  { id: "Main Chart",  visualType: "comboChart", x: 15,  y: 102, width: 830, height: 380 },
+  { id: "KPI 1",       visualType: "card",     x: 850, y: 102, width: 415, height: 93  },
+  { id: "KPI 2",       visualType: "card",     x: 850, y: 200, width: 415, height: 93  },
+  { id: "KPI 3",       visualType: "card",     x: 850, y: 298, width: 415, height: 93  },
+  { id: "KPI 4",       visualType: "card",     x: 850, y: 396, width: 415, height: 86  },
+  { id: "Table",       visualType: "tableEx",  x: 15,  y: 487, width: 1250, height: 227 },
 ];
 
 // Layout D — Sidebar Nav: 160px left rail + 4 KPIs + 2 charts + detail table
-//   Content area x=185, width 1075 = 1280-185-20
-//   KPI row:  (1075 - 3*5) / 4 = 265
-//   Chart row: (1075 - 5) / 2 = 535
+//   Nav rail at x=15 w=160 → right=175
+//   Content area x=180, width 1085 = 1280-180-15
+//   KPI row:  (1085 - 3*5) / 4 = 267.5 → 267 / 268 / 267 / 268
+//   Chart row: (1085 - 5) / 2 = 540
 const layoutD = [
   banner,
-  { id: "Nav Rail",    visualType: "slicer",    x: 20,  y: 57,  width: 160, height: 657 },
-  { id: "KPI 1",       visualType: "card",      x: 185, y: 57,  width: 265, height: 90  },
-  { id: "KPI 2",       visualType: "card",      x: 455, y: 57,  width: 265, height: 90  },
-  { id: "KPI 3",       visualType: "card",      x: 725, y: 57,  width: 265, height: 90  },
-  { id: "KPI 4",       visualType: "card",      x: 995, y: 57,  width: 265, height: 90  },
-  { id: "Chart Left",  visualType: "barChart",  x: 185, y: 152, width: 535, height: 280 },
-  { id: "Chart Right", visualType: "lineChart", x: 725, y: 152, width: 535, height: 280 },
-  { id: "Detail",      visualType: "tableEx",   x: 185, y: 437, width: 1075, height: 277 },
+  { id: "Nav Rail",    visualType: "slicer",    x: 15,  y: 57,  width: 160, height: 657 },
+  { id: "KPI 1",       visualType: "card",      x: 180, y: 57,  width: 267, height: 90  },
+  { id: "KPI 2",       visualType: "card",      x: 452, y: 57,  width: 268, height: 90  },
+  { id: "KPI 3",       visualType: "card",      x: 725, y: 57,  width: 267, height: 90  },
+  { id: "KPI 4",       visualType: "card",      x: 997, y: 57,  width: 268, height: 90  },
+  { id: "Chart Left",  visualType: "barChart",  x: 180, y: 152, width: 540, height: 280 },
+  { id: "Chart Right", visualType: "lineChart", x: 725, y: 152, width: 540, height: 280 },
+  { id: "Detail",      visualType: "tableEx",   x: 180, y: 437, width: 1085, height: 277 },
 ];
 
 // Layout E — 3×3 Tile Grid: 9 tiles uniform, no hierarchy
-//   3 cols @ 410 (x=20, 435, 850), 3 rows @ 215
-//   Row y: 57, 277, 497 → bottom 497+215 = 712 (8px bottom margin > 6px min)
+//   3 cols: 413/413/414 (x=15, 433, 851), 3 rows @ 215
+//   Row y: 57, 277, 497 → bottom 497+215 = 712 (≤ 714)
 const layoutE = [
   banner,
-  { id: "Tile 1", visualType: "card", x: 20,  y: 57,  width: 410, height: 215 },
-  { id: "Tile 2", visualType: "card", x: 435, y: 57,  width: 410, height: 215 },
-  { id: "Tile 3", visualType: "card", x: 850, y: 57,  width: 410, height: 215 },
-  { id: "Tile 4", visualType: "card", x: 20,  y: 277, width: 410, height: 215 },
-  { id: "Tile 5", visualType: "card", x: 435, y: 277, width: 410, height: 215 },
-  { id: "Tile 6", visualType: "card", x: 850, y: 277, width: 410, height: 215 },
-  { id: "Tile 7", visualType: "card", x: 20,  y: 497, width: 410, height: 215 },
-  { id: "Tile 8", visualType: "card", x: 435, y: 497, width: 410, height: 215 },
-  { id: "Tile 9", visualType: "card", x: 850, y: 497, width: 410, height: 215 },
+  { id: "Tile 1", visualType: "card", x: 15,  y: 57,  width: 413, height: 215 },
+  { id: "Tile 2", visualType: "card", x: 433, y: 57,  width: 413, height: 215 },
+  { id: "Tile 3", visualType: "card", x: 851, y: 57,  width: 414, height: 215 },
+  { id: "Tile 4", visualType: "card", x: 15,  y: 277, width: 413, height: 215 },
+  { id: "Tile 5", visualType: "card", x: 433, y: 277, width: 413, height: 215 },
+  { id: "Tile 6", visualType: "card", x: 851, y: 277, width: 414, height: 215 },
+  { id: "Tile 7", visualType: "card", x: 15,  y: 497, width: 413, height: 215 },
+  { id: "Tile 8", visualType: "card", x: 433, y: 497, width: 413, height: 215 },
+  { id: "Tile 9", visualType: "card", x: 851, y: 497, width: 414, height: 215 },
 ];
 
 // Layout C — KPI Summary: 6 cards in 2 rows + full-width chart (8 visuals)
+//   3 cols: 413/413/414, full chart 1250
 const layoutC = [
   banner,
-  { id: "Card 1", visualType: "card", x: 20,  y: 57,  width: 410, height: 120 },
-  { id: "Card 2", visualType: "card", x: 435, y: 57,  width: 410, height: 120 },
-  { id: "Card 3", visualType: "card", x: 850, y: 57,  width: 410, height: 120 },
-  { id: "Card 4", visualType: "card", x: 20,  y: 182, width: 410, height: 120 },
-  { id: "Card 5", visualType: "card", x: 435, y: 182, width: 410, height: 120 },
-  { id: "Card 6", visualType: "card", x: 850, y: 182, width: 410, height: 120 },
-  { id: "Chart",  visualType: "barChart", x: 20, y: 307, width: 1240, height: 407 },
+  { id: "Card 1", visualType: "card", x: 15,  y: 57,  width: 413, height: 120 },
+  { id: "Card 2", visualType: "card", x: 433, y: 57,  width: 413, height: 120 },
+  { id: "Card 3", visualType: "card", x: 851, y: 57,  width: 414, height: 120 },
+  { id: "Card 4", visualType: "card", x: 15,  y: 182, width: 413, height: 120 },
+  { id: "Card 5", visualType: "card", x: 433, y: 182, width: 413, height: 120 },
+  { id: "Card 6", visualType: "card", x: 851, y: 182, width: 414, height: 120 },
+  { id: "Chart",  visualType: "barChart", x: 15, y: 307, width: 1250, height: 407 },
 ];
 
 // --- negative cases (demonstrate misalignment root causes) -----------------
 
-// BAD 1 — Rounding overflow: 5 cards of 245 instead of 244 (right edge 1265 > 1260)
-// Root cause: LLM used (1240/5) = 248 and guessed a smaller number but didn't subtract gaps.
+// BAD 1 — Rounding overflow: 5 cards of 247 (right edge 1270 > 1265)
+// Root cause: LLM rounded (1250/5)=250 and forgot to subtract for gaps.
 const badRounding = [
   banner,
-  { id: "Card 1", visualType: "card", x: 20,   y: 57, width: 245, height: 90 },
-  { id: "Card 2", visualType: "card", x: 270,  y: 57, width: 245, height: 90 },
-  { id: "Card 3", visualType: "card", x: 520,  y: 57, width: 245, height: 90 },
-  { id: "Card 4", visualType: "card", x: 770,  y: 57, width: 245, height: 90 },
-  { id: "Card 5", visualType: "card", x: 1020, y: 57, width: 245, height: 90 },
+  { id: "Card 1", visualType: "card", x: 15,   y: 57, width: 247, height: 90 },
+  { id: "Card 2", visualType: "card", x: 267,  y: 57, width: 247, height: 90 },
+  { id: "Card 3", visualType: "card", x: 519,  y: 57, width: 247, height: 90 },
+  { id: "Card 4", visualType: "card", x: 771,  y: 57, width: 247, height: 90 },
+  { id: "Card 5", visualType: "card", x: 1023, y: 57, width: 247, height: 90 },
 ];
 
-// BAD 2 — Wrong gap: 10px horizontal gap instead of 5px (a classic skills/wireframes.md leftover)
+// BAD 2 — Wrong gap: 10px horizontal gap instead of 5px
 const badGap = [
   banner,
-  { id: "Chart Left",  visualType: "barChart",  x: 20,  y: 57, width: 615, height: 280 },
-  { id: "Chart Right", visualType: "lineChart", x: 645, y: 57, width: 615, height: 280 },
-  //                                                  ↑ 645 − (20+615) = 10px gap (bad)
+  { id: "Chart Left",  visualType: "barChart",  x: 15,  y: 57, width: 617, height: 280 },
+  { id: "Chart Right", visualType: "lineChart", x: 642, y: 57, width: 617, height: 280 },
+  //                                                  ↑ 642 − (15+617) = 10px gap (bad)
 ];
 
 // BAD 3 — Missing left margin: non-banner visual at x=0
@@ -128,10 +135,10 @@ const badMargin = [
   { id: "Full Chart", visualType: "barChart", x: 0, y: 57, width: 1280, height: 300 },
 ];
 
-// BAD 4 — Overlapping visuals: two cards both at (20, 57, 500, 90)
+// BAD 4 — Overlapping visuals: two cards both at (15, 57, 500, 90)
 const badOverlap = [
   banner,
-  { id: "Card A", visualType: "card", x: 20,  y: 57, width: 500, height: 90 },
+  { id: "Card A", visualType: "card", x: 15,  y: 57, width: 500, height: 90 },
   { id: "Card B", visualType: "card", x: 200, y: 57, width: 500, height: 90 }, // overlaps Card A
 ];
 
@@ -139,23 +146,23 @@ const badOverlap = [
 const badSilentDefault = [
   banner,
   { id: "Chart",  visualType: "barChart", x: 0, y: 0,   width: 400, height: 200 }, // no x/y set
-  { id: "Table",  visualType: "tableEx",  x: 20, y: 300, width: 1240, height: 200 },
+  { id: "Table",  visualType: "tableEx",  x: 15, y: 300, width: 1250, height: 200 },
 ];
 
 // BAD 6 — Bottom overflow: last row extends past y=720
 const badBottomOverflow = [
   banner,
-  { id: "Chart",  visualType: "barChart", x: 20, y: 57, width: 1240, height: 400 },
-  { id: "Table",  visualType: "tableEx",  x: 20, y: 462, width: 1240, height: 300 }, // bottom=762 > 720
+  { id: "Chart",  visualType: "barChart", x: 15, y: 57, width: 1250, height: 400 },
+  { id: "Table",  visualType: "tableEx",  x: 15, y: 462, width: 1250, height: 300 }, // bottom=762 > 720
 ];
 
 // BAD 7 — Bottom margin violation: visual lands inside canvas but crosses
-// the 6px bottom margin (bottom=718 > 714). This is the failure mode we just
-// added — the page previously allowed bottom=720, now it must be ≤ 714.
+// the 6px bottom margin (bottom=718 > 714). This is the failure mode we
+// added in v0.5.4 — the page previously allowed bottom=720, now it must be ≤ 714.
 const badBottomMargin = [
   banner,
-  { id: "Chart",  visualType: "barChart", x: 20, y: 57,  width: 1240, height: 380 },
-  { id: "Table",  visualType: "tableEx",  x: 20, y: 442, width: 1240, height: 276 }, // bottom=718 > 714
+  { id: "Chart",  visualType: "barChart", x: 15, y: 57,  width: 1250, height: 380 },
+  { id: "Table",  visualType: "tableEx",  x: 15, y: 442, width: 1250, height: 276 }, // bottom=718 > 714
 ];
 
 // --- run ------------------------------------------------------------------

@@ -1,11 +1,11 @@
-<!-- doc-version: 2.0 | Last updated: 2026-04-14 -->
+<!-- doc-version: 2.1 | Last updated: 2026-04-15 -->
 # Skill: Wireframes — Report Layout Patterns
 
 All layouts use canvas **1280 x 720** (16:9), `displayOption: "FitToPage"`.
 
 **Rules (MUST follow):**
-- Page margins: **20px** left, **20px** right, **6px** bottom (top 0).
-- Usable content width: **1240px** (1280 - 20 - 20).
+- Page margins: **15px** left, **15px** right, **6px** bottom (top 0).
+- Usable content width: **1250px** (1280 - 15 - 15).
 - Usable content height: **714px** (720 - 6) — the bottom 6px is breathing room.
 - Gap between visuals: **5px** horizontal and vertical.
 - Page title banner: **x:0, y:0, width:1280, height:52** (exempt from margins).
@@ -15,8 +15,8 @@ All layouts use canvas **1280 x 720** (16:9), `displayOption: "FitToPage"`.
   `src/wireframe-validator.ts` — run
   `node scripts/test-wireframe-validator.js` to verify.
 
-> **Why this matters:** The validator refuses any non-banner visual at x<20,
-> with right-edge > 1260, or bottom-edge > 714. If you copy numbers from
+> **Why this matters:** The validator refuses any non-banner visual at x<15,
+> with right-edge > 1265, or bottom-edge > 714. If you copy numbers from
 > memory and get the margin wrong, every visual on the page fails margin
 > and overlap checks. Prefer the validated layouts below, or compute widths
 > from the spacing formula and re-verify with the validator.
@@ -28,22 +28,26 @@ All layouts use canvas **1280 x 720** (16:9), `displayOption: "FitToPage"`.
 For N equal-width visuals in a row:
 
 ```
-visual_width = (1240 - (N - 1) * 5) / N
+visual_width = (1250 - (N - 1) * 5) / N
 ```
 
-| Visuals in row | Each width | Gap total | x positions                        |
-|----------------|------------|-----------|------------------------------------|
-| 1              | 1240       | 0         | 20                                 |
-| 2              | 617 / 618  | 5         | 20, 642                            |
-| 3              | 410        | 10        | 20, 435, 850                       |
-| 4              | 306        | 15        | 20, 331, 642, 953                  |
-| 5              | 244        | 20        | 20, 269, 518, 767, 1016            |
-| 6              | 203        | 25        | 20, 228, 436, 644, 852, 1060       |
+| Visuals in row | Each width            | Gap total | x positions                          |
+|----------------|-----------------------|-----------|--------------------------------------|
+| 1              | 1250                  | 0         | 15                                   |
+| 2              | 622 / 623             | 5         | 15, 642                              |
+| 3              | 413 / 413 / 414       | 10        | 15, 433, 851                         |
+| 4              | 308 / 308 / 308 / 311 | 15        | 15, 328, 641, 954                    |
+| 5              | 246                   | 20        | 15, 266, 517, 768, 1019              |
+| 6              | 204 / 204 / 204 / 204 / 204 / 205 | 25 | 15, 224, 433, 642, 851, 1060 |
 
 For unequal splits:
-- 2/3 + 1/3: `wider = 823, narrow = 412` (left x=20, right x=848)
-- 1/3 + 2/3: `narrow = 412, wider = 823` (left x=20, right x=437)
-- 1/2 + 1/2: `617 / 618`               (left x=20, right x=642)
+- 2/3 + 1/3: `wider = 830, narrow = 415` (left x=15, right x=850)
+- 1/3 + 2/3: `narrow = 415, wider = 830` (left x=15, right x=435)
+- 1/2 + 1/2: `622 / 623`               (left x=15, right x=642)
+
+> When a row's width doesn't divide cleanly, round **down** on all but the
+> last visual and put the remainder on the last one so the right edge lands
+> on **1265** (`1280 - 15`).
 
 ---
 
@@ -52,34 +56,34 @@ For unequal splits:
 ```
 +--[1280]---------------------------------------------------------------+
 |  BANNER (0,0) 1280x52  #1B2A4A                                       | y:0
-+--[20px margin]------------------------------------------------[20px]--+
++--[15px margin]------------------------------------------------[15px]--+
 |  CARD1    |5| CARD2    |5| CARD3    |5| CARD4    |5| CARD5          | y:57
-|  244x90       244x90       244x90       244x90       244x90          |
+|  246x90       246x90       246x90       246x90       246x90          |
 +-----------------------------------------------------------------------+
 |  CHART-LEFT                |5| CHART-RIGHT                           | y:152
-|  617x280                       618x280                               |
+|  622x280                       623x280                               |
 +-----------------------------------------------------------------------+
 |  DETAIL-1       |5| DETAIL-2       |5| DETAIL-3                     | y:437
-|  410x277            410x277            410x277                       |
+|  413x277            413x277            414x277                       |
 +-----------------------------------------------------------------------+
                                                                    y:714
 ```
 
-**Visuals:** 11  |  **Coverage:** 93.7%  |  **Bottom:** 714
+**Visuals:** 11  |  **Coverage:** 94.3%  |  **Bottom:** 714
 
 | Visual      | x    | y    | width | height | z     |
 |-------------|------|------|-------|--------|-------|
 | Banner      | 0    | 0    | 1280  | 52     | 0     |
-| Card 1      | 20   | 57   | 244   | 90     | 1000  |
-| Card 2      | 269  | 57   | 244   | 90     | 2000  |
-| Card 3      | 518  | 57   | 244   | 90     | 3000  |
-| Card 4      | 767  | 57   | 244   | 90     | 4000  |
-| Card 5      | 1016 | 57   | 244   | 90     | 5000  |
-| Chart Left  | 20   | 152  | 617   | 280    | 6000  |
-| Chart Right | 642  | 152  | 618   | 280    | 7000  |
-| Detail 1    | 20   | 437  | 410   | 277    | 8000  |
-| Detail 2    | 435  | 437  | 410   | 277    | 9000  |
-| Detail 3    | 850  | 437  | 410   | 277    | 10000 |
+| Card 1      | 15   | 57   | 246   | 90     | 1000  |
+| Card 2      | 266  | 57   | 246   | 90     | 2000  |
+| Card 3      | 517  | 57   | 246   | 90     | 3000  |
+| Card 4      | 768  | 57   | 246   | 90     | 4000  |
+| Card 5      | 1019 | 57   | 246   | 90     | 5000  |
+| Chart Left  | 15   | 152  | 622   | 280    | 6000  |
+| Chart Right | 642  | 152  | 623   | 280    | 7000  |
+| Detail 1    | 15   | 437  | 413   | 277    | 8000  |
+| Detail 2    | 433  | 437  | 413   | 277    | 9000  |
+| Detail 3    | 851  | 437  | 414   | 277    | 10000 |
 
 ---
 
@@ -88,34 +92,34 @@ For unequal splits:
 ```
 +--[1280]---------------------------------------------------------------+
 |  BANNER (0,0) 1280x52                                                | y:0
-+--[20px margin]------------------------------------------------[20px]--+
++--[15px margin]------------------------------------------------[15px]--+
 |  SLICER-1           |5| SLICER-2           |5| SLICER-3             | y:57
-|  410x40                 410x40                 410x40                |
+|  413x40                 413x40                 414x40                |
 +-----------------------------------------------------------------------+
-|  MAIN CHART (2/3 width)         |5| KPI-1               412x93     | y:102
-|  823x380                           KPI-2               412x93      |
-|                                    KPI-3               412x93      |
-|                                    KPI-4               412x86      |
+|  MAIN CHART (2/3 width)         |5| KPI-1               415x93     | y:102
+|  830x380                           KPI-2               415x93      |
+|                                    KPI-3               415x93      |
+|                                    KPI-4               415x86      |
 +-----------------------------------------------------------------------+
-|  TABLE (full width) 1240x227                                         | y:487
+|  TABLE (full width) 1250x227                                         | y:487
 +-----------------------------------------------------------------------+
                                                                    y:714
 ```
 
-**Visuals:** 10  |  **Coverage:** 93.5%  |  **Bottom:** 714
+**Visuals:** 10  |  **Coverage:** 94.1%  |  **Bottom:** 714
 
 | Visual      | x    | y    | width | height | z     |
 |-------------|------|------|-------|--------|-------|
 | Banner      | 0    | 0    | 1280  | 52     | 0     |
-| Slicer 1    | 20   | 57   | 410   | 40     | 1000  |
-| Slicer 2    | 435  | 57   | 410   | 40     | 2000  |
-| Slicer 3    | 850  | 57   | 410   | 40     | 3000  |
-| Main Chart  | 20   | 102  | 823   | 380    | 4000  |
-| KPI 1       | 848  | 102  | 412   | 93     | 5000  |
-| KPI 2       | 848  | 200  | 412   | 93     | 6000  |
-| KPI 3       | 848  | 298  | 412   | 93     | 7000  |
-| KPI 4       | 848  | 396  | 412   | 86     | 8000  |
-| Table       | 20   | 487  | 1240  | 227    | 9000  |
+| Slicer 1    | 15   | 57   | 413   | 40     | 1000  |
+| Slicer 2    | 433  | 57   | 413   | 40     | 2000  |
+| Slicer 3    | 851  | 57   | 414   | 40     | 3000  |
+| Main Chart  | 15   | 102  | 830   | 380    | 4000  |
+| KPI 1       | 850  | 102  | 415   | 93     | 5000  |
+| KPI 2       | 850  | 200  | 415   | 93     | 6000  |
+| KPI 3       | 850  | 298  | 415   | 93     | 7000  |
+| KPI 4       | 850  | 396  | 415   | 86     | 8000  |
+| Table       | 15   | 487  | 1250  | 227    | 9000  |
 
 KPI stack bottom: `102 + 93 + 5 + 93 + 5 + 93 + 5 + 86 = 482`, matches chart bottom (`102 + 380 = 482`).
 
@@ -126,70 +130,71 @@ KPI stack bottom: `102 + 93 + 5 + 93 + 5 + 93 + 5 + 86 = 482`, matches chart bot
 ```
 +--[1280]---------------------------------------------------------------+
 |  BANNER (0,0) 1280x52                                                | y:0
-+--[20px margin]------------------------------------------------[20px]--+
++--[15px margin]------------------------------------------------[15px]--+
 |  CARD-1         |5| CARD-2         |5| CARD-3                        | y:57
-|  410x120            410x120            410x120                       |
+|  413x120            413x120            414x120                       |
 +-----------------------------------------------------------------------+
 |  CARD-4         |5| CARD-5         |5| CARD-6                        | y:182
-|  410x120            410x120            410x120                       |
+|  413x120            413x120            414x120                       |
 +-----------------------------------------------------------------------+
-|  CHART (full width) 1240x407                                         | y:307
+|  CHART (full width) 1250x407                                         | y:307
 +-----------------------------------------------------------------------+
                                                                    y:714
 ```
 
-**Visuals:** 8  |  **Coverage:** 94.2%  |  **Bottom:** 714
+**Visuals:** 8  |  **Coverage:** 94.7%  |  **Bottom:** 714
 
 | Visual  | x    | y    | width | height | z    |
 |---------|------|------|-------|--------|------|
 | Banner  | 0    | 0    | 1280  | 52     | 0    |
-| Card 1  | 20   | 57   | 410   | 120    | 1000 |
-| Card 2  | 435  | 57   | 410   | 120    | 2000 |
-| Card 3  | 850  | 57   | 410   | 120    | 3000 |
-| Card 4  | 20   | 182  | 410   | 120    | 4000 |
-| Card 5  | 435  | 182  | 410   | 120    | 5000 |
-| Card 6  | 850  | 182  | 410   | 120    | 6000 |
-| Chart   | 20   | 307  | 1240  | 407    | 7000 |
+| Card 1  | 15   | 57   | 413   | 120    | 1000 |
+| Card 2  | 433  | 57   | 413   | 120    | 2000 |
+| Card 3  | 851  | 57   | 414   | 120    | 3000 |
+| Card 4  | 15   | 182  | 413   | 120    | 4000 |
+| Card 5  | 433  | 182  | 413   | 120    | 5000 |
+| Card 6  | 851  | 182  | 414   | 120    | 6000 |
+| Chart   | 15   | 307  | 1250  | 407    | 7000 |
 
-Columns align across rows: 20 / 435 / 850.
+Columns align across rows: 15 / 433 / 851.
 
 ---
 
 ## Layout D — Sidebar Nav (160px Rail + KPI Row + 2 Charts + Table)
 
-Content area starts at **x:185** (20 margin + 160 rail + 5 gap).
-Content width = **1075px** (1280 - 185 - 20).
+Content area starts at **x:180** (15 margin + 160 rail + 5 gap).
+Content width = **1085px** (1280 - 180 - 15).
 
 ```
 +--[1280]---------------------------------------------------------------+
 |  BANNER (0,0) 1280x52                                                | y:0
 +-----------------------------------------------------------------------+
 |  NAV  |5| KPI1  |5| KPI2  |5| KPI3  |5| KPI4                        | y:57
-|  160  |  265x90    265x90    265x90    265x90                       |
+|  160  |  267x90    268x90    267x90    268x90                       |
 |  x    +----------------------------------------------------------+  |
-|  657  |  CHART-LEFT 535x280      |5| CHART-RIGHT 535x280          | y:152
+|  657  |  CHART-LEFT 540x280      |5| CHART-RIGHT 540x280          | y:152
 |       +----------------------------------------------------------+  |
-|       |  DETAIL TABLE 1075x277                                    | y:437
+|       |  DETAIL TABLE 1085x277                                    | y:437
 |       +----------------------------------------------------------+  |
 +-----------------------------------------------------------------------+
                                                                    y:714
 ```
 
-**Visuals:** 9  |  **Coverage:** 93.3%  |  **Bottom:** 714
+**Visuals:** 9  |  **Coverage:** 94.5%  |  **Bottom:** 714
 
 | Visual      | x    | y    | width | height | z    |
 |-------------|------|------|-------|--------|------|
 | Banner      | 0    | 0    | 1280  | 52     | 0    |
-| Nav Rail    | 20   | 57   | 160   | 657    | 1000 |
-| KPI 1       | 185  | 57   | 265   | 90     | 2000 |
-| KPI 2       | 455  | 57   | 265   | 90     | 3000 |
-| KPI 3       | 725  | 57   | 265   | 90     | 4000 |
-| KPI 4       | 995  | 57   | 265   | 90     | 5000 |
-| Chart Left  | 185  | 152  | 535   | 280    | 6000 |
-| Chart Right | 725  | 152  | 535   | 280    | 7000 |
-| Detail      | 185  | 437  | 1075  | 277    | 8000 |
+| Nav Rail    | 15   | 57   | 160   | 657    | 1000 |
+| KPI 1       | 180  | 57   | 267   | 90     | 2000 |
+| KPI 2       | 452  | 57   | 268   | 90     | 3000 |
+| KPI 3       | 725  | 57   | 267   | 90     | 4000 |
+| KPI 4       | 997  | 57   | 268   | 90     | 5000 |
+| Chart Left  | 180  | 152  | 540   | 280    | 6000 |
+| Chart Right | 725  | 152  | 540   | 280    | 7000 |
+| Detail      | 180  | 437  | 1085  | 277    | 8000 |
 
-Content-area KPIs: `(1075 - 3*5) / 4 = 265`. Content charts: `(1075 - 5) / 2 = 535`.
+Content-area KPIs: `(1085 - 3*5) / 4 = 267.5` → 267 / 268 / 267 / 268.
+Content charts: `(1085 - 5) / 2 = 540`.
 
 ---
 
@@ -200,33 +205,33 @@ Content-area KPIs: `(1075 - 3*5) / 4 = 265`. Content charts: `(1075 - 5) / 2 = 5
 |  BANNER (0,0) 1280x52                                                | y:0
 +-----------------------------------------------------------------------+
 |  TILE 1    |5| TILE 2    |5| TILE 3                                  | y:57
-|  410x215       410x215       410x215                                 |
+|  413x215       413x215       414x215                                 |
 +-----------------------------------------------------------------------+
 |  TILE 4    |5| TILE 5    |5| TILE 6                                  | y:277
-|  410x215       410x215       410x215                                 |
+|  413x215       413x215       414x215                                 |
 +-----------------------------------------------------------------------+
 |  TILE 7    |5| TILE 8    |5| TILE 9                                  | y:497
-|  410x215       410x215       410x215                                 |
+|  413x215       413x215       414x215                                 |
 +-----------------------------------------------------------------------+
                                                                    y:712
 ```
 
-**Visuals:** 10  |  **Coverage:** 93.2%  |  **Bottom:** 712
+**Visuals:** 10  |  **Coverage:** 94.0%  |  **Bottom:** 712
 
 | Visual | x    | y    | width | height | z     |
 |--------|------|------|-------|--------|-------|
 | Banner | 0    | 0    | 1280  | 52     | 0     |
-| Tile 1 | 20   | 57   | 410   | 215    | 1000  |
-| Tile 2 | 435  | 57   | 410   | 215    | 2000  |
-| Tile 3 | 850  | 57   | 410   | 215    | 3000  |
-| Tile 4 | 20   | 277  | 410   | 215    | 4000  |
-| Tile 5 | 435  | 277  | 410   | 215    | 5000  |
-| Tile 6 | 850  | 277  | 410   | 215    | 6000  |
-| Tile 7 | 20   | 497  | 410   | 215    | 7000  |
-| Tile 8 | 435  | 497  | 410   | 215    | 8000  |
-| Tile 9 | 850  | 497  | 410   | 215    | 9000  |
+| Tile 1 | 15   | 57   | 413   | 215    | 1000  |
+| Tile 2 | 433  | 57   | 413   | 215    | 2000  |
+| Tile 3 | 851  | 57   | 414   | 215    | 3000  |
+| Tile 4 | 15   | 277  | 413   | 215    | 4000  |
+| Tile 5 | 433  | 277  | 413   | 215    | 5000  |
+| Tile 6 | 851  | 277  | 414   | 215    | 6000  |
+| Tile 7 | 15   | 497  | 413   | 215    | 7000  |
+| Tile 8 | 433  | 497  | 413   | 215    | 8000  |
+| Tile 9 | 851  | 497  | 414   | 215    | 9000  |
 
-Column alignment across rows: 20 / 435 / 850.
+Column alignment across rows: 15 / 433 / 851.
 Row gaps: `57+215+5 = 277`, `277+215+5 = 497`, `497+215 = 712` (leaves 8px below > 6px min).
 
 ---
@@ -235,7 +240,7 @@ Row gaps: `57+215+5 = 277`, `277+215+5 = 497`, `497+215 = 712` (leaves 8px below
 
 | Mistake                                             | Validator error      |
 |-----------------------------------------------------|----------------------|
-| Rounded up width (e.g. 245x5 cards -> right edge 1265) | `RIGHT_MARGIN`       |
+| Rounded up width (e.g. 247x5 cards -> right edge 1270) | `RIGHT_MARGIN`       |
 | 10px gap from an older skill doc                    | `WRONG_GAP_H` / `V`  |
 | Non-banner visual at x=0 (full page width)          | `LEFT_MARGIN`        |
 | Forgot to set x/y -> visual lands at (0,0)          | `SILENT_DEFAULT`     |
@@ -267,10 +272,10 @@ When building a page, follow this order:
 1. Create the page at **1280 x 720**.
 2. Place the banner at **(0, 0, 1280, 52)** as the first visual.
 3. Decide how many rows the content needs and how many visuals per row.
-4. Compute widths via the spacing formula: `(1240 - (N-1)*5) / N`.
+4. Compute widths via the spacing formula: `(1250 - (N-1)*5) / N`.
 5. Compute y top-down: each row `y = previous row y + previous row height + 5`.
-6. Compute x left-to-right: first visual `x = 20`, next `x = prev x + prev width + 5`.
-7. Verify last visual right edge = **1260** (`1280 - 20`).
+6. Compute x left-to-right: first visual `x = 15`, next `x = prev x + prev width + 5`.
+7. Verify last visual right edge = **1265** (`1280 - 15`).
 8. Verify last row bottom <= **714** (`720 - 6` bottom margin).
 9. Run the validator. Fix any reported errors before committing.
 
@@ -287,11 +292,11 @@ When building a page, follow this order:
       "textContent": "Page Title", "textColor": "#FFFFFF",
       "textBold": true, "textSize": 20 },
 
-    { "visualType": "card", "x": 20,  "y": 57, "width": 244, "height": 90 },
-    { "visualType": "card", "x": 269, "y": 57, "width": 244, "height": 90 },
-    { "visualType": "card", "x": 518, "y": 57, "width": 244, "height": 90 },
-    { "visualType": "card", "x": 767, "y": 57, "width": 244, "height": 90 },
-    { "visualType": "card", "x": 1016,"y": 57, "width": 244, "height": 90 }
+    { "visualType": "card", "x": 15,  "y": 57, "width": 246, "height": 90 },
+    { "visualType": "card", "x": 266, "y": 57, "width": 246, "height": 90 },
+    { "visualType": "card", "x": 517, "y": 57, "width": 246, "height": 90 },
+    { "visualType": "card", "x": 768, "y": 57, "width": 246, "height": 90 },
+    { "visualType": "card", "x": 1019,"y": 57, "width": 246, "height": 90 }
   ]
 }
 ```
@@ -300,7 +305,7 @@ Rules:
 - Always include explicit `x`, `y`, `width`, `height` — never rely on defaults.
 - Banner first, data visuals next. Z-order auto-increments by add order.
 - If a row requires unequal widths, round **down** on all but the last visual
-  and give the remainder to the last one (so the right edge lands on 1260).
+  and give the remainder to the last one (so the right edge lands on 1265).
 
 ---
 

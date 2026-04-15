@@ -1,11 +1,11 @@
 export declare const CANVAS: {
     readonly width: 1280;
     readonly height: 720;
-    readonly marginLeft: 20;
-    readonly marginRight: 20;
+    readonly marginLeft: 15;
+    readonly marginRight: 15;
     readonly marginTop: 0;
     readonly marginBottom: 6;
-    readonly usableWidth: 1240;
+    readonly usableWidth: 1250;
     readonly usableHeight: 714;
     readonly gap: 5;
     readonly bannerHeight: 52;

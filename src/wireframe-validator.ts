@@ -5,7 +5,7 @@
 // violates the layout rules in docs/wireframes.md:
 //
 //   Canvas    1280 × 720 (16:9)
-//   Margins   20px left, 20px right, 6px bottom (usable width = 1240,
+//   Margins   15px left, 15px right, 6px bottom (usable width = 1250,
 //             usable height = 714)
 //   Gap       5px between visuals (horizontal and vertical)
 //   Banner    exempted from margins — spans x:0 to x:1280
@@ -18,11 +18,11 @@
 export const CANVAS = {
   width: 1280,
   height: 720,
-  marginLeft: 20,
-  marginRight: 20,
+  marginLeft: 15,
+  marginRight: 15,
   marginTop: 0,
   marginBottom: 6,
-  usableWidth: 1240, // 1280 - 20 - 20
+  usableWidth: 1250, // 1280 - 15 - 15
   usableHeight: 714, // 720 - 6 (6px bottom breathing room)
   gap: 5,
   bannerHeight: 52,
@@ -135,7 +135,7 @@ export function validateWireframe(visuals: WireframeVisual[]): WireframeReport {
       issues.push({
         severity: "warning",
         code: "SILENT_DEFAULT",
-        message: `${tag} is at (0,0) but is not a banner — looks like a missing x/y. Non-banner visuals should start at x≥20, y≥${CANVAS.firstContentRowY}`,
+        message: `${tag} is at (0,0) but is not a banner — looks like a missing x/y. Non-banner visuals should start at x≥${CANVAS.marginLeft}, y≥${CANVAS.firstContentRowY}`,
         visuals: [tag],
       });
     }

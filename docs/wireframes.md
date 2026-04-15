@@ -1,6 +1,12 @@
 <!-- doc-version: 1.0 | Last updated: 2026-04-09 -->
 # Power BI Report Design Guide
 
+> **DEPRECATED (v0.5.8):** The canonical wireframe rules now live in
+> [`skills/wireframes.md`](../skills/wireframes.md), accessed at runtime via
+> `guide("wireframes")`. As of v0.5.8 the standard L/R margin is **15px**
+> (not 20px as below) — this file is kept for historical context only and is
+> not loaded by the MCP server.
+
 Reference for LLMs building Power BI reports via powerbi-report-mcp.
 All values are in pixels. Follow these rules exactly.
 

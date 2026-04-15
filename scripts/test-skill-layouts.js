@@ -4,8 +4,8 @@
 // 10px gaps, with a "header bar" at x:10 y:10 w:1260 h:40 that was not
 // exempt from margins (unlike a real banner). Running this script shows
 // every layout fails with ~14-22 errors, which is exactly what drove
-// the rewrite to match docs/wireframes.md (20px margins, 5px gaps,
-// banner at x:0 y:0 w:1280 h:52).
+// the rewrite to canonical layouts (banner at x:0 y:0 w:1280 h:52,
+// 5px gaps, and 15px L/R margins as of v0.5.8 — was 20px in v0.5.4–0.5.7).
 //
 // Kept as a diagnostic / regression artifact — run it any time you
 // suspect skill doc drift.

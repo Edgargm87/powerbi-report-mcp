@@ -339,7 +339,7 @@ async function main() {
     const transport = new stdio_js_1.StdioServerTransport();
     console.error("Power BI Report MCP Server starting...");
     console.error(`Report path: ${reportPath || "none (use set_report to connect)"}`);
-    console.error(`Version: 0.5.0`);
+    console.error(`Version: 0.5.8`);
     console.error(`Tools mode: ${loadAll ? "all" : "default"} (${activeTools.size} active, ${deferredTools.size} on-demand)`);
     console.error(loadAll ? "" : "Tip: Set MCP_TOOLS=all to load all tools at startup, or use the load_tools tool.");
     await server.connect(transport);
@@ -426,10 +426,11 @@ Both formats are equivalent and can be mixed in the same bindings array.
 
 ## Layout Rules
 - Visual gap: **5px** between all visuals (horizontal and vertical)
-- Page margins: **20px** left/right
+- Page margins: **15px** left, **15px** right, **6px** bottom (top 0)
+- Usable content width: **1250px** (1280 − 15 − 15)
 - Banner: shape at (0, 0, 1280, 52), full width, no margins
 - First content row starts at y=57 (banner 52 + gap 5)
-- See docs/wireframes.md for sample layouts with exact positions
+- See \`skills/wireframes.md\` (via \`guide("wireframes")\`) for the five validated layouts and the spacing formula
 
 ## Formatting Gotchas
 - Classic slicer uses \`textSize\`, not \`fontSize\` (in \`items\` and \`header\` containers)

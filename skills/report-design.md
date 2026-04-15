@@ -1,14 +1,20 @@
-<!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
+<!-- doc-version: 2.1 | Last updated: 2026-04-15 -->
 # Power BI Report Design Principles
+
+> This file covers **principles** (typography, color, slicer placement, KPI patterns).
+> For the **mechanical layout rules** (margins, gaps, validated layouts, batch templates) see `skills/wireframes.md` — that file is the canonical source of truth and is verified against `src/wireframe-validator.ts`.
 
 ## Layout Standards
 
 - **Page size**: 1280×720 (default), 1920×1080 (widescreen)
 - **Visual gap**: 5px between all visuals (horizontal and vertical)
-- **Page margins**: 20px left/right, 20px top/bottom
-- **Banner**: Full-width shape at (0, 0, 1280, 52) — no side margins
+- **Page margins**: 15px left, 15px right, 6px bottom (top 0)
+- **Usable content area**: 1250×714 (`1280 − 15 − 15` × `720 − 6`)
+- **Banner**: Full-width shape at (0, 0, 1280, 52) — exempt from side margins
 - **First content row**: y=57 (banner 52 + gap 5)
 - **Max visuals per page**: 12-15 for performance and readability
+
+For the five validated layouts (Dashboard, Analysis, KPI Summary, Sidebar Nav, 3×3 Grid), the spacing formula, the placement procedure, and the batch-creation template, see `skills/wireframes.md`.
 
 ## Typography (Segoe UI)
 
@@ -30,33 +36,17 @@
 
 ## Page Layout Patterns
 
-### Executive Dashboard (overview page)
-```
-┌─────────────────────────────────────────────────┐
-│ Banner (title + subtitle + date slicer)          │ y=0, h=52
-├────────┬────────┬────────┬────────┬─────────────┤
-│ KPI 1  │ KPI 2  │ KPI 3  │ KPI 4  │  KPI 5      │ y=57, h=100
-├────────┴────────┴────────┼────────┴─────────────┤
-│ Main chart               │ Secondary chart       │ y=162, h=270
-│ (trend, bar, combo)      │ (donut, bar, map)     │
-├──────────────────────────┼──────────────────────┤
-│ Table / detail           │ Small chart           │ y=437, h=260
-│                          │                       │
-└──────────────────────────┴──────────────────────┘
-```
+Use one of the five validated layouts in `skills/wireframes.md`:
 
-### Detail / Analysis Page
-```
-┌─────────────────────────────────────────────────┐
-│ Banner + slicers (segment, date range, category) │
-├─────────────────────────────────────────────────┤
-│ Full-width chart (trend over time)               │
-├──────────────────────────┬──────────────────────┤
-│ Comparison chart          │ Breakdown chart       │
-├──────────────────────────┴──────────────────────┤
-│ Detail table (scrollable, with sparklines/SVGs)  │
-└─────────────────────────────────────────────────┘
-```
+| Layout | Best for | Visuals |
+|---|---|---|
+| **A — Dashboard** | Executive overview with KPIs + 2 charts + 3 details | 11 |
+| **B — Analysis** | Single big chart with KPI sidebar, full-width detail table | 10 |
+| **C — KPI Summary** | 6 cards over a wide hero chart | 8 |
+| **D — Sidebar Nav** | Detail page with a left-rail nav slicer | 9 |
+| **E — 3×3 Tile Grid** | Equal-weight tiles, no hierarchy | 10 |
+
+Don't invent ad-hoc layouts in prose — read `guide("wireframes")` for the validated coordinates.
 
 ## Color Usage
 
