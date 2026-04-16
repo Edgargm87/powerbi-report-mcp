@@ -140,34 +140,39 @@ This looks like waste, but it's the gate for "accidentally pipe every id from `l
 | Step | Tokens |
 |---|---|
 | Session overhead | 4,000 |
-| `get_page_summary` + `create_page` | 155 |
+| `list_pages` + `create_page` | 95 |
 | `add_visual` shapes (8) | 630 |
 | `add_visual` data visuals (13) | 1,400 |
 | `reload_report` | 35 |
-| **Total** | **~6,220** |
+| **Total** | **~6,160** |
 | **Approx cost** | **~$0.02** |
 
-### Scenario B — Recommended ✅
-> Inline titles + inline containerFormat in `add_visual`. `apply_theme` for chrome. No extra calls.
+### Scenario B — Theme Only (recommended) ✅
+> Inline **titles + bindings only** in `add_visual`. `set_report_theme` for chrome. No per-visual formatting — polish belongs to the developer. See `skills/formatting.md` "Three bands" for the decision rule.
 
 | Step | Tokens |
 |---|---|
-| Scenario A | 6,220 |
+| Scenario A | 6,160 |
 | Inline titles (~20 × 13) | +260 |
-| Inline `containerFormat` (~80 × 13) | +1,040 |
-| `apply_theme` | +50 |
-| **Total** | **~7,570** |
-| **vs Bare Minimum** | +1,350 (+22%) for full styling |
+| `set_report_theme` (1 call, first page only) | +200 |
+| **Total** | **~6,620** |
+| **vs Bare Minimum** | +460 (+7%) for titles + global brand |
 | **Approx cost** | **~$0.03** |
 
-### Scenario C — Full Brand Setup
-> `set_report_theme` (global) + `apply_theme` (page) + inline titles. Still minimal calls.
+The theme cascades to every visual automatically. No `containerFormat`, no `visualFormat`, no `apply_theme`, no per-visual override blocks to fight later theme changes. Cleanest handoff to the developer.
+
+### Scenario C — Full Inline (when no developer polish is expected)
+> Inline titles + inline `containerFormat` + `apply_theme` for page chrome. Use when you're producing a final report and no developer will touch it afterward.
 
 | Step | Tokens |
 |---|---|
-| Scenario B | 7,570 |
+| Scenario A | 6,160 |
+| Inline titles (~20 × 13) | +260 |
+| Inline `containerFormat` (~80 × 13) | +1,040 |
 | `set_report_theme` (1 call, first page only) | +200 |
-| **Total** | **~7,770** |
+| `apply_theme` (on-demand, per page) | +50 |
+| **Total** | **~7,710** |
+| **vs Theme Only** | +1,090 (+16%) — only worth it when there's no developer handoff |
 | **Approx cost** | **~$0.03** |
 
 ### Scenario D — Individual `format_visual` (the expensive way) ❌
@@ -175,36 +180,42 @@ This looks like waste, but it's the gate for "accidentally pipe every id from `l
 
 | Step | Tokens |
 |---|---|
-| Scenario A | 6,220 |
+| Scenario A | 6,160 |
 | 13 × `format_visual` calls | +2,600 |
-| **Total** | **~8,820** |
-| **vs Recommended** | +1,250 (+17%) for the same result |
+| **Total** | **~8,760** |
+| **vs Theme Only** | +2,140 (+32%) for the same result |
 
 ### Scenario E — Individual `set_visual_title` (avoidable) ❌
 > Title set via separate `set_visual_title` call instead of inline.
 
 | Step | Tokens |
 |---|---|
-| Scenario A | 6,220 |
+| Scenario A | 6,160 |
 | 13 × `set_visual_title` calls | +1,040 |
-| **Total** | **~7,260** |
-| **vs Recommended** (inline titles) | +700 (+10%) for the same result |
+| **Total** | **~7,200** |
+| **vs Theme Only** (inline titles) | +580 (+9%) for the same result |
 
 ---
 
 ## Multi-page session — cost comparison
 
-Session overhead and model read paid **once**. Each additional page costs ~2,000 tokens (recommended approach).
+Session overhead and model read paid **once**. Each additional page costs ~1,800 tokens (theme-only approach) or ~2,200 tokens (full-inline).
 
 > ⚠️ Context accumulates — every prior tool result stays in context for subsequent calls.
 > Each page adds ~500 tokens of accumulated context carry-forward.
 
-| Pages | Recommended (B) | Individual Format (D) | Savings |
+| Pages | Theme Only (B) | Full Inline (C) | Individual Format (D) |
 |---|---|---|---|
-| 1 | ~7,500 | ~8,800 | ~1,300 |
-| 3 | ~12,000 | ~17,500 | ~5,500 |
-| 5 | ~16,500 | ~26,500 | ~10,000 |
-| 10 | ~28,000 | ~50,000 | ~22,000 |
+| 1 | ~6,600 | ~7,700 | ~8,800 |
+| 2 | ~8,400 | ~9,900 | ~13,200 |
+| 3 | ~10,200 | ~12,100 | ~17,500 |
+| 4 | ~12,000 | ~14,300 | ~22,000 |
+| 5 | ~13,800 | ~16,500 | ~26,500 |
+| 6 | ~15,600 | ~18,700 | ~31,000 |
+| 7 | ~17,400 | ~20,900 | ~35,500 |
+| 8 | ~19,200 | ~23,100 | ~40,000 |
+| 9 | ~21,000 | ~25,300 | ~45,000 |
+| 10 | ~22,800 | ~27,500 | ~50,000 |
 
 ---
 
@@ -257,7 +268,7 @@ After each page, accumulated tool results grow the context window:
 
 ## Rules of thumb
 
-1. **Never format visuals individually** — use `apply_theme` + inline `containerFormat`/`visualFormat`
+1. **Don't format visuals unless asked** — `set_report_theme` for chrome, developer does polish in PBI Desktop. See `skills/formatting.md` "Three bands"
 2. **Set titles inline** in `add_visual`, never via `set_visual_title` after
 3. **Don't customise fonts/axes** unless explicitly asked — defaults are fine
 4. **Read the model once** — store field names mentally, don't re-read
@@ -279,25 +290,25 @@ After each page, accumulated tool results grow the context window:
 ```
 Session start (once):
   set_report
-  load_tools(["get_page_summary","apply_theme"])   ← activate cheap recon + page-chrome tools
-  get_page_summary        ← all pages + visuals in 1 call
   model_usage             ← read model fields once (cached)
   set_report_theme        ← global brand, skip if already set
 
 Per page:
   create_page
   add_visual (batch)      ← shapes first (wireframe layer)
-  add_visual (batch)      ← all data visuals with inline title + containerFormat + bindings
+  add_visual (batch)      ← all data visuals with inline title + bindings
                           ← bindings auto-validated (v0.6.1); typos fail upfront with suggestions
-  apply_theme             ← container chrome polish, 1 call
+                          ← NO containerFormat/visualFormat — theme handles chrome, developer handles polish
   /compact every 3–4 pages
 
 Session end:
   reload_report
 ```
 
-**Total calls for a 13-visual page: 5–6**
+**Total calls for a 13-visual page: 4–5** (theme-only)
 **Total calls naive approach: 30+**
+
+> **When to go beyond theme-only:** If the user explicitly requests per-visual formatting (e.g. "make the revenue card have a blue background"), use `containerFormat` inline or `format_visual` for that specific visual. The rule is: theme by default, format by request.
 
 ---
 

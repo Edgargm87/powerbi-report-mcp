@@ -2065,6 +2065,202 @@ renderSummary();renderTabs();renderMeasures();renderColumns();renderTables();ren
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Markdown Dashboard Generation
+//
+// Sibling to generateHTML — same FullData input, 9 sections matching the
+// HTML tabs. Produces a standalone .md file for offline reading, PRs, or
+// pasting into documentation. Zero token cost (never sent to the LLM).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export function generateMarkdown(data: FullData, reportName: string): string {
+  const ts = new Date().toISOString().replace("T", " ").substring(0, 16);
+  const t = data.totals;
+  const lines: string[] = [];
+  const ln = (s = "") => lines.push(s);
+
+  ln(`# Model Usage — ${reportName}`);
+  ln();
+  ln(`> Generated: ${ts} | ${t.measuresInModel} measures | ${t.columnsInModel} columns | ${t.tables} tables | ${t.relationships} relationships | ${t.pages} pages | ${t.visuals} visuals`);
+  ln();
+
+  // ── KPI row ──
+  ln(`| Measures | | Columns | | Tables | Pages | Visuals |`);
+  ln(`|---|---|---|---|---|---|---|`);
+  ln(`| ✅ ${t.measuresDirect} direct | ⚠️ ${t.measuresUnused} unused | ✅ ${t.columnsDirect} direct | ⚠️ ${t.columnsUnused} unused | ${t.tables} | ${t.pages} | ${t.visuals} |`);
+  ln();
+
+  // ── Measures ──
+  ln(`## Measures (${data.measures.length})`);
+  ln();
+  if (data.measures.length > 0) {
+    ln(`| Measure | Table | Status | Visuals | Pages | DAX Dependencies |`);
+    ln(`|---|---|---|---:|---:|---|`);
+    for (const m of data.measures) {
+      const icon = m.status === "direct" ? "✅" : m.status === "indirect" ? "🔗" : "⚠️";
+      const deps = m.daxDependencies.length > 0 ? m.daxDependencies.join(", ") : "—";
+      ln(`| ${m.name} | ${m.table} | ${icon} ${m.status} | ${m.usageCount} | ${m.pageCount} | ${deps} |`);
+    }
+    ln();
+  }
+
+  // ── Columns ──
+  ln(`## Columns (${data.columns.length})`);
+  ln();
+  if (data.columns.length > 0) {
+    ln(`| Column | Table | Type | Status | Visuals | Notes |`);
+    ln(`|---|---|---|---|---:|---|`);
+    for (const c of data.columns) {
+      const icon = c.status === "direct" ? "✅" : c.status === "indirect" ? "🔗" : "⚠️";
+      const notes: string[] = [];
+      if (c.isKey) notes.push("PK");
+      if (c.isSlicerField) notes.push("slicer");
+      if (c.isHidden) notes.push("hidden");
+      if (c.isCalculated) notes.push("calc");
+      ln(`| ${c.name} | ${c.table} | ${c.dataType} | ${icon} ${c.status} | ${c.usageCount} | ${notes.join(", ") || "—"} |`);
+    }
+    ln();
+  }
+
+  // ── Tables ──
+  ln(`## Tables (${data.tables.length})`);
+  ln();
+  for (const tbl of data.tables) {
+    const badge = tbl.isCalcGroup ? " *(calc group)*" : "";
+    ln(`### ${tbl.name}${badge} (${tbl.columnCount} cols, ${tbl.measureCount} measures)`);
+    ln();
+    if (tbl.columns.length > 0) {
+      ln(`| Column | Type | Key | Status | Visuals |`);
+      ln(`|---|---|---|---|---:|`);
+      for (const c of tbl.columns) {
+        let key = "—";
+        if (c.isKey) key = "🔑 PK";
+        else if (c.isInferredPK) key = "🔑 inferred PK";
+        else if (c.isFK && c.fkTarget) key = `FK → ${c.fkTarget.table}[${c.fkTarget.column}]`;
+        const icon = c.status === "direct" ? "✅" : c.status === "indirect" ? "🔗" : "⚠️";
+        ln(`| ${c.name} | ${c.dataType} | ${key} | ${icon} ${c.status} | ${c.usageCount} |`);
+      }
+      ln();
+    }
+    if (tbl.measures.length > 0) {
+      ln(`**Measures:**`);
+      for (const m of tbl.measures) {
+        const icon = m.status === "direct" ? "✅" : m.status === "indirect" ? "🔗" : "⚠️";
+        ln(`- ${icon} ${m.name} (${m.usageCount} visuals)`);
+      }
+      ln();
+    }
+  }
+
+  // ── Relationships ──
+  ln(`## Relationships (${data.relationships.length})`);
+  ln();
+  if (data.relationships.length > 0) {
+    ln(`| From | → | To | Active |`);
+    ln(`|---|---|---|---|`);
+    for (const r of data.relationships) {
+      const active = r.isActive ? "✅" : "❌ inactive";
+      ln(`| ${r.fromTable}[${r.fromColumn}] | → | ${r.toTable}[${r.toColumn}] | ${active} |`);
+    }
+    ln();
+  }
+
+  // ── Functions ──
+  const visibleFuncs = data.functions.filter(f => !f.name.endsWith(".About"));
+  if (visibleFuncs.length > 0) {
+    ln(`## Functions (${visibleFuncs.length})`);
+    ln();
+    for (const f of visibleFuncs) {
+      ln(`### ${f.name}`);
+      if (f.description) ln(`> ${f.description}`);
+      if (f.parameters) ln(`Parameters: \`${f.parameters}\``);
+      ln();
+      ln("```dax");
+      ln(f.expression);
+      ln("```");
+      ln();
+    }
+  }
+
+  // ── Calc Groups ──
+  if (data.calcGroups.length > 0) {
+    ln(`## Calc Groups (${data.calcGroups.length})`);
+    ln();
+    for (const cg of data.calcGroups) {
+      ln(`### ${cg.name} (precedence: ${cg.precedence})`);
+      if (cg.description) ln(`> ${cg.description}`);
+      ln();
+      if (cg.items.length > 0) {
+        ln(`| Item | Ordinal | DAX |`);
+        ln(`|---|---:|---|`);
+        for (const item of cg.items) {
+          const dax = item.expression.replace(/\n/g, " ").substring(0, 80);
+          ln(`| ${item.name} | ${item.ordinal} | \`${dax}${item.expression.length > 80 ? "…" : ""}\` |`);
+        }
+        ln();
+      }
+    }
+  }
+
+  // ── Pages ──
+  ln(`## Pages (${data.pages.length})`);
+  ln();
+  if (data.pages.length > 0) {
+    ln(`| Page | Visuals | Measures | Columns | Slicers | Coverage |`);
+    ln(`|---|---:|---:|---:|---:|---:|`);
+    for (const p of data.pages) {
+      const hidden = data.hiddenPages.includes(p.name) ? " *(hidden)*" : "";
+      ln(`| ${p.name}${hidden} | ${p.visualCount} | ${p.measureCount} | ${p.columnCount} | ${p.slicerCount} | ${p.coverage}% |`);
+    }
+    ln();
+
+    // Per-page visual detail
+    for (const p of data.pages) {
+      const hidden = data.hiddenPages.includes(p.name) ? " *(hidden)*" : "";
+      ln(`### ${p.name}${hidden}`);
+      ln();
+      if (p.visuals.length > 0) {
+        ln(`| Visual | Type | Fields |`);
+        ln(`|---|---|---|`);
+        for (const v of p.visuals) {
+          const fields = v.bindings.map(b => `${b.fieldTable}[${b.fieldName}]`).join(", ") || "—";
+          ln(`| ${v.title} | ${v.type} | ${fields} |`);
+        }
+        ln();
+      }
+    }
+  }
+
+  // ── Unused ──
+  const unusedM = data.measures.filter(m => m.status === "unused");
+  const unusedC = data.columns.filter(c => c.status === "unused");
+  if (unusedM.length > 0 || unusedC.length > 0) {
+    ln(`## Unused (${unusedM.length} measures, ${unusedC.length} columns)`);
+    ln();
+    if (unusedM.length > 0) {
+      ln(`### Unused Measures`);
+      for (const m of unusedM) {
+        const deps = m.dependedOnBy.length > 0 ? ` — depended on by: ${m.dependedOnBy.join(", ")}` : " — no dependents";
+        ln(`- ${m.table}[${m.name}]${deps}`);
+      }
+      ln();
+    }
+    if (unusedC.length > 0) {
+      ln(`### Unused Columns`);
+      for (const c of unusedC) {
+        ln(`- ${c.table}[${c.name}] (${c.dataType})`);
+      }
+      ln();
+    }
+  }
+
+  // ── Footer ──
+  ln(`---`);
+  ln(`*Generated by [powerbi-report-mcp](https://github.com/jonathan-pap/powerbi-report-mcp) v0.6.1*`);
+
+  return lines.join("\n");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Output Dir — inside MCP project: .usage/<report-name>/
 // ═══════════════════════════════════════════════════════════════════════════════
 

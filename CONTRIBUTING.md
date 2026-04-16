@@ -235,9 +235,21 @@ These are enforced by the pre-commit hook (`npm run hooks:install`) and by `.git
 |---|---|---|
 | Build | `npm run build` | TypeScript compiles cleanly (strict mode) |
 | Skill coverage | `npm run audit:strict` | Every registered tool has a backtick mention in at least one `skills/*.md` file. Breaks out default vs on-demand tiers. Exits 1 on any miss. |
-| Wireframe validator | `npm run test:wireframe` | All 5 canonical layouts (A–E) still pass validation; all 7 negative cases still fail as expected. 12/12 required. |
+| Wireframe validator | `npm run test:wireframe` | All 5 canonical layouts (A–E) still pass validation; all 8 negative cases still fail as expected. 13/13 required. |
+| Binding validator | `npm run test:binding` | 25 assertions for the field-reference validator (table lookup, type mismatch, parse errors, suggestions, mode resolution). |
 
-Run all three in one shot with `npm run test:all`.
+Run all four in one shot with `npm run test:all`.
+
+### `scripts/` folder structure
+
+| Path | Purpose | Runs in CI? |
+|---|---|---|
+| `scripts/audit-skill-coverage.js` | Skill coverage audit | ✅ yes |
+| `scripts/test-wireframe-validator.js` | Wireframe validator test suite | ✅ yes |
+| `scripts/test-binding-validator.js` | Binding validator test suite | ✅ yes |
+| `scripts/install-hooks.js` | Git hooks installer | manual |
+| `scripts/test-skill-layouts.js` | Skill doc layout harness | manual |
+| `scripts/dev-only/` | **Dev-only helper scripts** (Python). No runtime or CI dependency — these were used to generate test fixtures and are inert to everything in `src/` and `dist/`. |
 
 If a pre-commit gate fails and you genuinely need to skip it for an emergency, use `git commit --no-verify` — but CI runs the same gates on the push, so a broken commit won't survive the PR.
 

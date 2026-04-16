@@ -1,4 +1,4 @@
-<!-- doc-version: 2.2 | Last updated: 2026-04-15 -->
+<!-- doc-version: 2.3 | Last updated: 2026-04-15 -->
 # Power BI Report Design Principles
 
 > This file covers **principles** (typography, color, slicer placement, KPI patterns).
@@ -17,6 +17,8 @@ Most "bad" Power BI reports aren't broken because of formatting or colors. They'
 **Step 4 — Delete rather than add.** Every visual competes for attention. A page with 8 visuals where 5 matter reads worse than a page with 5 visuals where all 5 matter. When you can't decide whether a chart belongs on the page, the default is: delete it. If the user asks where it went, you've just learned it actually matters — put it back. If they don't, you saved everyone cognitive load.
 
 **Step 5 — Pre-attentive attributes are a budget.** Position, size, color, and motion are the four things the human eye processes before conscious thought. You have roughly **one** of each to spend per page. If every card is red, nothing is urgent. If every chart is a different color, nothing is emphasized. If five things move, the eye gives up. Spend the color budget on the one thing you want the viewer to notice.
+
+**Step 6 — Stop at the theme. Polish belongs to the developer.** Set the report theme once (`set_report_theme`) and let it cascade. Don't call `format_visual` or pass `containerFormat`/`visualFormat` unless the user explicitly asked for a specific look. Per-visual formatting writes override blocks that fight future theme changes, produces inconsistent results across runs, and costs tokens with no proportional payoff. The only things you should inline at creation time are titles, bindings, and semantic colors (gains green / losses red) — everything else is chrome the theme handles or polish the developer does in PBI Desktop. See `skills/formatting.md` "Three bands" for the decision rule.
 
 These are not invented rules — they're the common core of every serious dataviz reference (Stephen Few's *Information Dashboard Design*, Cole Nussbaumer Knaflic's *Storytelling with Data*, Edward Tufte's *The Visual Display of Quantitative Information*, IBCS standards). Read one of those books once and the specific patterns below will make sense as consequences of the mental model rather than arbitrary rules.
 

@@ -13,6 +13,7 @@
     "usage": "node dist/usage-cli.js",
     "usage:watch": "node dist/usage-cli.js --watch",
     "usage:app": "node dist/usage-app.js",
+    "usage:md": "node dist/usage-md.js",
     "audit": "node scripts/audit-skill-coverage.js",
     "audit:strict": "node scripts/audit-skill-coverage.js --strict",
     "test:wireframe": "node scripts/test-wireframe-validator.js",

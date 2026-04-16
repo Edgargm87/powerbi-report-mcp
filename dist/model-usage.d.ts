@@ -183,6 +183,7 @@ export interface ModelFieldInventory {
 export declare function getModelFieldInventory(reportPath: string): ModelFieldInventory | null;
 export declare function buildFullData(reportPath: string): FullData;
 export declare function generateHTML(data: FullData, reportName: string): string;
+export declare function generateMarkdown(data: FullData, reportName: string): string;
 /** Output dir inside the MCP project: .usage/<report-name>/ */
 export declare function getUsageDir(reportPath: string): string;
 export declare function regenerate(): void;

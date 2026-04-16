@@ -1,5 +1,29 @@
-<!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
+<!-- doc-version: 2.1 | Last updated: 2026-04-15 -->
 # Skill: Formatting — Visual Styling, Titles, Colors, Conditional Format, Sort
+
+## Three bands: chrome / content / polish
+
+Before reaching for any formatting tool, decide which band the work falls in.
+
+| Band | Who owns it | What belongs here | MCP action |
+|---|---|---|---|
+| **Chrome** | Theme — one `set_report_theme` call | Typography, default colors, chart defaults, table styles, background, borders, tooltips | Agent sets once per report. Cascades to every visual automatically. Changing the theme later updates everything. |
+| **Content & semantics** | Agent — inline in `add_visual` | `title`, `bindings`, `dataColors` *only when they encode meaning* (gains=green, losses=red), shape `fillColor`/`textContent`, conditional formatting *rules* | Agent bakes in at creation time — the visual is wrong without it. |
+| **Polish** | Developer in PBI Desktop | Per-visual drop-shadows, border radii, padding tweaks, axis tick counts, label rotation, font overrides, visual-type-specific cosmetic properties | Agent does NOT do this. These require aesthetic judgment, produce inconsistent results across runs, and write override blocks that fight future theme changes. |
+
+**Why this split matters.** Inline formatting (`containerFormat`, `visualFormat`) writes override property blocks into the PBIR that the theme can't reach through. When the developer later changes the theme, those overrides silently win — requiring a manual cleanup pass to remove them before the theme takes effect. The right default is: **theme handles chrome, agent handles content, developer handles polish.**
+
+### Decision rule
+
+1. Is it a `title`, `binding`, or semantic color? → **Inline in `add_visual`.**
+2. Is it a shape, text box, or button? → **Inline** (these *are* their formatting).
+3. Is it a conditional format rule? → **`set_conditional_format`** (this is logic, not decoration).
+4. Is it global brand (fonts, palette, chart defaults)? → **`set_report_theme`** once.
+5. Everything else? → **Leave it for the developer.** Don't call `format_visual` or pass `containerFormat`/`visualFormat` unless the user explicitly asked for a specific look.
+
+The tools below exist for cases where the user explicitly requests formatting. Use them when asked — but the default action is to leave visuals theme-defaulted.
+
+---
 
 ## When to use
 Use these patterns to style visuals — backgrounds, borders, titles, axes, legend, data colors, conditional formatting, sort order, and apply preset themes to a whole page.
