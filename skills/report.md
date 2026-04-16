@@ -205,16 +205,19 @@ Pass `reportPath` to inspect a different report without changing the connected o
 
 ## `load_tools` — on-demand tool catalog
 
-The MCP server ships with **12 default tools** loaded at startup and **42 on-demand tools** activated on request. The default set is tuned for low token overhead while still being able to do the most common report-building tasks.
+**By default, all 55 tools load at startup.** This matches reality — most MCP clients (Claude Desktop especially) snapshot the tool catalog at session start and don't handle `tools/list_changed`, so lazy activation was dead weight there.
 
-### Default tools (always loaded)
+### Minimal mode (opt-in)
+Set `MCP_TOOLS=minimal` before launching the server to load only the 12 core tools at startup. The remaining 42 are activated via `load_tools`. Saves ~7,500 tokens of schema overhead — worth it only for long Claude Code sessions on a tight context budget.
+
+### Default tools (minimal mode — always loaded)
 ```
 set_report, list_pages, list_visuals, create_page, add_visual, get_visual,
 format_visual, update_visual_bindings, set_report_theme, bulk_bind, model_usage,
 reload_report
 ```
 
-### List what's available
+### List what's available (minimal mode only)
 ```json
 {}
 ```
@@ -228,17 +231,14 @@ Returns:
 }
 ```
 
-### Activate specific tools
+### Activate specific tools (minimal mode only)
 ```json
 { "tools": ["set_visual_sort", "set_conditional_format", "audit_theme_compliance"] }
 ```
 
-Returns `{ "activated": [...], "notFound": [...] }`.
+Returns `{ "activated": [...], "notFound": [...], "refreshHint": "..." }`.
 
-### Load everything at startup
-Set the environment variable `MCP_TOOLS=all` before launching the server — every tool loads immediately, no `load_tools` calls needed.
-
-> **Harness caveat:** most LLM clients snapshot the MCP tool catalog at session start. If your harness behaves that way, `load_tools` activates tools on the server but they may not become invokable until the next session. Either start with `MCP_TOOLS=all` or use a harness that re-reads the catalog.
+> **Harness caveat:** most LLM clients snapshot the MCP tool catalog at session start. If your harness behaves that way, `load_tools` activates tools on the server but they may not become invokable until the next session. Either use the default (all tools loaded) or use a harness that re-reads the catalog. Claude Desktop users: stick with the default.
 
 ---
 

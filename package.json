@@ -1,6 +1,6 @@
 {
   "name": "powerbi-report-mcp",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "MCP server for building Power BI reports (PBIR format)",
   "main": "dist/index.js",
   "bin": {

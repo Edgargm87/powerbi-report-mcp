@@ -20,8 +20,15 @@ import { DEFAULT_TOOLS } from "./default-tools.js";
 // import { registerCalculationTools } from "./tools/calculations.js";
 
 // --- Tool loading modes ---
-// Default: only load the 12 core tools to reduce token overhead for LLM clients.
-// Set MCP_TOOLS=all to load all tools at startup.
+// Default: load ALL tools at startup (~7,500 tokens of schemas). This matches
+// reality — most MCP clients (notably Claude Desktop) snapshot the tool catalog
+// at session start and don't handle `tools/list_changed`, so lazy activation via
+// `load_tools` is effectively dead weight there.
+//
+// Set MCP_TOOLS=minimal to opt into the tiered mode (12 default tools + 42
+// on-demand via load_tools). Worth it only for long Claude Code sessions where
+// the ~7,500 token savings compounds against a tight context budget.
+//
 // The DEFAULT_TOOLS set lives in src/default-tools.ts (single source of truth
 // shared with scripts/audit-skill-coverage.js).
 
@@ -193,11 +200,16 @@ async function main() {
 
   const server = new McpServer({
     name: "powerbi-report-mcp",
-    version: "0.6.1",
+    version: "0.6.2",
   });
 
   // Determine tool loading mode
-  const loadAll = (process.env.MCP_TOOLS || "").toLowerCase() === "all";
+  // Default: all tools (matches most clients that don't refresh tool catalog).
+  // Opt-in minimal mode: MCP_TOOLS=minimal (12 default tools, rest via load_tools).
+  // Legacy: MCP_TOOLS=all is still accepted and behaves as default.
+  const mode = (process.env.MCP_TOOLS || "").toLowerCase();
+  const loadMinimal = mode === "minimal";
+  const loadAll = !loadMinimal;
   const activeTools = new Set(loadAll ? Object.keys(ALL_TOOLS) : DEFAULT_TOOLS);
 
   // Store deferred tool registrations so load_tools can activate them later
@@ -279,17 +291,24 @@ async function main() {
           activeTools.add(name);
           deferredTools.delete(name);
           activated.push(name);
+          console.error(`[load_tools] Activated: ${name}`);
         } else if (activeTools.has(name)) {
           activated.push(`${name} (already active)`);
         } else {
           notFound.push(name);
         }
       }
+      console.error(`[load_tools] ${activated.length} activated, ${deferredTools.size} remaining on-demand`);
       return {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify({ success: true, activated, notFound }),
+            text: JSON.stringify({
+              success: true,
+              activated,
+              notFound,
+              refreshHint: "A tools/list_changed notification was sent. If the activated tools don't appear, your MCP client may not support dynamic tool refresh — set MCP_TOOLS=all in the server config to load all tools at startup instead.",
+            }),
           },
         ],
       };
@@ -310,9 +329,9 @@ async function main() {
   const transport = new StdioServerTransport();
   console.error("Power BI Report MCP Server starting...");
   console.error(`Report path: ${reportPath || "none (use set_report to connect)"}`);
-  console.error(`Version: 0.6.1`);
-  console.error(`Tools mode: ${loadAll ? "all" : "default"} (${activeTools.size} active, ${deferredTools.size} on-demand)`);
-  console.error(loadAll ? "" : "Tip: Set MCP_TOOLS=all to load all tools at startup, or use the load_tools tool.");
+  console.error(`Version: 0.6.2`);
+  console.error(`Tools mode: ${loadAll ? "all" : "minimal"} (${activeTools.size} active, ${deferredTools.size} on-demand)`);
+  console.error(loadAll ? "Tip: Set MCP_TOOLS=minimal to load only the 12 core tools (saves ~7,500 tokens; use load_tools to activate the rest on demand)." : "Tip: unset MCP_TOOLS or set it to 'all' to load every tool at startup.");
   await server.connect(transport);
 }
 

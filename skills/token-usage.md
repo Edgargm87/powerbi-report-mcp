@@ -12,24 +12,26 @@ Power BI report-building can be done in 5–6 well-chosen tool calls per page or
 
 ## Fixed session overhead (paid once)
 
-The MCP server ships with **12 default tools** loaded at startup (~3,500 tokens of schemas) and **43 on-demand tools** that aren't paid for unless you activate them via `load_tools`. Total catalog: **55 tools**.
+**The default is now to load all 55 tools at startup** (~11,000 tokens of schemas). This matches reality — most MCP clients (Claude Desktop especially) don't handle `tools/list_changed`, so lazy activation was broken there. Set `MCP_TOOLS=minimal` to opt into the tiered mode: 12 default tools + 42 on-demand via `load_tools` (saves ~7,500 tokens).
 
 | Item | Tokens | Notes |
 |---|---|---|
-| 12 default tool schemas | ~3,500 | The starting catalog |
+| 55 tool schemas (default mode) | ~11,000 | All tools ready to call |
+| 12 tool schemas (minimal mode) | ~3,500 | Opt-in via `MCP_TOOLS=minimal` |
 | `add_visual` schema alone | ~2,250 | Largest single schema |
 | `set_report` | ~40 | Connect once per session |
 | `list_pages` slim | ~40 | Orient on existing pages |
 | Model read (tables + columns) | ~430 | Read once, reuse field names all session |
-| **Session startup total** | **~4,000** | Amortised across all pages built |
+| **Default-mode session startup** | **~11,500** | All tools available immediately |
+| **Minimal-mode session startup** | **~4,000** | Activate extras via `load_tools` |
 
-> **`MCP_TOOLS=all`** loads every tool at startup — adds ~7,500 tokens of schemas. Worth it only if you genuinely need to call non-default tools more than 2–3 times per session.
+> **`MCP_TOOLS=minimal`** opts into the tiered mode. Worth it only for long Claude Code sessions where the ~7,500 token savings compounds. Claude Desktop users: stick with the default.
 
-> **`get_page_summary` is NOT default.** It's the lowest-token recon call (~100 tokens replaces `list_pages` + N×`list_visuals`), but you have to activate it first with `load_tools(["get_page_summary"])` — or set `MCP_TOOLS=all`. The trade-off: 1 `load_tools` call + the schema cost (~80 tokens) vs. saving 2–3 extra recon calls per session. Worth it on sessions that touch more than one page.
+> In minimal mode, `get_page_summary` is on-demand. It's the lowest-token recon call (~100 tokens replaces `list_pages` + N×`list_visuals`), but you have to activate it first with `load_tools(["get_page_summary"])`. The trade-off: 1 `load_tools` call + the schema cost (~80 tokens) vs. saving 2–3 extra recon calls per session. Worth it on sessions that touch more than one page.
 
 ---
 
-## The 12 default tools (loaded at startup)
+## The 12 core tools (minimal mode starting set)
 
 ```
 set_report           list_pages           list_visuals
@@ -41,15 +43,17 @@ reload_report
 
 These cover the entire happy-path: connect → orient → create page → add visuals → format → bind → theme → reload. Almost every report build can be done with this set alone. Single source of truth: `src/default-tools.ts`.
 
-## On-demand tools (load via `load_tools`)
+In the default mode, all 55 tools (including these 12) are loaded at startup. In `MCP_TOOLS=minimal` mode, only these 12 load at startup and the remaining 42 are activated via `load_tools`.
 
-43 additional tools — none load by default. Activate them when you need them:
+## On-demand tools (minimal mode only, via `load_tools`)
+
+42 additional tools. Activate them when you need them:
 
 ```json
 { "tools": ["set_visual_sort", "set_conditional_format", "duplicate_page"] }
 ```
 
-> **Harness caveat:** most LLM clients snapshot the tool catalog at session start. If your client behaves that way, `load_tools` activates server-side but the tools may not become invokable until the next session. Either start with `MCP_TOOLS=all` or use a harness that re-reads the catalog.
+> **Harness caveat:** most LLM clients snapshot the tool catalog at session start. If your client behaves that way, `load_tools` activates server-side but the tools may not become invokable until the next session. This is why the default is now all-tools-loaded. Only switch to minimal mode if you're using a harness (like Claude Code) that re-reads the catalog.
 
 ---
 
