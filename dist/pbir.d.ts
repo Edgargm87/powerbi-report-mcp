@@ -170,6 +170,13 @@ export declare class PbirProject {
     saveBookmark(bookmarkId: string, bookmark: BookmarkDefinition): void;
     deleteBookmark(bookmarkId: string): void;
     get registeredResourcesPath(): string;
+    /**
+     * Resolve a registered-resource filename to an absolute path, with strict
+     * path-traversal protection. Accepts only a bare filename matching
+     * `<alnum/_-/space/dot>+.<json|svg|png|jpg|jpeg>` and verifies the joined
+     * path stays inside registeredResourcesPath. Throws on any suspicious input.
+     */
+    private resolveRegisteredResourcePath;
     saveRegisteredResource(filename: string, data: unknown): void;
     readRegisteredResource(filename: string): unknown | null;
     listRegisteredResources(): string[];

@@ -13,6 +13,7 @@ import type { VisualSpec, FieldSpecInput } from "../helpers/createVisual.js";
 import type { ServerContext } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
 import { runBindingValidation } from "../helpers/bindingValidation.js";
+import { extractVisualTitle } from "../helpers/extractTitle.js";
 
 export function registerVisualTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
@@ -41,13 +42,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       const visualIds = ctx.project.listVisualIds(pageId);
       const visuals = visualIds.map((id) => {
         const v = ctx.project.getVisual(pageId, id);
-
-        // Extract title text if set
-        const titleArr = (v.visual.visualContainerObjects as Record<string, unknown[]> | undefined)?.title;
-        const titleValue = Array.isArray(titleArr) && titleArr.length > 0
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          ? (titleArr[0] as any)?.properties?.text?.expr?.Literal?.Value?.replace(/^'|'$/g, "") ?? null
-          : null;
+        const titleValue = extractVisualTitle(v.visual.visualContainerObjects);
 
         if (slim) {
           const entry: Record<string, unknown> = {
@@ -94,11 +89,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       }
 
       // Extract title
-      const titleArr = (visual.visual.visualContainerObjects as Record<string, unknown[]> | undefined)?.title;
-      const titleValue = Array.isArray(titleArr) && titleArr.length > 0
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ? (titleArr[0] as any)?.properties?.text?.expr?.Literal?.Value?.replace(/^'|'$/g, "") ?? null
-        : null;
+      const titleValue = extractVisualTitle(visual.visual.visualContainerObjects);
 
       // Extract bindings as Table[Field] strings
       const bindings: Record<string, string[]> = {};

@@ -381,16 +381,44 @@ export class PbirProject {
     return path.join(this.reportPath, "StaticResources", "RegisteredResources");
   }
 
+  /**
+   * Resolve a registered-resource filename to an absolute path, with strict
+   * path-traversal protection. Accepts only a bare filename matching
+   * `<alnum/_-/space/dot>+.<json|svg|png|jpg|jpeg>` and verifies the joined
+   * path stays inside registeredResourcesPath. Throws on any suspicious input.
+   */
+  private resolveRegisteredResourcePath(filename: string): string {
+    // Reject path separators, parent-directory traversal, and absolute paths
+    // outright. path.basename() is the final belt; the regex is the braces.
+    if (!/^[\w\-. ()]+\.(json|svg|png|jpg|jpeg)$/i.test(filename)) {
+      throw new Error(
+        `Invalid resource filename: ${filename} (allowed: alphanumerics, space, ._-() with .json/.svg/.png/.jpg extension)`
+      );
+    }
+    const safe = path.basename(filename);
+    const dir = this.registeredResourcesPath;
+    const resolved = path.resolve(path.join(dir, safe));
+    const dirResolved = path.resolve(dir);
+    // Ensure the resolved path is strictly inside the resources dir. Guards
+    // against Unicode / symlink trickery even though basename+regex already
+    // cover the common case.
+    if (!resolved.startsWith(dirResolved + path.sep) && resolved !== dirResolved) {
+      throw new Error(`Resource path escape detected: ${filename}`);
+    }
+    return resolved;
+  }
+
   saveRegisteredResource(filename: string, data: unknown): void {
+    const target = this.resolveRegisteredResourcePath(filename);
     const dir = this.registeredResourcesPath;
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    fs.writeFileSync(path.join(dir, filename), JSON.stringify(data, null, 2), "utf-8");
+    fs.writeFileSync(target, JSON.stringify(data, null, 2), "utf-8");
   }
 
   readRegisteredResource(filename: string): unknown | null {
-    const filePath = path.join(this.registeredResourcesPath, filename);
+    const filePath = this.resolveRegisteredResourcePath(filename);
     if (!fs.existsSync(filePath)) return null;
     return JSON.parse(fs.readFileSync(filePath, "utf-8"));
   }
@@ -402,7 +430,7 @@ export class PbirProject {
   }
 
   deleteRegisteredResource(filename: string): void {
-    const filePath = path.join(this.registeredResourcesPath, filename);
+    const filePath = this.resolveRegisteredResourcePath(filename);
     if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
   }
 

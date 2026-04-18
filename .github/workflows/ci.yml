@@ -40,3 +40,6 @@ jobs:
 
       - name: Run binding-validator suite
         run: npm run test:binding
+
+      - name: Run title-extractor smoke test
+        run: npm run test:extract-title

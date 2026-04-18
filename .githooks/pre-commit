@@ -49,4 +49,12 @@ node scripts/test-binding-validator.js >/dev/null || {
   exit 1
 }
 
-echo "[pre-commit] ✓ audit + wireframe + binding pass"
+echo "[pre-commit] running title-extractor smoke test..."
+node scripts/test-extract-title.js >/dev/null || {
+  echo ""
+  echo "✗ title-extractor smoke test failed — extractVisualTitle has a regression."
+  echo "  Run 'npm run test:extract-title' to see which cases broke."
+  exit 1
+}
+
+echo "[pre-commit] ✓ audit + wireframe + binding + title pass"

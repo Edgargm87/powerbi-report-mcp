@@ -2,11 +2,13 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import * as fs from "fs";
 import * as path from "path";
-import { execSync } from "child_process";
+import { execFileSync, spawn } from "child_process";
 import { generateId, columnRef } from "../pbir.js";
 import type { PageDefinition } from "../pbir.js";
 import type { ServerContext } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
+import { extractVisualTitle } from "../helpers/extractTitle.js";
+import { ok, fail } from "../helpers/mcpResult.js";
 
 export function registerReportTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
@@ -470,12 +472,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         const visualIds = ctx.project.listVisualIds(id);
         const visuals = visualIds.map((vid) => {
           const v = ctx.project.getVisual(id, vid);
-          const titleArr = (v.visual.visualContainerObjects as Record<string, unknown[]> | undefined)?.title;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const titleValue = Array.isArray(titleArr) && titleArr.length > 0
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ? (titleArr[0] as any)?.properties?.text?.expr?.Literal?.Value?.replace(/^'|'$/g, "") ?? null
-            : null;
+          const titleValue = extractVisualTitle(v.visual.visualContainerObjects);
           const entry: Record<string, unknown> = {
             id: vid,
             type: v.visual.visualType,
@@ -513,51 +510,54 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     async () => {
       const reportPath = ctx.getReportPath();
       if (!reportPath) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ success: false, error: "No report connected. Use set_report first." }),
-            },
-          ],
-        };
+        return fail("No report connected. Use set_report first.");
       }
 
       const parentDir = path.dirname(reportPath);
       const pbipFiles = fs.readdirSync(parentDir).filter((f) => f.endsWith(".pbip"));
 
       if (pbipFiles.length === 0) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({ success: false, error: "No .pbip file found" }) }],
-        };
+        return fail("No .pbip file found");
       }
 
-      const pbipPath = path.join(parentDir, pbipFiles[0]);
+      // Defense in depth: reject pbip filenames containing shell metacharacters
+      // before we go anywhere near the launcher. parentDir came from
+      // path.dirname() on a validated .Report folder path, so it's safe; the
+      // filename is the only attacker-controlled part.
+      const pbipName = pbipFiles[0];
+      if (!/^[\w\-. ()]+\.pbip$/i.test(pbipName)) {
+        return fail(`Refusing to launch file with suspicious name: ${pbipName}`);
+      }
+      const pbipPath = path.join(parentDir, pbipName);
 
       try {
         try {
-          execSync('taskkill /IM "PBIDesktop.exe" /F', { stdio: "ignore" });
+          // execFileSync with argv — no shell interpolation. taskkill args
+          // are fully static.
+          execFileSync("taskkill", ["/IM", "PBIDesktop.exe", "/F"], { stdio: "ignore" });
         } catch {
           // PBI Desktop might not be running — that's fine
         }
 
-        execSync("ping -n 3 127.0.0.1 >nul", { stdio: "ignore" });
-        execSync(`start "" "${pbipPath}"`, { shell: "cmd.exe", stdio: "ignore" });
+        // Brief pause so PBI Desktop finishes tearing down file locks before
+        // we relaunch. Using setTimeout inside the async handler — no shell.
+        await new Promise((r) => setTimeout(r, 3000));
 
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                success: true,
-                message: `Reopening ${pbipFiles[0]} in Power BI Desktop`,
-              }),
-            },
-          ],
-        };
+        // Launch via spawn with argv. shell:false means pbipPath is passed as
+        // a single argv element — no command injection possible. cmd.exe /c
+        // start is the canonical Windows "open with default app" incantation
+        // ("" is the required empty window title).
+        const child = spawn("cmd.exe", ["/c", "start", "", pbipPath], {
+          stdio: "ignore",
+          detached: true,
+          windowsVerbatimArguments: false,
+        });
+        child.unref();
+
+        return ok({ message: `Reopening ${pbipName} in Power BI Desktop` });
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        return { content: [{ type: "text", text: JSON.stringify({ success: false, error: msg }) }] };
+        return fail(msg);
       }
     }
   );

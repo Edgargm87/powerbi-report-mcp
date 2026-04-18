@@ -6,6 +6,7 @@ const pbir_js_1 = require("../pbir.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
 const model_usage_js_1 = require("../model-usage.js");
 const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
+const extractTitle_js_1 = require("../helpers/extractTitle.js");
 function registerVisualTools(server, ctx) {
     // ============================================================
     // TOOL: get_visual_types
@@ -23,12 +24,7 @@ function registerVisualTools(server, ctx) {
         const visualIds = ctx.project.listVisualIds(pageId);
         const visuals = visualIds.map((id) => {
             const v = ctx.project.getVisual(pageId, id);
-            // Extract title text if set
-            const titleArr = v.visual.visualContainerObjects?.title;
-            const titleValue = Array.isArray(titleArr) && titleArr.length > 0
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                ? titleArr[0]?.properties?.text?.expr?.Literal?.Value?.replace(/^'|'$/g, "") ?? null
-                : null;
+            const titleValue = (0, extractTitle_js_1.extractVisualTitle)(v.visual.visualContainerObjects);
             if (slim) {
                 const entry = {
                     id,
@@ -67,11 +63,7 @@ function registerVisualTools(server, ctx) {
             return { content: [{ type: "text", text: JSON.stringify(visual, null, 2) }] };
         }
         // Extract title
-        const titleArr = visual.visual.visualContainerObjects?.title;
-        const titleValue = Array.isArray(titleArr) && titleArr.length > 0
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ? titleArr[0]?.properties?.text?.expr?.Literal?.Value?.replace(/^'|'$/g, "") ?? null
-            : null;
+        const titleValue = (0, extractTitle_js_1.extractVisualTitle)(visual.visual.visualContainerObjects);
         // Extract bindings as Table[Field] strings
         const bindings = {};
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
