@@ -67,9 +67,14 @@ Every returned rectangle is guaranteed to pass strict wireframe validation.
 at `y:57` so the banner shape (added separately via `add_visual`) sits
 above it.
 
-**Slice 2 ships plan-only** (`planOnly:true`, the default). In Slice 3,
-`planOnly:false` will write the visuals directly. Until then, feed each plan
-entry into `add_visual`.
+Two modes:
+- **`planOnly:true`** (default) — returns the plan without writing. Use this
+  first when you're unsure of the grid shape; the response echoes the
+  computed numbers so you can sanity-check the column widths and spans.
+- **`planOnly:false`** — validates bindings + layout, then writes every cell
+  as a visual in one call. Same path `add_visual` uses, so formatting,
+  bindings, slicers all behave identically. Fails fast with structured
+  errors if anything's off — no partial writes.
 
 ---
 

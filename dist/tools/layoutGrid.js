@@ -1,6 +1,6 @@
 "use strict";
 // ═══════════════════════════════════════════════════════════════════════════════
-// layout_grid — Slice 2 (plan-only)
+// layout_grid — grid-primitive layout tool (plan + commit modes)
 //
 // Grid-primitive layout tool. The LLM declares `rows × cols` plus a list of
 // cells (each with `row`, `col`, optional `rowSpan`/`colSpan`, and the visual
@@ -13,8 +13,13 @@
 //   2. Surface the numbers. Every plan entry echoes back x/y/w/h so the LLM
 //      *sees* the grid and can learn the canonical split over a few sessions.
 //
-// Slice 2 ships PLAN MODE only (`planOnly:true`, the default). Commit mode
-// (`planOnly:false`, writes via add_visual) lands in Slice 3.
+// Two modes:
+//   planOnly:true  (default) — compute + validate geometry, return the plan,
+//                               write nothing. Safe for iteration.
+//   planOnly:false           — compute + validate, then write each cell via
+//                               the same `createAndSaveVisual` path `add_visual`
+//                               uses. Fails atomically before any writes if
+//                               binding or layout validation trips.
 //
 // Math is documented in docs/design-layout-accuracy.md §6d and unit-tested in
 // scripts/test-layout-grid.js.
@@ -27,6 +32,9 @@ exports.registerLayoutGridTool = registerLayoutGridTool;
 const zod_1 = require("zod");
 const wireframe_validator_js_1 = require("../wireframe-validator.js");
 const layoutValidation_js_1 = require("../helpers/layoutValidation.js");
+const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
+const createVisual_js_1 = require("../helpers/createVisual.js");
+const model_usage_js_1 = require("../model-usage.js");
 /**
  * Compute widths[], heights[], and the origin (top-left of cell (0,0)) for a
  * grid of `rows × cols` on the canonical 1280×720 canvas.
@@ -174,7 +182,7 @@ const MarginsSchema = zod_1.z
 })
     .optional();
 function registerLayoutGridTool(server, ctx) {
-    server.tool("layout_grid", "Compute a deterministic rows×cols grid layout for a page. Returns a plan with exact x/y/w/h per cell — the server owns the margin/gap/remainder math, so the LLM can't overflow or leave mismatched gaps. Slice 2: plan-only (planOnly:true). Slice 3 will add commit mode. Use this INSTEAD of calling add_visual N times when building a page from scratch. See guide('wireframes') for when each grid shape is appropriate.", {
+    server.tool("layout_grid", "Compute a deterministic rows×cols grid layout for a page, optionally writing the visuals. Server owns the margin/gap/remainder math — the LLM can't overflow or leave mismatched gaps. planOnly:true (default) returns the computed plan without writing. planOnly:false validates bindings + layout then writes every cell as a visual in one call. Use this INSTEAD of calling add_visual N times when building a page from scratch. See guide('wireframes') for when each grid shape is appropriate.", {
         pageId: zod_1.z.string().describe("Page ID the grid belongs to"),
         rows: zod_1.z.number().int().min(1).describe("Grid rows (≥1)"),
         cols: zod_1.z.number().int().min(1).describe("Grid columns (≥1)"),
@@ -199,29 +207,17 @@ function registerLayoutGridTool(server, ctx) {
             .boolean()
             .optional()
             .default(true)
-            .describe("Slice 2: must be true. When false, returns a 'not yet implemented' notice pointing to Slice 3."),
+            .describe("true (default) = return computed plan only; false = validate + write visuals in one call."),
         strictLayout: zod_1.z
             .boolean()
             .optional()
             .describe("Layout validation: true=strict (default), false=warn. Same semantics as add_visual. Omit for env default (MCP_LAYOUT_VALIDATION)."),
+        strictBindings: zod_1.z
+            .boolean()
+            .optional()
+            .describe("Binding validation for commit mode: true=strict (default), false=warn. Ignored when planOnly:true. Omit for env default (MCP_BINDING_VALIDATION)."),
     }, async (params) => {
         const { pageId, rows, cols, gaps, reserveBannerRow, cells, planOnly, strictLayout, } = params;
-        // Slice 2 gate — commit mode lives in Slice 3.
-        if (planOnly === false) {
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify({
-                            success: false,
-                            error: "commit_mode_not_implemented",
-                            message: "layout_grid commit mode (planOnly:false) ships in Slice 3. For now, call with planOnly:true and then feed each plan entry to add_visual.",
-                            hint: "Set planOnly:true to get the computed geometry.",
-                        }, null, 2),
-                    },
-                ],
-            };
-        }
         // Resolve margins
         const m = {
             left: params.margins?.left ?? wireframe_validator_js_1.CANVAS.marginLeft,
@@ -333,19 +329,11 @@ function registerLayoutGridTool(server, ctx) {
         const sumH = geom.heights.reduce((a, b) => a + b, 0) + (rows - 1) * gaps;
         const expectedW = wireframe_validator_js_1.CANVAS.width - m.left - m.right;
         const expectedH = wireframe_validator_js_1.CANVAS.height - m.top - m.bottom - (reserveBannerRow ? wireframe_validator_js_1.CANVAS.bannerHeight + gaps : 0);
-        const response = {
-            success: outcome.proceed,
-            mode: "plan",
-            planOnly: true,
+        // Shared response prelude — identical for plan + commit paths.
+        const prelude = {
             pageId,
             canvas: (0, layoutValidation_js_1.getCanvasSummary)(),
-            grid: {
-                rows,
-                cols,
-                gaps,
-                margins: m,
-                reserveBannerRow,
-            },
+            grid: { rows, cols, gaps, margins: m, reserveBannerRow },
             cellGeometry: {
                 cellWidth: geom.cellWidth,
                 cellHeight: geom.cellHeight,
@@ -364,21 +352,150 @@ function registerLayoutGridTool(server, ctx) {
                     heightExact: sumH === expectedH,
                 },
             },
-            plan,
+        };
+        // -------- PLAN MODE --------
+        if (planOnly !== false) {
+            const response = {
+                success: outcome.proceed,
+                mode: "plan",
+                planOnly: true,
+                ...prelude,
+                plan,
+                validated: {
+                    ok: outcome.proceed,
+                    mode: outcome.mode,
+                    errors: outcome.errors.length,
+                    warnings: outcome.warnings.length,
+                },
+                layoutErrors: outcome.errors,
+                layoutWarnings: outcome.warnings,
+                nextStep: outcome.proceed
+                    ? "Plan validated. Call layout_grid again with planOnly:false to write the visuals in one call."
+                    : "Fix the layoutErrors above and call layout_grid again.",
+            };
+            return {
+                content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            };
+        }
+        // -------- COMMIT MODE (planOnly: false) --------
+        // Layout validation gates commit. Strict mode rejects on any error;
+        // warn mode proceeds with warnings attached.
+        if (!outcome.proceed) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({
+                            success: false,
+                            mode: "commit",
+                            planOnly: false,
+                            error: "layout_validation_failed",
+                            hint: "Set strictLayout:false to proceed with warnings, or fix the positions per `suggestion`.",
+                            ...prelude,
+                            plan,
+                            layoutErrors: outcome.errors,
+                            layoutWarnings: outcome.warnings,
+                        }, null, 2),
+                    },
+                ],
+            };
+        }
+        // Binding validation — flatten bindings across every cell.
+        const allBindings = [];
+        for (const cell of cells) {
+            if (!cell.bindings)
+                continue;
+            for (const b of cell.bindings) {
+                // Cells hold opaque bindings (typed as unknown[] in the schema).
+                // runBindingValidation accepts the same shape add_visual uses;
+                // we trust-but-verify here and let it emit structured errors.
+                const bb = b;
+                if (bb.bucket && Array.isArray(bb.fields)) {
+                    allBindings.push({ bucket: bb.bucket, fields: bb.fields });
+                }
+            }
+        }
+        const bv = (0, bindingValidation_js_1.runBindingValidation)(ctx.project, allBindings, params.strictBindings);
+        if (!bv.proceed) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({
+                            success: false,
+                            mode: "commit",
+                            planOnly: false,
+                            error: bv.message,
+                            bindingErrors: bv.errors,
+                            bindingMode: bv.mode,
+                            ...prelude,
+                            plan,
+                        }, null, 2),
+                    },
+                ],
+            };
+        }
+        // Write each cell as a visual. Reuse createAndSaveVisual — same path
+        // add_visual uses, so formatting/bindings/slicer semantics match 1:1.
+        // z-order: grow by 1000 per visual starting above the existing max.
+        let maxZ = 0;
+        for (const vid of existingIds) {
+            const v = ctx.project.getVisual(pageId, vid);
+            if (v.position.z > maxZ)
+                maxZ = v.position.z;
+        }
+        const written = [];
+        for (let i = 0; i < plan.length; i++) {
+            const p = plan[i];
+            const spec = {
+                ...p.extras,
+                visualType: p.visualType,
+                x: p.x,
+                y: p.y,
+                width: p.width,
+                height: p.height,
+                title: p.title,
+                bindings: (p.bindings ?? undefined),
+            };
+            const result = (0, createVisual_js_1.createAndSaveVisual)(ctx.project, pageId, spec, maxZ + (i + 1) * 1000);
+            written.push({
+                visualId: result.visualId,
+                visualType: result.visualType,
+                slotRef: p.slotRef,
+                x: p.x,
+                y: p.y,
+                width: p.width,
+                height: p.height,
+            });
+        }
+        (0, model_usage_js_1.invalidateCache)();
+        const commitResponse = {
+            success: true,
+            mode: "commit",
+            planOnly: false,
+            ...prelude,
+            created: written,
             validated: {
-                ok: outcome.proceed,
+                ok: true,
                 mode: outcome.mode,
-                errors: outcome.errors.length,
+                errors: 0,
                 warnings: outcome.warnings.length,
             },
-            layoutErrors: outcome.errors,
-            layoutWarnings: outcome.warnings,
-            nextStep: outcome.proceed
-                ? "Call add_visual for each plan entry (Slice 3 will add commit mode to layout_grid directly)."
-                : "Fix the layoutErrors above and call layout_grid again.",
         };
+        if (outcome.warnings.length > 0)
+            commitResponse.layoutWarnings = outcome.warnings;
+        if (bv.errors.length > 0) {
+            commitResponse.bindingWarnings = bv.errors;
+            commitResponse.bindingWarningMessage = bv.message;
+        }
+        if ((0, bindingValidation_js_1.isNoteworthySkip)(bv.skipReason)) {
+            commitResponse.bindingValidation = {
+                skipped: bv.skipReason,
+                note: "Bindings were NOT checked against the semantic model. Double-check field names — a typo will load silently and render nothing.",
+            };
+        }
         return {
-            content: [{ type: "text", text: JSON.stringify(response, null, 2) }],
+            content: [{ type: "text", text: JSON.stringify(commitResponse, null, 2) }],
         };
     });
 }

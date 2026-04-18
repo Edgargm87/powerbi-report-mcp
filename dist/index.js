@@ -132,7 +132,7 @@ const ALL_TOOLS = {
     // Guide (knowledge layer)
     guide: "Domain knowledge for PBI development — topics discovered live from skills/*.md",
     // Layout
-    layout_grid: "Compute a deterministic rows×cols grid layout plan (plan-only in Slice 2; commit mode in Slice 3)",
+    layout_grid: "Compute (or compute+write) a deterministic rows×cols grid layout for a page",
     // Calculations — PARKED: visual calculations don't render when written programmatically
     // list_visual_calculations, add_visual_calculation, delete_visual_calculation
 };

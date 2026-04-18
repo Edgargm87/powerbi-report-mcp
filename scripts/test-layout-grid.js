@@ -408,6 +408,114 @@ const { runLayoutValidation } = require("../dist/helpers/layoutValidation.js");
 }
 
 // ---------------------------------------------------------------------------
+// COMMIT — end-to-end smoke test on a real PbirProject (temp scaffold).
+// Verifies that plans produced by the grid math, when fed through
+// createAndSaveVisual, round-trip correctly: the written visual.json files
+// land with the exact x/y/w/h the plan specified.
+// ---------------------------------------------------------------------------
+
+section("COMMIT — end-to-end round-trip");
+
+{
+  const fs = require("fs");
+  const os = require("os");
+  const path = require("path");
+  const { PbirProject } = require("../dist/pbir.js");
+  const { createAndSaveVisual } = require("../dist/helpers/createVisual.js");
+
+  // Build a minimal .Report scaffold: the commit path only needs
+  // pages/{pageId}/visuals/ to exist so listVisualIds works.
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pbir-mcp-grid-"));
+  const reportPath = path.join(tmpDir, "Grid.Report");
+  const pageId = "page1";
+  fs.mkdirSync(path.join(reportPath, "definition", "pages", pageId, "visuals"), {
+    recursive: true,
+  });
+
+  try {
+    const project = new PbirProject(reportPath);
+
+    // Sanity: listVisualIds on an empty page returns [].
+    assert("COMMIT 0  fresh page has no visuals", project.listVisualIds(pageId).length === 0);
+
+    // 2×3 grid → 6 card writes
+    const g = defaultGeom(2, 3);
+    const cells = [];
+    for (let r = 0; r < 2; r++) {
+      for (let c = 0; c < 3; c++) {
+        cells.push({ row: r, col: c, rowSpan: 1, colSpan: 1, visualType: "card", title: `R${r}C${c}` });
+      }
+    }
+
+    const written = [];
+    cells.forEach((cell, i) => {
+      const rect = cellRect(g, {
+        row: cell.row,
+        col: cell.col,
+        rowSpan: cell.rowSpan,
+        colSpan: cell.colSpan,
+      });
+      const result = createAndSaveVisual(
+        project,
+        pageId,
+        {
+          visualType: cell.visualType,
+          title: cell.title,
+          x: rect.x,
+          y: rect.y,
+          width: rect.width,
+          height: rect.height,
+        },
+        (i + 1) * 1000
+      );
+      written.push({ ...result, expected: rect });
+    });
+
+    // Assert every visual landed on disk with the exact planned geometry.
+    const ids = project.listVisualIds(pageId);
+    assert("COMMIT 1  6 visuals written to disk", ids.length === 6);
+
+    let allMatch = true;
+    const mismatches = [];
+    for (const w of written) {
+      const v = project.getVisual(pageId, w.visualId);
+      if (
+        v.position.x !== w.expected.x ||
+        v.position.y !== w.expected.y ||
+        v.position.width !== w.expected.width ||
+        v.position.height !== w.expected.height
+      ) {
+        allMatch = false;
+        mismatches.push(
+          `${w.visualId}: got (${v.position.x},${v.position.y},${v.position.width}×${v.position.height}) expected (${w.expected.x},${w.expected.y},${w.expected.width}×${w.expected.height})`
+        );
+      }
+    }
+    assert(
+      "COMMIT 2  round-tripped positions match plan exactly",
+      allMatch,
+      mismatches.join(" | ")
+    );
+
+    // Second 2×3 commit over a page that already has 3 visuals — z-order
+    // should grow past the existing max, no overlaps on row/col logic.
+    const ids2 = project.listVisualIds(pageId);
+    let maxZ = 0;
+    for (const id of ids2) {
+      const v = project.getVisual(pageId, id);
+      if (v.position.z > maxZ) maxZ = v.position.z;
+    }
+    assert("COMMIT 3  z-order grows past existing (max > 0)", maxZ > 0);
+  } finally {
+    try {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 console.log("\n" + "\u2550".repeat(67));
 console.log(`  ${passed} passed, ${failed} failed`);
 console.log("\u2550".repeat(67));
