@@ -34,6 +34,8 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.findSemanticModelPath = findSemanticModelPath;
+exports._resetModelUsageWarnings = _resetModelUsageWarnings;
+exports.getLastParseWarnings = getLastParseWarnings;
 exports.getModelFieldInventory = getModelFieldInventory;
 exports.buildFullData = buildFullData;
 exports.generateHTML = generateHTML;
@@ -75,126 +77,165 @@ function findSemanticModelPath(reportPath) {
         throw new Error("No .SemanticModel folder found alongside the report");
     return path.join(projectDir, modelDir.name);
 }
+// Warn-once tracker for corrupt/locked TMDL or BIM files so we don't spam stderr.
+const warnedParsePaths = new Set();
+function _resetModelUsageWarnings() {
+    warnedParsePaths.clear();
+}
+function warnParseOnce(filePath, err) {
+    if (warnedParsePaths.has(filePath))
+        return;
+    warnedParsePaths.add(filePath);
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[model_usage] Failed to parse ${path.basename(filePath)}: ${msg.slice(0, 200)}`);
+}
+/** Parse warnings collected during the most recent parseModel() call. */
+let lastParseWarnings = [];
+function getLastParseWarnings() {
+    return [...lastParseWarnings];
+}
 function parseTmdlRelationships(modelPath) {
     const relFile = path.join(modelPath, "definition", "relationships.tmdl");
     if (!fs.existsSync(relFile))
         return [];
-    const content = fs.readFileSync(relFile, "utf8");
-    const rels = [];
-    let current = null;
-    for (const line of content.split("\n")) {
-        const trimmed = line.trim();
-        if (trimmed.startsWith("relationship ")) {
-            if (current?.fromTable)
-                rels.push({ fromTable: current.fromTable, fromColumn: current.fromColumn, toTable: current.toTable, toColumn: current.toColumn, isActive: current.isActive !== false });
-            current = { isActive: true };
-        }
-        else if (current && trimmed.startsWith("fromColumn:")) {
-            const val = trimmed.replace("fromColumn:", "").trim();
-            const dot = val.indexOf(".");
-            if (dot > 0) {
-                current.fromTable = val.substring(0, dot).replace(/^'(.*)'$/, "$1");
-                current.fromColumn = val.substring(dot + 1).replace(/^'(.*)'$/, "$1");
+    try {
+        const content = fs.readFileSync(relFile, "utf8");
+        const rels = [];
+        let current = null;
+        for (const line of content.split("\n")) {
+            const trimmed = line.trim();
+            if (trimmed.startsWith("relationship ")) {
+                if (current?.fromTable)
+                    rels.push({ fromTable: current.fromTable, fromColumn: current.fromColumn, toTable: current.toTable, toColumn: current.toColumn, isActive: current.isActive !== false });
+                current = { isActive: true };
+            }
+            else if (current && trimmed.startsWith("fromColumn:")) {
+                const val = trimmed.replace("fromColumn:", "").trim();
+                const dot = val.indexOf(".");
+                if (dot > 0) {
+                    current.fromTable = val.substring(0, dot).replace(/^'(.*)'$/, "$1");
+                    current.fromColumn = val.substring(dot + 1).replace(/^'(.*)'$/, "$1");
+                }
+            }
+            else if (current && trimmed.startsWith("toColumn:")) {
+                const val = trimmed.replace("toColumn:", "").trim();
+                const dot = val.indexOf(".");
+                if (dot > 0) {
+                    current.toTable = val.substring(0, dot).replace(/^'(.*)'$/, "$1");
+                    current.toColumn = val.substring(dot + 1).replace(/^'(.*)'$/, "$1");
+                }
+            }
+            else if (current && trimmed.startsWith("isActive:")) {
+                current.isActive = trimmed.includes("true");
             }
         }
-        else if (current && trimmed.startsWith("toColumn:")) {
-            const val = trimmed.replace("toColumn:", "").trim();
-            const dot = val.indexOf(".");
-            if (dot > 0) {
-                current.toTable = val.substring(0, dot).replace(/^'(.*)'$/, "$1");
-                current.toColumn = val.substring(dot + 1).replace(/^'(.*)'$/, "$1");
-            }
-        }
-        else if (current && trimmed.startsWith("isActive:")) {
-            current.isActive = trimmed.includes("true");
-        }
+        if (current?.fromTable)
+            rels.push({ fromTable: current.fromTable, fromColumn: current.fromColumn, toTable: current.toTable, toColumn: current.toColumn, isActive: current.isActive !== false });
+        return rels;
     }
-    if (current?.fromTable)
-        rels.push({ fromTable: current.fromTable, fromColumn: current.fromColumn, toTable: current.toTable, toColumn: current.toColumn, isActive: current.isActive !== false });
-    return rels;
+    catch (err) {
+        warnParseOnce(relFile, err);
+        lastParseWarnings.push(`relationships.tmdl: ${err instanceof Error ? err.message : String(err)}`);
+        return [];
+    }
 }
 function parseTmdlFunctions(modelPath) {
     const funcFile = path.join(modelPath, "definition", "functions.tmdl");
     if (!fs.existsSync(funcFile))
         return [];
-    const content = fs.readFileSync(funcFile, "utf8");
-    const funcs = [];
-    let pendingDesc = "";
-    let funcDesc = "";
-    let name = "";
-    let params = "";
-    let exprLines = [];
-    let inFunc = false;
-    let inBacktickBlock = false;
-    const flush = () => {
-        if (name) {
-            funcs.push({ name, parameters: params, expression: exprLines.join("\n").trim(), description: funcDesc.trim() });
-        }
-        name = "";
-        params = "";
-        exprLines = [];
-        funcDesc = "";
-        inFunc = false;
-        inBacktickBlock = false;
-    };
-    for (const line of content.split("\n")) {
-        const trimmed = line.trim();
-        // Collect /// doc comments (can appear between functions)
-        if (trimmed.startsWith("///")) {
-            pendingDesc += (pendingDesc ? " " : "") + trimmed.replace(/^\/\/\/\s*/, "");
-            continue;
-        }
-        // Function declaration: function 'name' = or function 'name' = ```
-        if (trimmed.startsWith("function ")) {
-            if (inFunc)
-                flush();
-            funcDesc = pendingDesc;
-            pendingDesc = "";
-            const match = trimmed.match(/^function\s+'([^']+)'\s*=\s*(```)?(.*)$/);
-            if (match) {
-                name = match[1];
-                inFunc = true;
-                inBacktickBlock = !!match[2];
-                const rest = match[3]?.trim();
-                if (rest)
-                    exprLines.push(rest);
+    let content;
+    try {
+        content = fs.readFileSync(funcFile, "utf8");
+    }
+    catch (err) {
+        warnParseOnce(funcFile, err);
+        lastParseWarnings.push(`functions.tmdl: ${err instanceof Error ? err.message : String(err)}`);
+        return [];
+    }
+    try {
+        const funcs = [];
+        let pendingDesc = "";
+        let funcDesc = "";
+        let name = "";
+        let params = "";
+        let exprLines = [];
+        let inFunc = false;
+        let inBacktickBlock = false;
+        const flush = () => {
+            if (name) {
+                funcs.push({ name, parameters: params, expression: exprLines.join("\n").trim(), description: funcDesc.trim() });
             }
-            else {
-                const m2 = trimmed.match(/^function\s+(\S+)\s*=\s*(```)?(.*)$/);
-                if (m2) {
-                    name = m2[1];
+            name = "";
+            params = "";
+            exprLines = [];
+            funcDesc = "";
+            inFunc = false;
+            inBacktickBlock = false;
+        };
+        for (const line of content.split("\n")) {
+            const trimmed = line.trim();
+            // Collect /// doc comments (can appear between functions)
+            if (trimmed.startsWith("///")) {
+                pendingDesc += (pendingDesc ? " " : "") + trimmed.replace(/^\/\/\/\s*/, "");
+                continue;
+            }
+            // Function declaration: function 'name' = or function 'name' = ```
+            if (trimmed.startsWith("function ")) {
+                if (inFunc)
+                    flush();
+                funcDesc = pendingDesc;
+                pendingDesc = "";
+                const match = trimmed.match(/^function\s+'([^']+)'\s*=\s*(```)?(.*)$/);
+                if (match) {
+                    name = match[1];
                     inFunc = true;
-                    inBacktickBlock = !!m2[2];
-                    const rest = m2[3]?.trim();
+                    inBacktickBlock = !!match[2];
+                    const rest = match[3]?.trim();
                     if (rest)
                         exprLines.push(rest);
                 }
+                else {
+                    const m2 = trimmed.match(/^function\s+(\S+)\s*=\s*(```)?(.*)$/);
+                    if (m2) {
+                        name = m2[1];
+                        inFunc = true;
+                        inBacktickBlock = !!m2[2];
+                        const rest = m2[3]?.trim();
+                        if (rest)
+                            exprLines.push(rest);
+                    }
+                }
+                continue;
             }
-            continue;
+            if (inFunc) {
+                if (inBacktickBlock && trimmed === "```")
+                    continue;
+                if (trimmed.startsWith("lineageTag:"))
+                    continue;
+                exprLines.push(trimmed);
+            }
+            else {
+                // Reset pending description if non-comment, non-function, non-empty
+                if (trimmed && !trimmed.startsWith("///"))
+                    pendingDesc = "";
+            }
         }
-        if (inFunc) {
-            if (inBacktickBlock && trimmed === "```")
-                continue;
-            if (trimmed.startsWith("lineageTag:"))
-                continue;
-            exprLines.push(trimmed);
+        flush();
+        // Extract parameters from expression: (Param : TYPE, ...) =>
+        for (const f of funcs) {
+            const paramMatch = f.expression.match(/^\(\s*(.*?)\s*\)\s*=>/s);
+            if (paramMatch) {
+                f.parameters = paramMatch[1].replace(/\s+/g, " ").trim();
+                f.expression = f.expression.replace(/^\(.*?\)\s*=>\s*/s, "").trim();
+            }
         }
-        else {
-            // Reset pending description if non-comment, non-function, non-empty
-            if (trimmed && !trimmed.startsWith("///"))
-                pendingDesc = "";
-        }
+        return funcs;
     }
-    flush();
-    // Extract parameters from expression: (Param : TYPE, ...) =>
-    for (const f of funcs) {
-        const paramMatch = f.expression.match(/^\(\s*(.*?)\s*\)\s*=>/s);
-        if (paramMatch) {
-            f.parameters = paramMatch[1].replace(/\s+/g, " ").trim();
-            f.expression = f.expression.replace(/^\(.*?\)\s*=>\s*/s, "").trim();
-        }
+    catch (err) {
+        warnParseOnce(funcFile, err);
+        lastParseWarnings.push(`functions.tmdl: ${err instanceof Error ? err.message : String(err)}`);
+        return [];
     }
-    return funcs;
 }
 function parseTmdlModel(modelPath) {
     const tablesDir = path.join(modelPath, "definition", "tables");
@@ -206,7 +247,16 @@ function parseTmdlModel(modelPath) {
     if (!fs.existsSync(tablesDir))
         return { measures, columns, relationships, functions, calcGroups };
     for (const file of fs.readdirSync(tablesDir).filter(f => f.endsWith(".tmdl"))) {
-        const content = fs.readFileSync(path.join(tablesDir, file), "utf8");
+        const tablePath = path.join(tablesDir, file);
+        let content;
+        try {
+            content = fs.readFileSync(tablePath, "utf8");
+        }
+        catch (err) {
+            warnParseOnce(tablePath, err);
+            lastParseWarnings.push(`${file}: ${err instanceof Error ? err.message : String(err)}`);
+            continue;
+        }
         const lines = content.split("\n");
         let tableName = "";
         let currentMeasure = null;
@@ -446,7 +496,15 @@ function parseBimModel(modelPath) {
     return parseBimFile(bimPath);
 }
 function parseBimFile(bimPath) {
-    const bim = JSON.parse(fs.readFileSync(bimPath, "utf8"));
+    let bim;
+    try {
+        bim = JSON.parse(fs.readFileSync(bimPath, "utf8"));
+    }
+    catch (err) {
+        warnParseOnce(bimPath, err);
+        lastParseWarnings.push(`${path.basename(bimPath)}: ${err instanceof Error ? err.message : String(err)}`);
+        return { measures: [], columns: [], relationships: [], functions: [], calcGroups: [] };
+    }
     const measures = [];
     const columns = [];
     for (const table of bim.model?.tables || []) {
@@ -510,6 +568,7 @@ function parseBimFile(bimPath) {
     return { measures, columns, relationships, functions, calcGroups };
 }
 function parseModel(modelPath) {
+    lastParseWarnings = [];
     const tablesDir = path.join(modelPath, "definition", "tables");
     if (fs.existsSync(tablesDir) && fs.readdirSync(tablesDir).some(f => f.endsWith(".tmdl"))) {
         return parseTmdlModel(modelPath);
@@ -2081,10 +2140,8 @@ function getUsageDir(reportPath) {
     const projectRoot = path.join(__dirname, "..");
     return path.join(projectRoot, ".usage", name);
 }
-// ═══════════════════════════════════════════════════════════════════════════════
-// Caching + Watchers + Regeneration
-// ═══════════════════════════════════════════════════════════════════════════════
-let usageCache = null;
+// Keyed by resolved reportPath so multiple reports can be cached independently.
+const usageCache = new Map();
 let watchers = [];
 let debounceTimer;
 let lastHtmlHash = "";
@@ -2093,7 +2150,48 @@ let currentDashboardPath = null;
 function simpleHash(str) {
     return crypto.createHash("md5").update(str).digest("hex");
 }
-function regenerate() {
+/**
+ * Cheap fingerprint over the semantic model — stats every .tmdl file plus
+ * model.bim and joins their mtimes. Fast enough to call on every request.
+ * Returns "" if fingerprint cannot be computed (fall back to miss).
+ */
+function computeModelFingerprint(reportPath) {
+    try {
+        const modelPath = findSemanticModelPath(reportPath);
+        const parts = [];
+        const defDir = path.join(modelPath, "definition");
+        const walk = (dir) => {
+            if (!fs.existsSync(dir))
+                return;
+            for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+                const full = path.join(dir, ent.name);
+                if (ent.isDirectory())
+                    walk(full);
+                else if (ent.name.endsWith(".tmdl")) {
+                    try {
+                        parts.push(`${full}:${fs.statSync(full).mtimeMs}`);
+                    }
+                    catch { /* ignore */ }
+                }
+            }
+        };
+        walk(defDir);
+        for (const bim of [path.join(modelPath, "model.bim"), path.join(defDir, "model.bim")]) {
+            if (fs.existsSync(bim)) {
+                try {
+                    parts.push(`${bim}:${fs.statSync(bim).mtimeMs}`);
+                }
+                catch { /* ignore */ }
+            }
+        }
+        return simpleHash(parts.join("|"));
+    }
+    catch {
+        return "";
+    }
+}
+/** Async — non-blocking HTML write. Safe to fire-and-forget. */
+async function regenerate() {
     if (!currentReportPath)
         return;
     try {
@@ -2104,21 +2202,28 @@ function regenerate() {
         if (hash !== lastHtmlHash && currentDashboardPath) {
             const dir = path.dirname(currentDashboardPath);
             if (!fs.existsSync(dir))
-                fs.mkdirSync(dir, { recursive: true });
-            fs.writeFileSync(currentDashboardPath, html, "utf8");
-            fs.writeFileSync(path.join(dir, "timestamp.txt"), String(Date.now()), "utf8");
+                await fs.promises.mkdir(dir, { recursive: true });
+            await fs.promises.writeFile(currentDashboardPath, html, "utf8");
+            await fs.promises.writeFile(path.join(dir, "timestamp.txt"), String(Date.now()), "utf8");
             lastHtmlHash = hash;
         }
-        usageCache = { data, timestamp: Date.now() };
+        usageCache.set(currentReportPath, {
+            data,
+            fingerprint: computeModelFingerprint(currentReportPath),
+            timestamp: Date.now(),
+        });
     }
     catch (e) {
         console.error("model_usage regenerate failed:", e);
     }
 }
-function invalidateCache() {
-    usageCache = null;
+function invalidateCache(reportPath) {
+    if (reportPath)
+        usageCache.delete(reportPath);
+    else
+        usageCache.clear();
     invalidateFieldInventoryCache();
-    setTimeout(() => regenerate(), 50);
+    setTimeout(() => { regenerate().catch(() => { }); }, 50);
 }
 function onFileChange(filename) {
     if (!filename)
@@ -2127,7 +2232,7 @@ function onFileChange(filename) {
     if (ext !== ".json" && ext !== ".tmdl" && filename !== "model.bim")
         return;
     clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => regenerate(), 500);
+    debounceTimer = setTimeout(() => { regenerate().catch(() => { }); }, 500);
 }
 function stopWatchers() {
     watchers.forEach(w => { try {
@@ -2171,30 +2276,36 @@ function registerModelUsageTool(server, ctx) {
         }
         let data;
         let cached = false;
-        if (usageCache && !rp) {
-            data = usageCache.data;
+        // Per-report cache with mtime fingerprint — avoids rebuild when nothing changed.
+        const fingerprint = computeModelFingerprint(effectivePath);
+        const existing = usageCache.get(effectivePath);
+        if (existing && fingerprint && existing.fingerprint === fingerprint) {
+            data = existing.data;
             cached = true;
         }
         else {
             data = buildFullData(effectivePath);
-            usageCache = { data, timestamp: Date.now() };
-            currentReportPath = effectivePath;
+            usageCache.set(effectivePath, { data, fingerprint, timestamp: Date.now() });
         }
-        // Always regenerate HTML
+        currentReportPath = effectivePath;
+        // Always regenerate HTML (async — non-blocking)
         const reportName = path.basename(effectivePath).replace(/\.Report$/, "");
         currentDashboardPath = path.join(getUsageDir(effectivePath), "index.html");
         const dir = path.dirname(currentDashboardPath);
         if (!fs.existsSync(dir))
-            fs.mkdirSync(dir, { recursive: true });
+            await fs.promises.mkdir(dir, { recursive: true });
         const html = generateHTML(data, reportName);
-        fs.writeFileSync(currentDashboardPath, html, "utf8");
-        fs.writeFileSync(path.join(dir, "timestamp.txt"), String(Date.now()), "utf8");
+        await fs.promises.writeFile(currentDashboardPath, html, "utf8");
+        await fs.promises.writeFile(path.join(dir, "timestamp.txt"), String(Date.now()), "utf8");
         lastHtmlHash = simpleHash(html);
         // Build response — JSON data only (HTML is 58KB+, too large for context)
         const unused = {
             measures: data.measures.filter(m => m.status === "unused").map(m => `${m.table}[${m.name}]`),
             columns: data.columns.filter(c => c.status === "unused").map(c => `${c.table}[${c.name}]`),
         };
+        // Surface parse warnings so the caller knows something was silently skipped
+        // (e.g. a TMDL file that was locked or corrupt during read).
+        const parseWarnings = cached ? [] : getLastParseWarnings();
         if (slim) {
             return {
                 content: [{
@@ -2209,6 +2320,7 @@ function registerModelUsageTool(server, ctx) {
                             dashboardPath: currentDashboardPath,
                             cached,
                             timestamp: Date.now(),
+                            ...(parseWarnings.length > 0 ? { parseWarnings } : {}),
                         }),
                     }],
             };
@@ -2234,6 +2346,7 @@ function registerModelUsageTool(server, ctx) {
                             dashboardPath: currentDashboardPath,
                             cached,
                             timestamp: Date.now(),
+                            ...(parseWarnings.length > 0 ? { parseWarnings } : {}),
                         }),
                     }],
             };

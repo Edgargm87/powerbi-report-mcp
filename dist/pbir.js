@@ -126,6 +126,18 @@ class PbirProject {
     constructor(reportPath) {
         this.reportPath = reportPath;
     }
+    /**
+     * In-memory visual.json cache keyed by absolute path.
+     * Avoids repeated disk reads when list_visuals / bulk ops touch the same
+     * visual multiple times. Invalidated on save, delete, and mtime change.
+     */
+    visualCache = new Map();
+    invalidateVisualCacheEntry(filePath) {
+        this.visualCache.delete(filePath);
+    }
+    invalidateVisualCache() {
+        this.visualCache.clear();
+    }
     get definitionPath() {
         return path.join(this.reportPath, "definition");
     }
@@ -177,7 +189,22 @@ class PbirProject {
         return this.readJson(this.pageJsonPath(pageId));
     }
     getVisual(pageId, visualId) {
-        return this.readJson(this.visualJsonPath(pageId, visualId));
+        const filePath = this.visualJsonPath(pageId, visualId);
+        // mtime-keyed cache: stat is ~20× cheaper than readFileSync+JSON.parse.
+        try {
+            const mtimeMs = fs.statSync(filePath).mtimeMs;
+            const hit = this.visualCache.get(filePath);
+            if (hit && hit.mtimeMs === mtimeMs)
+                return hit.data;
+            const data = this.readJson(filePath);
+            this.visualCache.set(filePath, { mtimeMs, data });
+            return data;
+        }
+        catch {
+            // Any stat error (missing file, permission) — fall back to a plain read
+            // so the caller still sees the original ENOENT/parse error.
+            return this.readJson(filePath);
+        }
     }
     listPageIds() {
         return this.getPagesMetadata().pageOrder;
@@ -199,19 +226,36 @@ class PbirProject {
         this.writeJson(this.pageJsonPath(pageId), page);
     }
     saveVisual(pageId, visualId, visual) {
-        this.writeJson(this.visualJsonPath(pageId, visualId), visual);
+        const filePath = this.visualJsonPath(pageId, visualId);
+        this.writeJson(filePath, visual);
+        // Refresh cache entry with the new mtime so the next getVisual() is a hit.
+        try {
+            this.visualCache.set(filePath, { mtimeMs: fs.statSync(filePath).mtimeMs, data: visual });
+        }
+        catch {
+            this.invalidateVisualCacheEntry(filePath);
+        }
     }
     saveReport(report) {
         this.writeJson(this.reportJsonPath, report);
     }
     deletePage(pageId) {
         fs.rmSync(this.pagePath(pageId), { recursive: true, force: true });
+        // Page delete takes all its visuals with it — drop any cached entries
+        // under that page's visuals directory.
+        const prefix = this.visualsPath(pageId);
+        for (const key of this.visualCache.keys()) {
+            if (key.startsWith(prefix))
+                this.visualCache.delete(key);
+        }
     }
     deleteVisual(pageId, visualId) {
+        const filePath = this.visualJsonPath(pageId, visualId);
         fs.rmSync(this.visualPath(pageId, visualId), {
             recursive: true,
             force: true,
         });
+        this.invalidateVisualCacheEntry(filePath);
     }
     // --- Bookmark helpers ---
     get bookmarksPath() {

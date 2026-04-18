@@ -136,6 +136,14 @@ export declare const VISUAL_BUCKETS: Record<string, string[]>;
 export declare class PbirProject {
     reportPath: string;
     constructor(reportPath: string);
+    /**
+     * In-memory visual.json cache keyed by absolute path.
+     * Avoids repeated disk reads when list_visuals / bulk ops touch the same
+     * visual multiple times. Invalidated on save, delete, and mtime change.
+     */
+    private visualCache;
+    private invalidateVisualCacheEntry;
+    invalidateVisualCache(): void;
     get definitionPath(): string;
     get reportJsonPath(): string;
     get pagesPath(): string;

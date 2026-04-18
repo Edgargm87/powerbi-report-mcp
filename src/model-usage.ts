@@ -192,44 +192,75 @@ interface RawModel {
   calcGroups: ModelCalcGroup[];
 }
 
+// Warn-once tracker for corrupt/locked TMDL or BIM files so we don't spam stderr.
+const warnedParsePaths = new Set<string>();
+export function _resetModelUsageWarnings(): void {
+  warnedParsePaths.clear();
+}
+function warnParseOnce(filePath: string, err: unknown): void {
+  if (warnedParsePaths.has(filePath)) return;
+  warnedParsePaths.add(filePath);
+  const msg = err instanceof Error ? err.message : String(err);
+  console.error(`[model_usage] Failed to parse ${path.basename(filePath)}: ${msg.slice(0, 200)}`);
+}
+/** Parse warnings collected during the most recent parseModel() call. */
+let lastParseWarnings: string[] = [];
+export function getLastParseWarnings(): string[] {
+  return [...lastParseWarnings];
+}
+
 function parseTmdlRelationships(modelPath: string): ModelRelationship[] {
   const relFile = path.join(modelPath, "definition", "relationships.tmdl");
   if (!fs.existsSync(relFile)) return [];
-  const content = fs.readFileSync(relFile, "utf8");
-  const rels: ModelRelationship[] = [];
-  let current: Partial<ModelRelationship> | null = null;
+  try {
+    const content = fs.readFileSync(relFile, "utf8");
+    const rels: ModelRelationship[] = [];
+    let current: Partial<ModelRelationship> | null = null;
 
-  for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    if (trimmed.startsWith("relationship ")) {
-      if (current?.fromTable) rels.push({ fromTable: current.fromTable!, fromColumn: current.fromColumn!, toTable: current.toTable!, toColumn: current.toColumn!, isActive: current.isActive !== false });
-      current = { isActive: true };
-    } else if (current && trimmed.startsWith("fromColumn:")) {
-      const val = trimmed.replace("fromColumn:", "").trim();
-      const dot = val.indexOf(".");
-      if (dot > 0) {
-        current.fromTable = val.substring(0, dot).replace(/^'(.*)'$/, "$1");
-        current.fromColumn = val.substring(dot + 1).replace(/^'(.*)'$/, "$1");
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith("relationship ")) {
+        if (current?.fromTable) rels.push({ fromTable: current.fromTable!, fromColumn: current.fromColumn!, toTable: current.toTable!, toColumn: current.toColumn!, isActive: current.isActive !== false });
+        current = { isActive: true };
+      } else if (current && trimmed.startsWith("fromColumn:")) {
+        const val = trimmed.replace("fromColumn:", "").trim();
+        const dot = val.indexOf(".");
+        if (dot > 0) {
+          current.fromTable = val.substring(0, dot).replace(/^'(.*)'$/, "$1");
+          current.fromColumn = val.substring(dot + 1).replace(/^'(.*)'$/, "$1");
+        }
+      } else if (current && trimmed.startsWith("toColumn:")) {
+        const val = trimmed.replace("toColumn:", "").trim();
+        const dot = val.indexOf(".");
+        if (dot > 0) {
+          current.toTable = val.substring(0, dot).replace(/^'(.*)'$/, "$1");
+          current.toColumn = val.substring(dot + 1).replace(/^'(.*)'$/, "$1");
+        }
+      } else if (current && trimmed.startsWith("isActive:")) {
+        current.isActive = trimmed.includes("true");
       }
-    } else if (current && trimmed.startsWith("toColumn:")) {
-      const val = trimmed.replace("toColumn:", "").trim();
-      const dot = val.indexOf(".");
-      if (dot > 0) {
-        current.toTable = val.substring(0, dot).replace(/^'(.*)'$/, "$1");
-        current.toColumn = val.substring(dot + 1).replace(/^'(.*)'$/, "$1");
-      }
-    } else if (current && trimmed.startsWith("isActive:")) {
-      current.isActive = trimmed.includes("true");
     }
+    if (current?.fromTable) rels.push({ fromTable: current.fromTable!, fromColumn: current.fromColumn!, toTable: current.toTable!, toColumn: current.toColumn!, isActive: current.isActive !== false });
+    return rels;
+  } catch (err) {
+    warnParseOnce(relFile, err);
+    lastParseWarnings.push(`relationships.tmdl: ${err instanceof Error ? err.message : String(err)}`);
+    return [];
   }
-  if (current?.fromTable) rels.push({ fromTable: current.fromTable!, fromColumn: current.fromColumn!, toTable: current.toTable!, toColumn: current.toColumn!, isActive: current.isActive !== false });
-  return rels;
 }
 
 function parseTmdlFunctions(modelPath: string): ModelFunction[] {
   const funcFile = path.join(modelPath, "definition", "functions.tmdl");
   if (!fs.existsSync(funcFile)) return [];
-  const content = fs.readFileSync(funcFile, "utf8");
+  let content: string;
+  try {
+    content = fs.readFileSync(funcFile, "utf8");
+  } catch (err) {
+    warnParseOnce(funcFile, err);
+    lastParseWarnings.push(`functions.tmdl: ${err instanceof Error ? err.message : String(err)}`);
+    return [];
+  }
+  try {
   const funcs: ModelFunction[] = [];
   let pendingDesc = "";
   let funcDesc = "";
@@ -306,6 +337,11 @@ function parseTmdlFunctions(modelPath: string): ModelFunction[] {
   }
 
   return funcs;
+  } catch (err) {
+    warnParseOnce(funcFile, err);
+    lastParseWarnings.push(`functions.tmdl: ${err instanceof Error ? err.message : String(err)}`);
+    return [];
+  }
 }
 
 function parseTmdlModel(modelPath: string): RawModel {
@@ -319,7 +355,15 @@ function parseTmdlModel(modelPath: string): RawModel {
   if (!fs.existsSync(tablesDir)) return { measures, columns, relationships, functions, calcGroups };
 
   for (const file of fs.readdirSync(tablesDir).filter(f => f.endsWith(".tmdl"))) {
-    const content = fs.readFileSync(path.join(tablesDir, file), "utf8");
+    const tablePath = path.join(tablesDir, file);
+    let content: string;
+    try {
+      content = fs.readFileSync(tablePath, "utf8");
+    } catch (err) {
+      warnParseOnce(tablePath, err);
+      lastParseWarnings.push(`${file}: ${err instanceof Error ? err.message : String(err)}`);
+      continue;
+    }
     const lines = content.split("\n");
     let tableName = "";
     let currentMeasure: { name: string; table: string; daxExpression: string; formatString: string } | null = null;
@@ -582,7 +626,14 @@ function parseBimModel(modelPath: string): RawModel {
 }
 
 function parseBimFile(bimPath: string): RawModel {
-  const bim = JSON.parse(fs.readFileSync(bimPath, "utf8"));
+  let bim: any;
+  try {
+    bim = JSON.parse(fs.readFileSync(bimPath, "utf8"));
+  } catch (err) {
+    warnParseOnce(bimPath, err);
+    lastParseWarnings.push(`${path.basename(bimPath)}: ${err instanceof Error ? err.message : String(err)}`);
+    return { measures: [], columns: [], relationships: [], functions: [], calcGroups: [] };
+  }
   const measures: RawModel["measures"] = [];
   const columns: RawModel["columns"] = [];
 
@@ -648,6 +699,7 @@ function parseBimFile(bimPath: string): RawModel {
 }
 
 function parseModel(modelPath: string): RawModel {
+  lastParseWarnings = [];
   const tablesDir = path.join(modelPath, "definition", "tables");
   if (fs.existsSync(tablesDir) && fs.readdirSync(tablesDir).some(f => f.endsWith(".tmdl"))) {
     return parseTmdlModel(modelPath);
@@ -2276,7 +2328,13 @@ export function getUsageDir(reportPath: string): string {
 // Caching + Watchers + Regeneration
 // ═══════════════════════════════════════════════════════════════════════════════
 
-let usageCache: { data: FullData; timestamp: number } | null = null;
+interface UsageCacheEntry {
+  data: FullData;
+  fingerprint: string;
+  timestamp: number;
+}
+// Keyed by resolved reportPath so multiple reports can be cached independently.
+const usageCache = new Map<string, UsageCacheEntry>();
 let watchers: fs.FSWatcher[] = [];
 let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 let lastHtmlHash = "";
@@ -2287,7 +2345,40 @@ function simpleHash(str: string): string {
   return crypto.createHash("md5").update(str).digest("hex");
 }
 
-export function regenerate(): void {
+/**
+ * Cheap fingerprint over the semantic model — stats every .tmdl file plus
+ * model.bim and joins their mtimes. Fast enough to call on every request.
+ * Returns "" if fingerprint cannot be computed (fall back to miss).
+ */
+function computeModelFingerprint(reportPath: string): string {
+  try {
+    const modelPath = findSemanticModelPath(reportPath);
+    const parts: string[] = [];
+    const defDir = path.join(modelPath, "definition");
+    const walk = (dir: string) => {
+      if (!fs.existsSync(dir)) return;
+      for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, ent.name);
+        if (ent.isDirectory()) walk(full);
+        else if (ent.name.endsWith(".tmdl")) {
+          try { parts.push(`${full}:${fs.statSync(full).mtimeMs}`); } catch { /* ignore */ }
+        }
+      }
+    };
+    walk(defDir);
+    for (const bim of [path.join(modelPath, "model.bim"), path.join(defDir, "model.bim")]) {
+      if (fs.existsSync(bim)) {
+        try { parts.push(`${bim}:${fs.statSync(bim).mtimeMs}`); } catch { /* ignore */ }
+      }
+    }
+    return simpleHash(parts.join("|"));
+  } catch {
+    return "";
+  }
+}
+
+/** Async — non-blocking HTML write. Safe to fire-and-forget. */
+export async function regenerate(): Promise<void> {
   if (!currentReportPath) return;
   try {
     const data = buildFullData(currentReportPath);
@@ -2296,21 +2387,26 @@ export function regenerate(): void {
     const hash = simpleHash(html);
     if (hash !== lastHtmlHash && currentDashboardPath) {
       const dir = path.dirname(currentDashboardPath);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(currentDashboardPath, html, "utf8");
-      fs.writeFileSync(path.join(dir, "timestamp.txt"), String(Date.now()), "utf8");
+      if (!fs.existsSync(dir)) await fs.promises.mkdir(dir, { recursive: true });
+      await fs.promises.writeFile(currentDashboardPath, html, "utf8");
+      await fs.promises.writeFile(path.join(dir, "timestamp.txt"), String(Date.now()), "utf8");
       lastHtmlHash = hash;
     }
-    usageCache = { data, timestamp: Date.now() };
+    usageCache.set(currentReportPath, {
+      data,
+      fingerprint: computeModelFingerprint(currentReportPath),
+      timestamp: Date.now(),
+    });
   } catch (e) {
     console.error("model_usage regenerate failed:", e);
   }
 }
 
-export function invalidateCache(): void {
-  usageCache = null;
+export function invalidateCache(reportPath?: string): void {
+  if (reportPath) usageCache.delete(reportPath);
+  else usageCache.clear();
   invalidateFieldInventoryCache();
-  setTimeout(() => regenerate(), 50);
+  setTimeout(() => { regenerate().catch(() => { /* logged inside */ }); }, 50);
 }
 
 function onFileChange(filename: string | null): void {
@@ -2318,7 +2414,7 @@ function onFileChange(filename: string | null): void {
   const ext = path.extname(filename);
   if (ext !== ".json" && ext !== ".tmdl" && filename !== "model.bim") return;
   clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => regenerate(), 500);
+  debounceTimer = setTimeout(() => { regenerate().catch(() => { /* logged inside */ }); }, 500);
 }
 
 export function stopWatchers(): void {
@@ -2371,23 +2467,26 @@ export function registerModelUsageTool(server: McpServer, ctx: ServerContext): v
       let data: FullData;
       let cached = false;
 
-      if (usageCache && !rp) {
-        data = usageCache.data;
+      // Per-report cache with mtime fingerprint — avoids rebuild when nothing changed.
+      const fingerprint = computeModelFingerprint(effectivePath);
+      const existing = usageCache.get(effectivePath);
+      if (existing && fingerprint && existing.fingerprint === fingerprint) {
+        data = existing.data;
         cached = true;
       } else {
         data = buildFullData(effectivePath);
-        usageCache = { data, timestamp: Date.now() };
-        currentReportPath = effectivePath;
+        usageCache.set(effectivePath, { data, fingerprint, timestamp: Date.now() });
       }
+      currentReportPath = effectivePath;
 
-      // Always regenerate HTML
+      // Always regenerate HTML (async — non-blocking)
       const reportName = path.basename(effectivePath).replace(/\.Report$/, "");
       currentDashboardPath = path.join(getUsageDir(effectivePath), "index.html");
       const dir = path.dirname(currentDashboardPath);
-      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      if (!fs.existsSync(dir)) await fs.promises.mkdir(dir, { recursive: true });
       const html = generateHTML(data, reportName);
-      fs.writeFileSync(currentDashboardPath, html, "utf8");
-      fs.writeFileSync(path.join(dir, "timestamp.txt"), String(Date.now()), "utf8");
+      await fs.promises.writeFile(currentDashboardPath, html, "utf8");
+      await fs.promises.writeFile(path.join(dir, "timestamp.txt"), String(Date.now()), "utf8");
       lastHtmlHash = simpleHash(html);
 
       // Build response — JSON data only (HTML is 58KB+, too large for context)
@@ -2395,6 +2494,9 @@ export function registerModelUsageTool(server: McpServer, ctx: ServerContext): v
         measures: data.measures.filter(m => m.status === "unused").map(m => `${m.table}[${m.name}]`),
         columns: data.columns.filter(c => c.status === "unused").map(c => `${c.table}[${c.name}]`),
       };
+      // Surface parse warnings so the caller knows something was silently skipped
+      // (e.g. a TMDL file that was locked or corrupt during read).
+      const parseWarnings = cached ? [] : getLastParseWarnings();
       if (slim) {
         return {
           content: [{
@@ -2409,6 +2511,7 @@ export function registerModelUsageTool(server: McpServer, ctx: ServerContext): v
               dashboardPath: currentDashboardPath,
               cached,
               timestamp: Date.now(),
+              ...(parseWarnings.length > 0 ? { parseWarnings } : {}),
             }),
           }],
         };
@@ -2433,6 +2536,7 @@ export function registerModelUsageTool(server: McpServer, ctx: ServerContext): v
               dashboardPath: currentDashboardPath,
               cached,
               timestamp: Date.now(),
+              ...(parseWarnings.length > 0 ? { parseWarnings } : {}),
             }),
           }],
         };

@@ -150,6 +150,8 @@ interface ModelFunction {
     expression: string;
     description: string;
 }
+export declare function _resetModelUsageWarnings(): void;
+export declare function getLastParseWarnings(): string[];
 export interface ModelFieldInventory {
     /** table name → { columns: Set<columnName>, measures: Set<measureName> } */
     tables: Map<string, {
@@ -186,8 +188,9 @@ export declare function generateHTML(data: FullData, reportName: string): string
 export declare function generateMarkdown(data: FullData, reportName: string): string;
 /** Output dir inside the MCP project: .usage/<report-name>/ */
 export declare function getUsageDir(reportPath: string): string;
-export declare function regenerate(): void;
-export declare function invalidateCache(): void;
+/** Async — non-blocking HTML write. Safe to fire-and-forget. */
+export declare function regenerate(): Promise<void>;
+export declare function invalidateCache(reportPath?: string): void;
 export declare function stopWatchers(): void;
 export declare function startWatchers(reportPath: string, modelPath: string): void;
 export declare function registerModelUsageTool(server: McpServer, ctx: ServerContext): void;
