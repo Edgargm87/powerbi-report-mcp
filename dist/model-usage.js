@@ -495,6 +495,11 @@ function parseBimModel(modelPath) {
     }
     return parseBimFile(bimPath);
 }
+function bimExprToString(expr) {
+    if (Array.isArray(expr))
+        return expr.join("\n");
+    return expr || "";
+}
 function parseBimFile(bimPath) {
     let bim;
     try {
@@ -508,12 +513,12 @@ function parseBimFile(bimPath) {
     const measures = [];
     const columns = [];
     for (const table of bim.model?.tables || []) {
-        const tableName = table.name;
+        const tableName = table.name || "";
         for (const m of table.measures || []) {
             measures.push({
-                name: m.name,
+                name: m.name || "",
                 table: tableName,
-                daxExpression: Array.isArray(m.expression) ? m.expression.join("\n") : (m.expression || ""),
+                daxExpression: bimExprToString(m.expression),
                 formatString: m.formatString || "",
             });
         }
@@ -521,7 +526,7 @@ function parseBimFile(bimPath) {
             if (c.type === "rowNumber")
                 continue;
             columns.push({
-                name: c.name,
+                name: c.name || "",
                 table: tableName,
                 dataType: c.dataType || "string",
                 isKey: c.isKey === true,
@@ -541,7 +546,7 @@ function parseBimFile(bimPath) {
     for (const expr of bim.model?.expressions || []) {
         if (expr.kind === "m")
             continue; // skip M parameters
-        const exprText = Array.isArray(expr.expression) ? expr.expression.join("\n") : (expr.expression || "");
+        const exprText = bimExprToString(expr.expression);
         const paramMatch = exprText.match(/^\(\s*(.*?)\s*\)\s*=>/s);
         functions.push({
             name: expr.name || "",
@@ -558,8 +563,8 @@ function parseBimFile(bimPath) {
         const items = (cg.calculationItems || []).map((ci, idx) => ({
             name: ci.name || "",
             ordinal: ci.ordinal ?? idx,
-            expression: Array.isArray(ci.expression) ? ci.expression.join("\n") : (ci.expression || ""),
-            formatStringExpression: Array.isArray(ci.formatStringDefinition) ? ci.formatStringDefinition.join("\n") : (ci.formatStringDefinition || ""),
+            expression: bimExprToString(ci.expression),
+            formatStringExpression: bimExprToString(ci.formatStringDefinition),
             description: ci.description || "",
         }));
         items.sort((a, b) => a.ordinal - b.ordinal);

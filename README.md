@@ -152,11 +152,17 @@ Open the `.pbip` file — or if already open, press `Ctrl+Shift+F5` to refresh.
 
 ## Smart Tool Loading
 
-By default, only **11 core tools** are loaded to keep token overhead low. The LLM activates more tools on-demand via `load_tools`.
+**As of v0.6.2** all **54 tools load at startup by default** — this is the most compatible configuration, and what you want for Claude Desktop and most other MCP clients whose tool catalog is a snapshot taken at session start.
+
+For token-sensitive setups (e.g. Claude Code with large prompt budgets on dev machines), you can opt into the **minimal** mode — only **11 core tools** load at startup, and the LLM activates more on-demand via `load_tools`:
+
+```json
+"env": { "MCP_TOOLS": "minimal" }
+```
 
 ```mermaid
 graph TD
-    subgraph DEFAULT["11 Default Tools — loaded at startup"]
+    subgraph DEFAULT["11 Core Tools — always loaded in both modes"]
         A1[set_report] --- A2[list_pages] --- A3[list_visuals] --- A4[create_page] --- A5[add_visual]
         B1[get_visual] --- B2[format_visual] --- B3[update_visual_bindings] --- B4[set_report_theme] --- B5[bulk_bind]
         C1[model_usage]
@@ -164,7 +170,7 @@ graph TD
 
     LT[load_tools -- always available]
 
-    subgraph ONDEMAND["43 On-Demand Tools — activate mid-session"]
+    subgraph ONDEMAND["43 On-Demand Tools"]
         C1[delete_page] --- C2[rename_page] --- C3[duplicate_page] --- C4[move_visual] --- C5[delete_visual]
         D1[set_datapoint_colors] --- D2[set_conditional_format] --- D3[add_page_filter] --- D4[set_visual_sort] --- D5[guide]
         E1[list_bookmarks] --- E2[set_page_background] --- E3[...]
@@ -177,16 +183,15 @@ graph TD
     style LT fill:#0078D4,color:#fff
 ```
 
-| Mode | Tools | Token Overhead | Use Case |
-|------|-------|----------------|----------|
-| `default` | 11 + `load_tools` | **~3,100 tokens** | Production / shared machines |
-| `MCP_TOOLS=all` | 54 + `load_tools` | ~16,000 tokens | Dev machine / full access |
+| Mode | Tools at Startup | Token Overhead | Use Case |
+|------|------------------|----------------|----------|
+| `default` *(v0.6.2+)* | 54 + `load_tools` | ~16,000 tokens | Claude Desktop, most clients, first-time users |
+| `MCP_TOOLS=minimal` | 11 + `load_tools` | **~3,100 tokens** | Claude Code / clients that refresh the tool list mid-session |
+| `MCP_TOOLS=all` *(legacy alias)* | 54 + `load_tools` | ~16,000 tokens | Same as default; kept for backward-compat |
 
-Load all tools at startup with:
+### Why the default flipped in v0.6.2
 
-```json
-"env": { "MCP_TOOLS": "all" }
-```
+Before v0.6.2 the default was minimal-with-`load_tools`. The problem: **Claude Desktop snapshots the MCP tool catalog at session start and never refreshes it**, so tools activated mid-session via `load_tools` were invisible to the model even though the server had registered them. New users saw "only 11 tools" and assumed the server was broken. Clients that honour `tools/list_changed` notifications (like Claude Code) can still use `MCP_TOOLS=minimal` to claw back the ~13k tokens.
 
 ---
 

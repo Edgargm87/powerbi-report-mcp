@@ -150,7 +150,7 @@ function registerBulkTools(server, ctx) {
     // ============================================================
     // TOOL: bulk_bind
     // ============================================================
-    server.tool("bulk_bind", "Update data bindings on multiple visuals in one call. Each entry specifies a visualId and its new bindings. Replaces existing bindings entirely. Set confirmBulk:true when rebinding >5.", {
+    server.tool("bulk_bind", "Update data bindings on multiple visuals in one call. Each entry specifies a visualId and its new bindings. Replaces existing bindings entirely. Set confirmBulk:true when rebinding >5. Set continueOnError:true to validate and write each entry independently — a bad binding on one visual no longer fails the whole batch.", {
         pageId: zod_1.z.string().describe("The page ID"),
         updates: parseArray(zod_1.z.object({
             visualId: zod_1.z.string().describe("Visual ID to rebind"),
@@ -163,46 +163,74 @@ function registerBulkTools(server, ctx) {
             .describe("Rebuild auto-filters for each visual"),
         confirmBulk: zod_1.z.coerce.boolean().optional().default(false)
             .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
+        continueOnError: zod_1.z.coerce.boolean().optional().default(false)
+            .describe("When true, validate & write each entry independently — a bad binding on one visual is reported per-entry and does not abort the batch."),
         strictBindings: zod_1.z
             .boolean()
             .optional()
             .describe("Binding validation: true=strict (default, fail on unknown field), false=warn (proceed with warnings). Omit for env default."),
-    }, async ({ pageId, updates, autoFilters, confirmBulk, strictBindings }) => {
+    }, async ({ pageId, updates, autoFilters, confirmBulk, continueOnError, strictBindings }) => {
         if (updates.length > BULK_MAX_ITEMS) {
             return bulkSizeLimitError("rebind", updates.length);
         }
         if (updates.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
             return bulkSafetyError("rebind", updates.length);
         }
-        // Binding validation — flatten every update's bindings into one pass.
-        // A single unknown field in the batch fails the whole call in strict
-        // mode; individual visual lookups still run per-entry below.
-        const allBindings = [];
-        for (const { bindings } of updates) {
-            for (const b of bindings) {
-                allBindings.push({ bucket: b.bucket, fields: b.fields });
+        // Validation strategy:
+        //   - default  : batch-level. A single unknown field in strict mode
+        //                fails the whole call before any write.
+        //   - continueOnError : per-entry. Each update is validated in isolation
+        //                and bad entries are reported in `errors` while good
+        //                entries still write.
+        let validation;
+        if (!continueOnError) {
+            const allBindings = [];
+            for (const { bindings } of updates) {
+                for (const b of bindings) {
+                    allBindings.push({ bucket: b.bucket, fields: b.fields });
+                }
+            }
+            validation = (0, bindingValidation_js_1.runBindingValidation)(ctx.project, allBindings, strictBindings);
+            if (!validation.proceed) {
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify({
+                                success: false,
+                                error: validation.message,
+                                bindingErrors: validation.errors,
+                                mode: validation.mode,
+                                hint: "Retry with continueOnError:true to apply the valid entries and get a per-visual error report.",
+                            }, null, 2),
+                        },
+                    ],
+                };
             }
         }
-        const validation = (0, bindingValidation_js_1.runBindingValidation)(ctx.project, allBindings, strictBindings);
-        if (!validation.proceed) {
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: JSON.stringify({
-                            success: false,
-                            error: validation.message,
-                            bindingErrors: validation.errors,
-                            mode: validation.mode,
-                        }, null, 2),
-                    },
-                ],
-            };
+        else {
+            // Run a dry validation to capture mode/skipReason for the response,
+            // but don't gate on it — per-entry validation drives write decisions.
+            validation = (0, bindingValidation_js_1.runBindingValidation)(ctx.project, [], strictBindings);
         }
         const updated = [];
         const errors = [];
+        const perEntryBindingErrors = [];
         for (const { visualId, bindings } of updates) {
             try {
+                // Per-entry validation when continueOnError is set.
+                if (continueOnError) {
+                    const entryBindings = bindings.map((b) => ({
+                        bucket: b.bucket,
+                        fields: b.fields,
+                    }));
+                    const entryValidation = (0, bindingValidation_js_1.runBindingValidation)(ctx.project, entryBindings, strictBindings);
+                    if (!entryValidation.proceed) {
+                        errors.push(`${visualId}: ${entryValidation.message}`);
+                        perEntryBindingErrors.push({ visualId, errors: entryValidation.errors });
+                        continue;
+                    }
+                }
                 const visual = ctx.project.getVisual(pageId, visualId);
                 const vType = visual.visual.visualType;
                 // Build query state
@@ -276,6 +304,7 @@ function registerBulkTools(server, ctx) {
             updated: updated.length,
             ids: updated,
             errors,
+            ...(perEntryBindingErrors.length > 0 ? { perEntryBindingErrors } : {}),
         };
         if (validation.errors.length > 0) {
             bulkResponse.bindingWarnings = validation.errors;
