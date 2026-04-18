@@ -83,9 +83,24 @@ Don't invent ad-hoc layouts in prose — read `guide("wireframes")` for the vali
 
 ## KPI Card Pattern
 
-**Terminology gotcha — "KPI card" ≠ `kpi` visual.**
+### ⚠ Default rule — "KPI" is a concept, not a visual type
 
-When a user says "KPI card", "KPI tile", or "KPIs across the top", they almost always mean a **single-value card** (`visualType: "card"`, single `Values` bucket, one field bound). They do **not** mean the true `kpi` visual, which is a compound visual with three separate buckets (`Indicator`, `TrendLine`, `Goal`) and expects three different fields.
+When a user says **"KPI"**, **"KPIs"**, **"3 KPI cards"**, **"KPI row"**, **"KPI strip"**, **"KPI tile"** or anything similar in passing, they are describing a **business concept** (a headline number that matters). They are **not** naming a Power BI visual type.
+
+**Default to `visualType: "card"` with a single measure in `Values`.** One field, one number, per card. This is almost always what the user wants.
+
+Only pick the actual Power BI `kpi` visual when **all three** of these are true:
+1. The user literally says "the KPI visual", "Power BI KPI visual", or points at the KPI icon; **and**
+2. They have (or ask for) three distinct fields — a value, a prior-period *series*, and a target; **and**
+3. They want the compound indicator + trend-line + goal layout rendered.
+
+If any of those is missing, use `card` (or `cardVisual`). When in doubt — `card`.
+
+The word "KPI" collides because Power BI also ships a visual named `kpi`, but in day-to-day conversation the concept wins. Map the context, not the keyword.
+
+### Why this matters
+
+The `kpi` visual has three required buckets (`Indicator`, `TrendLine`, `Goal`). If we pick it on the ambiguous word alone, we end up binding two or three fields to a visual the user only wanted to show one number in — and the result looks nothing like a clean KPI row.
 
 Rule of thumb — pick by shape, not by the word "KPI":
 - Single number, nothing else → `card` (`Values`: one measure).

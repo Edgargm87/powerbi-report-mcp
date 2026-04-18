@@ -61,7 +61,9 @@ Every returned rectangle is guaranteed to pass strict wireframe validation.
 2. **Hero + sidebar** — `rows:1, cols:3` with one cell at `(0,0,colSpan:2)`
    for the wide hero and another at `(0,2)` for the sidebar card.
 3. **5-KPI strip + chart row** — `rows:2, cols:5`. Five cards in row 0, then
-   one cell at `(1,0,colSpan:5)` for a full-width chart below.
+   one cell at `(1,0,colSpan:5)` for a full-width chart below. The five
+   "KPIs" are `visualType: "card"` with one measure each, **not** the
+   `kpi` visual — see `guide("report-design")` §"KPI Card Pattern".
 
 `rowSpan`/`colSpan` are supported; `reserveBannerRow:true` starts the grid
 at `y:57` so the banner shape (added separately via `add_visual`) sits

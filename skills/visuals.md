@@ -75,8 +75,8 @@ When `visuals` is provided, the top-level single-mode params (`visualType`, `x`,
 | Pie chart | `pieChart` |
 | Donut chart | `donutChart` |
 | Scatter | `scatterChart` |
-| KPI (true KPI visual — headline + trend + goal) | `kpi` |
-| **"KPI card" / "KPI tile" / single-metric card** (common parlance) | **`card`** — NOT `kpi` |
+| **"KPI" / "KPIs" / "KPI card" / "KPI tile" / "KPI strip" / "KPI row"** (default — user is talking about the *concept*) | **`card`** with a single measure — NOT `kpi` |
+| The actual Power BI **KPI visual** (only when user names it explicitly, or asks for indicator + trend line + goal together) | `kpi` |
 | Card (classic, single value) | `card` |
 | Card (new visual) | `cardVisual` |
 | Multi-row card | `multiRowCard` |
