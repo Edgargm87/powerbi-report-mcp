@@ -50,6 +50,7 @@ const bulk_js_1 = require("./tools/bulk.js");
 const model_usage_js_1 = require("./model-usage.js");
 const bookmarks_js_1 = require("./tools/bookmarks.js");
 const guide_js_1 = require("./tools/guide.js");
+const layoutGrid_js_1 = require("./tools/layoutGrid.js");
 const default_tools_js_1 = require("./default-tools.js");
 // Visual calculations parked — not registering until PBI Desktop supports programmatic creation
 // import { registerCalculationTools } from "./tools/calculations.js";
@@ -130,6 +131,8 @@ const ALL_TOOLS = {
     rename_bookmark: "Rename a bookmark",
     // Guide (knowledge layer)
     guide: "Domain knowledge for PBI development — topics discovered live from skills/*.md",
+    // Layout
+    layout_grid: "Compute a deterministic rows×cols grid layout plan (plan-only in Slice 2; commit mode in Slice 3)",
     // Calculations — PARKED: visual calculations don't render when written programmatically
     // list_visual_calculations, add_visual_calculation, delete_visual_calculation
 };
@@ -266,6 +269,7 @@ async function main() {
     (0, bulk_js_1.registerBulkTools)(server, ctx);
     (0, bookmarks_js_1.registerBookmarkTools)(server, ctx);
     (0, guide_js_1.registerGuideTool)(server, ctx);
+    (0, layoutGrid_js_1.registerLayoutGridTool)(server, ctx);
     (0, model_usage_js_1.registerModelUsageTool)(server, ctx);
     // registerCalculationTools(server, ctx); // PARKED
     // Meta tool: load_tools — lists available on-demand tools and activates them
@@ -457,5 +461,6 @@ Both formats are equivalent and can be mixed in the same bindings array.
 - Use duplicate_visual to clone and modify existing visuals
 - Visual z-order controls layering (higher z = on top)
 - Use batch mode in add_visual (visuals array) to create multiple visuals in one call
+- **When building a fresh page from scratch**, prefer \`layout_grid\` with \`planOnly:true\` over guessing pixel coords for multiple \`add_visual\` calls. The server computes exact x/y/w/h per cell (including remainder distribution), so the layout is guaranteed to pass strict validation.
 `;
 main().catch(console.error);

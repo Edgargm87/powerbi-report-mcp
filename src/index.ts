@@ -15,6 +15,7 @@ import { registerBulkTools } from "./tools/bulk.js";
 import { registerModelUsageTool, findSemanticModelPath, startWatchers } from "./model-usage.js";
 import { registerBookmarkTools } from "./tools/bookmarks.js";
 import { registerGuideTool } from "./tools/guide.js";
+import { registerLayoutGridTool } from "./tools/layoutGrid.js";
 import { DEFAULT_TOOLS } from "./default-tools.js";
 // Visual calculations parked — not registering until PBI Desktop supports programmatic creation
 // import { registerCalculationTools } from "./tools/calculations.js";
@@ -97,6 +98,8 @@ const ALL_TOOLS: Record<string, string> = {
   rename_bookmark: "Rename a bookmark",
   // Guide (knowledge layer)
   guide: "Domain knowledge for PBI development — topics discovered live from skills/*.md",
+  // Layout
+  layout_grid: "Compute a deterministic rows×cols grid layout plan (plan-only in Slice 2; commit mode in Slice 3)",
   // Calculations — PARKED: visual calculations don't render when written programmatically
   // list_visual_calculations, add_visual_calculation, delete_visual_calculation
 };
@@ -246,6 +249,7 @@ async function main() {
   registerBulkTools(server, ctx);
   registerBookmarkTools(server, ctx);
   registerGuideTool(server, ctx);
+  registerLayoutGridTool(server, ctx);
   registerModelUsageTool(server, ctx);
   // registerCalculationTools(server, ctx); // PARKED
 
@@ -444,6 +448,7 @@ Both formats are equivalent and can be mixed in the same bindings array.
 - Use duplicate_visual to clone and modify existing visuals
 - Visual z-order controls layering (higher z = on top)
 - Use batch mode in add_visual (visuals array) to create multiple visuals in one call
+- **When building a fresh page from scratch**, prefer \`layout_grid\` with \`planOnly:true\` over guessing pixel coords for multiple \`add_visual\` calls. The server computes exact x/y/w/h per cell (including remainder distribution), so the layout is guaranteed to pass strict validation.
 `;
 
 main().catch(console.error);

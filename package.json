@@ -20,7 +20,8 @@
     "test:binding": "node scripts/test-binding-validator.js",
     "test:extract-title": "node scripts/test-extract-title.js",
     "test:layout": "node scripts/test-layout-validator.js",
-    "test:all": "npm run build && npm run audit:strict && npm run test:wireframe && npm run test:binding && npm run test:extract-title && npm run test:layout",
+    "test:grid": "node scripts/test-layout-grid.js",
+    "test:all": "npm run build && npm run audit:strict && npm run test:wireframe && npm run test:binding && npm run test:extract-title && npm run test:layout && npm run test:grid",
     "hooks:install": "node scripts/install-hooks.js"
   },
   "dependencies": {

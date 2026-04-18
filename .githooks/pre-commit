@@ -66,4 +66,12 @@ node scripts/test-layout-validator.js >/dev/null || {
   exit 1
 }
 
-echo "[pre-commit] ✓ audit + wireframe + binding + title + layout pass"
+echo "[pre-commit] running layout-grid suite..."
+node scripts/test-layout-grid.js >/dev/null || {
+  echo ""
+  echo "✗ layout-grid suite failed — the grid-math helpers or cell validation"
+  echo "  have a regression. Run 'npm run test:grid' to see which cases broke."
+  exit 1
+}
+
+echo "[pre-commit] ✓ audit + wireframe + binding + title + layout + grid pass"

@@ -23,6 +23,58 @@ All layouts use canvas **1280 x 720** (16:9), `displayOption: "FitToPage"`.
 
 ---
 
+## Preferred path: `layout_grid`
+
+When you're building a **fresh page from scratch** with multiple visuals,
+call `layout_grid` instead of hand-computing pixel coordinates for each
+`add_visual`. The server owns the margin/gap/remainder math — the LLM just
+declares the grid shape and which cell each visual goes in.
+
+```jsonc
+// 2×3 dashboard (six cards + charts)
+{
+  "pageId": "summary",
+  "rows": 2,
+  "cols": 3,
+  "reserveBannerRow": false,   // true if you want a banner at y:0
+  "cells": [
+    { "row": 0, "col": 0, "visualType": "card", "title": "Revenue" },
+    { "row": 0, "col": 1, "visualType": "card", "title": "Margin" },
+    { "row": 0, "col": 2, "visualType": "card", "title": "Orders" },
+    { "row": 1, "col": 0, "visualType": "columnChart", "title": "By Region" },
+    { "row": 1, "col": 1, "visualType": "lineChart",   "title": "Trend" },
+    { "row": 1, "col": 2, "visualType": "pieChart",    "title": "Mix" }
+  ],
+  "planOnly": true              // Slice 2 default — returns x/y/w/h plan
+}
+```
+
+Returns a plan with exact `x/y/w/h` per cell plus a `cellGeometry` block so
+you can see the column widths (e.g. `[414, 413, 413]` for a 3-col grid).
+Every returned rectangle is guaranteed to pass strict wireframe validation.
+
+**Three worked examples:**
+
+1. **Banner + 2×2 content grid** — banner at `(0,0,1280,52)` via `add_visual`,
+   then `layout_grid` with `rows:2, cols:2, reserveBannerRow:true` for the
+   four content visuals (grid starts at y=57, heights sum to 657).
+2. **Hero + sidebar** — `rows:1, cols:3` with one cell at `(0,0,colSpan:2)`
+   for the wide hero and another at `(0,2)` for the sidebar card.
+3. **5-KPI strip + chart row** — `rows:2, cols:5`. Five cards in row 0, then
+   one cell at `(1,0,colSpan:5)` for a full-width chart below.
+
+`rowSpan`/`colSpan` are supported; `reserveBannerRow:true` starts the grid
+at `y:57` so the banner shape (added separately via `add_visual`) sits
+above it.
+
+**Slice 2 ships plan-only** (`planOnly:true`, the default). In Slice 3,
+`planOnly:false` will write the visuals directly. Until then, feed each plan
+entry into `add_visual`.
+
+---
+
+---
+
 ## Spacing Formula
 
 For N equal-width visuals in a row:

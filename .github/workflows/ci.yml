@@ -46,3 +46,6 @@ jobs:
 
       - name: Run layout-validator suite
         run: npm run test:layout
+
+      - name: Run layout-grid suite
+        run: npm run test:grid
