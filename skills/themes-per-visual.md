@@ -106,10 +106,19 @@ Combo charts (`lineStackedColumnComboChart`, `lineClusteredColumnComboChart`) ha
 | `card` | `wordWrap` | `show` |
 | `cardVisual` | `callout` | `fontSize`, `fontFamily`, `color`, `labelDisplayUnits` |
 | `cardVisual` | `accentBar` | `show`, `color`, `width` |
+| `cardVisual` | `fillCustom` | Custom fill envelope — `fillType`, `color`, `transparency` |
+| `cardVisual` | `shadowCustom` | `shadowPositionPreset` (e.g. `"outside"`), `position`, `color`, `blur`, `transparency` |
+| `cardVisual` | `glowCustom` | `color`, `blur`, `transparency` — outer glow |
+| `cardVisual` | `padding` | `paddingSelection` (`"custom"`), `topMargin`, `bottomMargin`, `leftMargin`, `rightMargin` |
+| `cardVisual` | `spacing` | `customizeSpacing`, `spaceBelowSubTitle`, `verticalSpacing` |
+| `cardVisual` | `layout` | `alignment` (`"left"`/`"center"`/`"right"`) |
+| `cardVisual` | `image` | `imageUrl` (measure expr for SVG-from-DAX), `sourceField`, `sourceType`, `imageType`, `effects`, `position`, `transparency` |
 | `multiRowCard` | `dataLabels`, `categoryLabels`, `cardTitle`, `card` (spacing) | as above |
 | `kpi` | `indicator` | `fontSize`, `fontFamily`, `color`, `labelDisplayUnits` |
 | `kpi` | `trendAxis` | `show`, `lineColor`, `transparency` |
-| `kpi` | `goals` | `show`, `distanceColor`, `goalColor` |
+| `kpi` | `goals` | `show`, `distanceColor`, `goalColor`, `showDistance`, `distanceLabel`, `goalFontColor`, `goalText` |
+| `kpi` | `status` | Thresholding colors — `statusBad` (color), `statusGood` (color), `direction` |
+| `kpi` | `lastDate` | `show`, `fontColor`, `fontSize` — small footer showing the most recent period |
 
 ### Slicers — slicer, listSlicer, textSlicer, advancedSlicerVisual
 
@@ -117,11 +126,61 @@ Combo charts (`lineStackedColumnComboChart`, `lineClusteredColumnComboChart`) ha
 |---|---|
 | `general` | `orientation` (`horizontal`/`vertical`), `selection` (single/multi) |
 | `header` | `show`, `fontColor`, `background`, `fontSize`, `fontFamily`, `outline` |
-| `items` | `fontColor`, `background`, `fontSize`, `fontFamily`, `outline`, `padding` |
+| `items` | `fontColor`, `background`, `fontSize`, `fontFamily`, `outline`, `outlineStyle`, `padding` |
 | `selectionControls` | `checkboxColor`, `hoverColor`, `tileColor` (list slicer) |
+| `selection` | `strictSingleSelect`, `selectAllCheckboxEnabled` |
 | `slider` | `color` (numeric/date range slicers) |
 | `dateInputs` | `fontColor`, `fontSize` (date slicers) |
 | `dropdown` | `fontColor`, `background` (dropdown slicer) |
+
+**`advancedSlicerVisual` additional categories:**
+
+| Category | Key properties |
+|---|---|
+| `accentBar` | `show`, `position` (`"left"`/`"top"`), `width`, `color` (accepts measure expr for per-row color) |
+| `label` | `field` — measure expr producing dynamic slicer label text |
+| `value` | `fontSize`, `fontFamily`, `color`, `labelDisplayUnits` (the value shown per row) |
+| `shapeCustomRectangle` | `rectangleRoundedCurve` (corner radius), `tileShape` (`"rectangle"`/`"pill"`) |
+| `fillCustom`, `shadowCustom`, `glowCustom` | Same envelope as `cardVisual` — per-tile fill / shadow / glow |
+| `annotations` | `category`, `text` — overlay annotations on tiles |
+
+### Axis reference lines & error bars — lineChart, scatterChart, barChart, columnChart
+
+| Category | Key properties |
+|---|---|
+| `y1AxisReferenceLine` | `show`, `value` (measure expr), `lineColor`, `style` (`"solid"`/`"dashed"`/`"dotted"`), `transparency`, `dataLabelShow`, `dataLabelText`, `dataLabelColor`, `dataLabelHorizontalPosition`, `dataLabelVerticalPosition` |
+| `xAxisReferenceLine` | Same shape as `y1AxisReferenceLine`, but drawn against the X axis |
+| `error` | `enabled`, `errorRange` (`kind: "ErrorRange"`, `explicit: { isRelative, lowerBound, upperBound }` — both bounds can be measure exprs), `barColor`, `barWidth`, `barBorderColor`, `barBorderSize`, `shadeColor`, `shadeTransparency`, `markerShape`, `markerSize`, `barMatchSeriesColor`, `shadeMatchSeriesColor`, `tooltipShow`, `labelShow` |
+
+See `skills/formatting.md` § "Measure-driven formatting" for full examples including bullet / lollipop / progress / threshold patterns.
+
+### Plot-area shading & scatter-specific — scatterChart
+
+| Category | Key properties |
+|---|---|
+| `plotAreaShading` | `show`, `upperShadingColor`, `lowerShadingColor`, `transparency`, `displayName` — quadrant / band backgrounds without overlay shapes |
+| `bubbles` | `markerRangeType`, `markerShape`, `bubbleSize` |
+| `fillPoint` | `show`, `style` (solid vs outline markers) |
+| `annotations` | `category`, `text` — point callouts |
+| `categoryLabels` | `show`, `color`, `fontSize`, `fontFamily` — labels drawn next to each bubble |
+
+### Donut & pie geometry — donutChart, pieChart
+
+| Category | Key properties |
+|---|---|
+| `slices` | `startAngle` (rotate the chart), `innerRadiusRatio` (donut hole size, 0–100), `strokeWidth`, `strokeColor` |
+
+These two knobs turn a donut into a gauge-like visual — both must be set on `slices`, not on separate objects.
+
+### Tables and matrices — columnFormatting (separate from `values`)
+
+Data-bar / column-specific formatting lives in its own object, not in `values`:
+
+| Category | Key properties |
+|---|---|
+| `columnFormatting` | `dataBars` (show, gradient, positiveBarColor, negativeBarColor, axisColor, barSizeRange), `alignment`, `labelDisplayUnits`, `labelPrecision`, `fontColor`, `styleHeader`, `styleTotal` |
+| `rowHeaders` (matrix) | `stepped`, `steppedLayoutIndentation`, `showExpandCollapseButtons`, `wordWrap` (in addition to the standard font props) |
+| `values` | `bandedRowHeaders`, `backColorPrimary`/`backColorSecondary`, `fontColorPrimary`/`fontColorSecondary`, `outlineStyle` — alternating rows live here, not on `grid` |
 
 ### Maps — map, filledMap, azureMap
 

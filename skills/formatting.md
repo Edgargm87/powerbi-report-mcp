@@ -315,6 +315,75 @@ Available presets: `dark`, `light`, `corporate`, `blue-purple`.
 
 Override via `containerFormat` / `visualFormat` in the same `add_visual` call, or with `format_visual` afterwards.
 
+## Measure-driven formatting (dynamic properties)
+
+Most formatting properties accept **measure expressions** in addition to literal values. That's how you get titles, axis bounds, colors, and reference-line thresholds that react to the data — without touching conditional-formatting rules.
+
+Shape of a measure-driven value:
+```json
+{ "expr": { "Measure": { "Expression": { "SourceRef": { "Entity": "_measures" } }, "Property": "My Title" } } }
+```
+Wrap it wherever the property would normally take a literal.
+
+### Dynamic titles & subtitles
+Put a measure returning text into `title.text` (or `subTitle.text`) instead of a string:
+```json
+"title": [{ "text": { "expr": { "Measure": { "Expression": { "SourceRef": { "Entity": "_measures" } }, "Property": "Dynamic Title" } } } }]
+```
+The measure can concatenate filter context, period names, etc.
+
+### Dynamic axis bounds
+`valueAxis.start`, `valueAxis.end`, `valueAxis.secStart`, `valueAxis.secEnd` all accept measure expressions. Pattern:
+```json
+"valueAxis": [{
+  "start": { "expr": { "Measure": { ... "Property": "Axis Min" } } },
+  "end":   { "expr": { "Measure": { ... "Property": "Axis Max" } } }
+}]
+```
+Unlocks "always scaled to 120% of max" and similar data-aware zoom patterns. Set `secShow: true` to enable the secondary axis (`y2Axis`).
+
+### Measure-driven data colors
+Single-measure color field — simpler than a `fillRule`:
+```json
+"dataPoint": [{ "fill": { "solid": { "color": { "expr": { "Measure": { ... "Property": "Bar Color" } } } } } }]
+```
+The measure must return a hex string (e.g. `"#22C55E"`). For multi-stop gradients or thresholds, use `set_conditional_format` (which writes a `FillRule`).
+
+### Error-bar measure bounds — bullet, lollipop, progress, band
+`error.errorRange` drives bullet charts, progress bars, threshold bands, and similar composite shapes:
+```json
+"error": [{
+  "enabled": true,
+  "errorRange": {
+    "kind": "ErrorRange",
+    "explicit": {
+      "isRelative": false,
+      "lowerBound": { "expr": { "Measure": { ... "Property": "Target Min" } } },
+      "upperBound": { "expr": { "Measure": { ... "Property": "Target Max" } } }
+    }
+  },
+  "shadeColor": { "solid": { "color": "#F3F4F6" } },
+  "shadeTransparency": 50
+}]
+```
+Available on `barChart`, `columnChart`, `lineChart`, `clusteredBarChart`. The reference data-goblin examples (`barChart-bullet`, `barChart-lollipop`, `barChart-progress`, `lineChart-thresholds`) all use this mechanism — there is no separate "bullet chart" visual type.
+
+### Axis reference lines
+Distinct objects per axis: `y1AxisReferenceLine`, `xAxisReferenceLine` on `lineChart`/`scatterChart`, plus `referenceLine` on some others. Value is typically a measure:
+```json
+"y1AxisReferenceLine": [{
+  "show": true,
+  "value": { "expr": { "Measure": { ... "Property": "Target" } } },
+  "lineColor": { "solid": { "color": "#EF4444" } },
+  "style": "dashed",
+  "dataLabelShow": true,
+  "dataLabelText": "Target",
+  "dataLabelHorizontalPosition": "right",
+  "transparency": 0
+}]
+```
+This is the preferred way to draw threshold lines — don't fake them with error bars or shapes.
+
 ## Common workflows
 
 ### Polish a freshly-created visual
