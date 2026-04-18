@@ -6,7 +6,7 @@ import { BucketBindingSchema, parseFieldSpec, SLICER_VISUAL_TYPES } from "../hel
 import type { FieldSpecInput } from "../helpers/createVisual.js";
 import type { ServerContext } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
-import { runBindingValidation } from "../helpers/bindingValidation.js";
+import { runBindingValidation, isNoteworthySkip } from "../helpers/bindingValidation.js";
 
 export function registerBindingTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
@@ -124,6 +124,12 @@ export function registerBindingTools(server: McpServer, ctx: ServerContext): voi
       if (validation.errors.length > 0) {
         response.bindingWarnings = validation.errors;
         response.bindingWarningMessage = validation.message;
+      }
+      if (isNoteworthySkip(validation.skipReason)) {
+        response.bindingValidation = {
+          skipped: validation.skipReason,
+          note: "Bindings were NOT checked against the semantic model. Double-check field names — a typo will load silently and render nothing.",
+        };
       }
       return {
         content: [{ type: "text", text: JSON.stringify(response) }],

@@ -12,7 +12,8 @@ import type { FieldSpecInput } from "../helpers/createVisual.js";
 import { applyFormattingToTarget } from "../helpers/formatting.js";
 import type { ServerContext } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
-import { runBindingValidation } from "../helpers/bindingValidation.js";
+import { runBindingValidation, isNoteworthySkip } from "../helpers/bindingValidation.js";
+import { fail } from "../helpers/mcpResult.js";
 
 // Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk).
 // The explicit `z.ZodType<T[]>` return cast is required because `z.preprocess` widens
@@ -26,20 +27,26 @@ function parseArray<T>(schema: z.ZodType<T>): z.ZodType<T[]> {
 }
 
 // ---------------------------------------------------------------------------
-// Safety gate for bulk operations.
+// Safety gates for bulk operations — two layers, different jobs.
 //
-// Why: an agent that calls `list_visuals` and then pipes every id straight
-// into `bulk_delete_visuals` can wipe an entire page in one call with no
-// second thought. The gate forces the agent to explicitly acknowledge the
-// size of the operation when it crosses a threshold — matching the pattern
-// in MinaSaad1/pbi-cli where every bulk command requires an explicit filter
-// flag to prevent accidental mass operations.
+// 1. BULK_CONFIRM_THRESHOLD (soft gate, UX-focused)
+//    An agent that calls `list_visuals` and then pipes every id straight
+//    into `bulk_delete_visuals` can wipe an entire page in one call with no
+//    second thought. The gate forces the agent to explicitly acknowledge the
+//    size of the operation when it crosses a threshold — matching the pattern
+//    in MinaSaad1/pbi-cli where every bulk command requires an explicit
+//    filter flag to prevent accidental mass operations. Bypassable via
+//    confirmBulk:true.
 //
-// Rule: if the operation would touch more than BULK_CONFIRM_THRESHOLD items
-// and `confirmBulk !== true`, return a structured error instead of running.
-// The error names the count and tells the agent exactly how to proceed.
+// 2. BULK_MAX_ITEMS (hard cap, safety-focused)
+//    A 1000-visual page is already pathological — a 10,000-id array is
+//    almost certainly a malformed input (accidental unbounded JSON, copy
+//    error, or outright abuse). We cap at 1000 regardless of confirmBulk so
+//    a runaway call can't consume the whole server tick writing thousands
+//    of files. Cannot be bypassed — agent must chunk.
 // ---------------------------------------------------------------------------
 const BULK_CONFIRM_THRESHOLD = 5;
+const BULK_MAX_ITEMS = 1000;
 
 function bulkSafetyError(verb: string, count: number) {
   return {
@@ -56,7 +63,22 @@ function bulkSafetyError(verb: string, count: number) {
         }),
       },
     ],
+    isError: true as const,
   };
+}
+
+/**
+ * Hard ceiling for bulk operations. Returned before any mutation runs — the
+ * agent must split the work into smaller batches. This is NOT bypassable
+ * with confirmBulk (that's the soft gate's job).
+ */
+function bulkSizeLimitError(verb: string, count: number) {
+  return fail(
+    `Bulk size limit: this call would ${verb} ${count} visuals, exceeding the hard cap of ${BULK_MAX_ITEMS}. ` +
+      `Split into batches of ≤${BULK_MAX_ITEMS}. A page with that many visuals is almost always a misconfiguration — ` +
+      `consider using list_visuals + filter logic before calling a bulk tool.`,
+    { count, limit: BULK_MAX_ITEMS, reason: "bulk_size_limit_exceeded" }
+  );
 }
 
 export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
@@ -73,6 +95,9 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
         .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals. Guards against accidental page wipes.`),
     },
     async ({ pageId, visualIds, confirmBulk }) => {
+      if (visualIds.length > BULK_MAX_ITEMS) {
+        return bulkSizeLimitError("delete", visualIds.length);
+      }
       if (visualIds.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
         return bulkSafetyError("delete", visualIds.length);
       }
@@ -120,6 +145,9 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
         .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
     },
     async ({ pageId, visualIds, formatting, target, confirmBulk }) => {
+      if (visualIds.length > BULK_MAX_ITEMS) {
+        return bulkSizeLimitError("format", visualIds.length);
+      }
       if (visualIds.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
         return bulkSafetyError("format", visualIds.length);
       }
@@ -182,6 +210,9 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
         ),
     },
     async ({ pageId, updates, autoFilters, confirmBulk, strictBindings }) => {
+      if (updates.length > BULK_MAX_ITEMS) {
+        return bulkSizeLimitError("rebind", updates.length);
+      }
       if (updates.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
         return bulkSafetyError("rebind", updates.length);
       }
@@ -301,6 +332,12 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
       if (validation.errors.length > 0) {
         bulkResponse.bindingWarnings = validation.errors;
         bulkResponse.bindingWarningMessage = validation.message;
+      }
+      if (isNoteworthySkip(validation.skipReason)) {
+        bulkResponse.bindingValidation = {
+          skipped: validation.skipReason,
+          note: "Bindings were NOT checked against the semantic model. Double-check field names — a typo will load silently and render nothing.",
+        };
       }
       return {
         content: [

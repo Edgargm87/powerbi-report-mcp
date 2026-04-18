@@ -27,16 +27,32 @@ export interface BindingValidationError {
  *   3. Default "strict"
  */
 export declare function resolveValidationMode(strictBindings: boolean | undefined): ValidationMode;
+/** Why validation skipped — surfaced to callers via `ValidationOutcome`. */
+export type SkippedReason = "mode_off" | "model_not_found" | "model_parse_error" | "empty_bindings";
 /**
- * Get the model field inventory for a project. Returns `null` when:
- *   - validation is disabled globally (MCP_BINDING_VALIDATION=off)
- *   - the sibling `.SemanticModel` folder can't be located
- *   - the model files can't be parsed
- *
- * Callers must treat `null` as "skip validation silently", never as
- * "model is empty".
+ * Result of trying to load the field inventory — either the inventory, or
+ * the reason we couldn't get one. Never throws.
  */
-export declare function getInventoryForProject(project: PbirProject, mode: ValidationMode): ModelFieldInventory | null;
+interface InventoryLookup {
+    inventory: ModelFieldInventory | null;
+    skipReason: SkippedReason | null;
+}
+/**
+ * Get the model field inventory for a project. Returns `{inventory, skipReason}`:
+ *   - when mode is "off" → null inventory, skipReason = "mode_off"
+ *   - when .SemanticModel is unreachable → null, skipReason = "model_not_found"
+ *   - when parsing throws → null, skipReason = "model_parse_error"
+ *   - when everything loads → inventory non-null, skipReason = null
+ *
+ * Stderr is tagged with `[binding-validation]` the first time a particular
+ * report path fails so silent-degrade is observable without spamming logs.
+ */
+export declare function getInventoryForProject(project: PbirProject, mode: ValidationMode): InventoryLookup;
+/**
+ * Test-seam: clear the once-per-path warning memory. Used by the binding
+ * validator test suite so repeated runs see the same logs.
+ */
+export declare function _resetBindingValidationWarnings(): void;
 /**
  * Validate a single field spec against the model inventory.
  * Returns `null` when the field is valid, or a `BindingValidationError`
@@ -66,15 +82,35 @@ export interface ValidationOutcome {
     message: string;
     /** Resolved mode (helpful for telemetry and skill-doc truthfulness). */
     mode: ValidationMode;
+    /**
+     * Set when validation did not actually run against a model. Callers in
+     * warn mode can surface this to distinguish "validated and clean" from
+     * "couldn't validate, hope for the best". null = validation ran.
+     */
+    skipReason: SkippedReason | null;
 }
+/**
+ * Returns true when the skip reason is worth surfacing to the agent. Trivial
+ * skips (`mode_off`, `empty_bindings`) are noise — they either reflect the
+ * caller's own choice or a no-op input. Non-trivial skips (`model_not_found`,
+ * `model_parse_error`) signal that an expected safety net didn't engage, and
+ * the agent should know so it can be extra careful with its bindings.
+ */
+export declare function isNoteworthySkip(reason: SkippedReason | null): boolean;
 /**
  * Run validation with the three-mode policy and return a structured outcome.
  * Tool handlers should branch on `outcome.proceed`:
  *   - strict + errors → return error response, skip the write
  *   - warn + errors   → proceed with the write, include `bindingWarnings`
  *   - no errors       → proceed silently
+ *
+ * `outcome.skipReason` is non-null when the validator had no model to work
+ * against (off mode, live-connect report, unparseable model). Handlers may
+ * surface this to the agent for transparency — e.g. `bindingValidation: { skipped: "model_not_found" }`
+ * — but must never block the call on a skip.
  */
 export declare function runBindingValidation(project: PbirProject, bindings: Array<{
     bucket: string;
     fields: FieldSpecInput[];
 }> | undefined, strictBindings: boolean | undefined): ValidationOutcome;
+export {};

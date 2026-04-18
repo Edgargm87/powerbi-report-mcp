@@ -81,25 +81,74 @@ export function resolveValidationMode(strictBindings: boolean | undefined): Vali
 // Inventory lookup
 // ---------------------------------------------------------------------------
 
+/** Why validation skipped — surfaced to callers via `ValidationOutcome`. */
+export type SkippedReason =
+  | "mode_off"             // global MCP_BINDING_VALIDATION=off or per-call
+  | "model_not_found"      // sibling .SemanticModel folder missing (live-connect reports)
+  | "model_parse_error"    // model files present but couldn't be parsed
+  | "empty_bindings";      // nothing to validate
+
 /**
- * Get the model field inventory for a project. Returns `null` when:
- *   - validation is disabled globally (MCP_BINDING_VALIDATION=off)
- *   - the sibling `.SemanticModel` folder can't be located
- *   - the model files can't be parsed
+ * Result of trying to load the field inventory — either the inventory, or
+ * the reason we couldn't get one. Never throws.
+ */
+interface InventoryLookup {
+  inventory: ModelFieldInventory | null;
+  skipReason: SkippedReason | null;
+}
+
+// One-time-per-path warning log. Without this, every single bind call on a
+// live-connect report would spam stderr with the same "model not found" line.
+const warnedPaths = new Set<string>();
+function warnOnce(reportPath: string, msg: string) {
+  if (warnedPaths.has(reportPath)) return;
+  warnedPaths.add(reportPath);
+  console.error(`[binding-validation] ${msg}  (report: ${reportPath})`);
+}
+
+/**
+ * Get the model field inventory for a project. Returns `{inventory, skipReason}`:
+ *   - when mode is "off" → null inventory, skipReason = "mode_off"
+ *   - when .SemanticModel is unreachable → null, skipReason = "model_not_found"
+ *   - when parsing throws → null, skipReason = "model_parse_error"
+ *   - when everything loads → inventory non-null, skipReason = null
  *
- * Callers must treat `null` as "skip validation silently", never as
- * "model is empty".
+ * Stderr is tagged with `[binding-validation]` the first time a particular
+ * report path fails so silent-degrade is observable without spamming logs.
  */
 export function getInventoryForProject(
   project: PbirProject,
   mode: ValidationMode
-): ModelFieldInventory | null {
-  if (mode === "off") return null;
-  try {
-    return getModelFieldInventory(project.reportPath);
-  } catch {
-    return null;
+): InventoryLookup {
+  if (mode === "off") {
+    return { inventory: null, skipReason: "mode_off" };
   }
+  try {
+    const inv = getModelFieldInventory(project.reportPath);
+    if (!inv) {
+      warnOnce(
+        project.reportPath,
+        "validation skipped: no sibling .SemanticModel folder (live-connect report or thin report)"
+      );
+      return { inventory: null, skipReason: "model_not_found" };
+    }
+    return { inventory: inv, skipReason: null };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    warnOnce(
+      project.reportPath,
+      `validation skipped: model inventory failed to parse (${msg})`
+    );
+    return { inventory: null, skipReason: "model_parse_error" };
+  }
+}
+
+/**
+ * Test-seam: clear the once-per-path warning memory. Used by the binding
+ * validator test suite so repeated runs see the same logs.
+ */
+export function _resetBindingValidationWarnings(): void {
+  warnedPaths.clear();
 }
 
 // ---------------------------------------------------------------------------
@@ -349,6 +398,23 @@ export interface ValidationOutcome {
   message: string;
   /** Resolved mode (helpful for telemetry and skill-doc truthfulness). */
   mode: ValidationMode;
+  /**
+   * Set when validation did not actually run against a model. Callers in
+   * warn mode can surface this to distinguish "validated and clean" from
+   * "couldn't validate, hope for the best". null = validation ran.
+   */
+  skipReason: SkippedReason | null;
+}
+
+/**
+ * Returns true when the skip reason is worth surfacing to the agent. Trivial
+ * skips (`mode_off`, `empty_bindings`) are noise — they either reflect the
+ * caller's own choice or a no-op input. Non-trivial skips (`model_not_found`,
+ * `model_parse_error`) signal that an expected safety net didn't engage, and
+ * the agent should know so it can be extra careful with its bindings.
+ */
+export function isNoteworthySkip(reason: SkippedReason | null): boolean {
+  return reason === "model_not_found" || reason === "model_parse_error";
 }
 
 /**
@@ -357,6 +423,11 @@ export interface ValidationOutcome {
  *   - strict + errors → return error response, skip the write
  *   - warn + errors   → proceed with the write, include `bindingWarnings`
  *   - no errors       → proceed silently
+ *
+ * `outcome.skipReason` is non-null when the validator had no model to work
+ * against (off mode, live-connect report, unparseable model). Handlers may
+ * surface this to the agent for transparency — e.g. `bindingValidation: { skipped: "model_not_found" }`
+ * — but must never block the call on a skip.
  */
 export function runBindingValidation(
   project: PbirProject,
@@ -365,17 +436,22 @@ export function runBindingValidation(
 ): ValidationOutcome {
   const mode = resolveValidationMode(strictBindings);
   if (mode === "off") {
-    return { proceed: true, errors: [], message: "", mode };
+    return { proceed: true, errors: [], message: "", mode, skipReason: "mode_off" };
   }
-  const inventory = getInventoryForProject(project, mode);
+  // Short-circuit on empty input before we bother loading the inventory —
+  // there's nothing to check and an inventory miss here would be misleading.
+  if (!bindings || bindings.length === 0) {
+    return { proceed: true, errors: [], message: "", mode, skipReason: "empty_bindings" };
+  }
+  const { inventory, skipReason } = getInventoryForProject(project, mode);
   if (!inventory) {
-    // No model to validate against — degrade silently.
-    return { proceed: true, errors: [], message: "", mode };
+    // No model to validate against — degrade silently but surface the reason.
+    return { proceed: true, errors: [], message: "", mode, skipReason };
   }
   const errors = validateBindings(bindings, inventory);
   if (errors.length === 0) {
-    return { proceed: true, errors: [], message: "", mode };
+    return { proceed: true, errors: [], message: "", mode, skipReason: null };
   }
   const message = formatBindingErrors(errors);
-  return { proceed: mode !== "strict", errors, message, mode };
+  return { proceed: mode !== "strict", errors, message, mode, skipReason: null };
 }

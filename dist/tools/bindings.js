@@ -108,6 +108,12 @@ function registerBindingTools(server, ctx) {
             response.bindingWarnings = validation.errors;
             response.bindingWarningMessage = validation.message;
         }
+        if ((0, bindingValidation_js_1.isNoteworthySkip)(validation.skipReason)) {
+            response.bindingValidation = {
+                skipped: validation.skipReason,
+                note: "Bindings were NOT checked against the semantic model. Double-check field names — a typo will load silently and render nothing.",
+            };
+        }
         return {
             content: [{ type: "text", text: JSON.stringify(response) }],
         };

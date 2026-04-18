@@ -7,6 +7,7 @@ const createVisual_js_1 = require("../helpers/createVisual.js");
 const formatting_js_1 = require("../helpers/formatting.js");
 const model_usage_js_1 = require("../model-usage.js");
 const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
+const mcpResult_js_1 = require("../helpers/mcpResult.js");
 // Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk).
 // The explicit `z.ZodType<T[]>` return cast is required because `z.preprocess` widens
 // the output to `unknown` under strict mode — which breaks downstream `z.infer` chains
@@ -15,20 +16,26 @@ function parseArray(schema) {
     return zod_1.z.preprocess((val) => (typeof val === "string" ? JSON.parse(val) : val), zod_1.z.array(schema));
 }
 // ---------------------------------------------------------------------------
-// Safety gate for bulk operations.
+// Safety gates for bulk operations — two layers, different jobs.
 //
-// Why: an agent that calls `list_visuals` and then pipes every id straight
-// into `bulk_delete_visuals` can wipe an entire page in one call with no
-// second thought. The gate forces the agent to explicitly acknowledge the
-// size of the operation when it crosses a threshold — matching the pattern
-// in MinaSaad1/pbi-cli where every bulk command requires an explicit filter
-// flag to prevent accidental mass operations.
+// 1. BULK_CONFIRM_THRESHOLD (soft gate, UX-focused)
+//    An agent that calls `list_visuals` and then pipes every id straight
+//    into `bulk_delete_visuals` can wipe an entire page in one call with no
+//    second thought. The gate forces the agent to explicitly acknowledge the
+//    size of the operation when it crosses a threshold — matching the pattern
+//    in MinaSaad1/pbi-cli where every bulk command requires an explicit
+//    filter flag to prevent accidental mass operations. Bypassable via
+//    confirmBulk:true.
 //
-// Rule: if the operation would touch more than BULK_CONFIRM_THRESHOLD items
-// and `confirmBulk !== true`, return a structured error instead of running.
-// The error names the count and tells the agent exactly how to proceed.
+// 2. BULK_MAX_ITEMS (hard cap, safety-focused)
+//    A 1000-visual page is already pathological — a 10,000-id array is
+//    almost certainly a malformed input (accidental unbounded JSON, copy
+//    error, or outright abuse). We cap at 1000 regardless of confirmBulk so
+//    a runaway call can't consume the whole server tick writing thousands
+//    of files. Cannot be bypassed — agent must chunk.
 // ---------------------------------------------------------------------------
 const BULK_CONFIRM_THRESHOLD = 5;
+const BULK_MAX_ITEMS = 1000;
 function bulkSafetyError(verb, count) {
     return {
         content: [
@@ -44,7 +51,18 @@ function bulkSafetyError(verb, count) {
                 }),
             },
         ],
+        isError: true,
     };
+}
+/**
+ * Hard ceiling for bulk operations. Returned before any mutation runs — the
+ * agent must split the work into smaller batches. This is NOT bypassable
+ * with confirmBulk (that's the soft gate's job).
+ */
+function bulkSizeLimitError(verb, count) {
+    return (0, mcpResult_js_1.fail)(`Bulk size limit: this call would ${verb} ${count} visuals, exceeding the hard cap of ${BULK_MAX_ITEMS}. ` +
+        `Split into batches of ≤${BULK_MAX_ITEMS}. A page with that many visuals is almost always a misconfiguration — ` +
+        `consider using list_visuals + filter logic before calling a bulk tool.`, { count, limit: BULK_MAX_ITEMS, reason: "bulk_size_limit_exceeded" });
 }
 function registerBulkTools(server, ctx) {
     // ============================================================
@@ -56,6 +74,9 @@ function registerBulkTools(server, ctx) {
         confirmBulk: zod_1.z.coerce.boolean().optional().default(false)
             .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals. Guards against accidental page wipes.`),
     }, async ({ pageId, visualIds, confirmBulk }) => {
+        if (visualIds.length > BULK_MAX_ITEMS) {
+            return bulkSizeLimitError("delete", visualIds.length);
+        }
         if (visualIds.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
             return bulkSafetyError("delete", visualIds.length);
         }
@@ -95,6 +116,9 @@ function registerBulkTools(server, ctx) {
         confirmBulk: zod_1.z.coerce.boolean().optional().default(false)
             .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
     }, async ({ pageId, visualIds, formatting, target, confirmBulk }) => {
+        if (visualIds.length > BULK_MAX_ITEMS) {
+            return bulkSizeLimitError("format", visualIds.length);
+        }
         if (visualIds.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
             return bulkSafetyError("format", visualIds.length);
         }
@@ -144,6 +168,9 @@ function registerBulkTools(server, ctx) {
             .optional()
             .describe("Binding validation: true=strict (default, fail on unknown field), false=warn (proceed with warnings). Omit for env default."),
     }, async ({ pageId, updates, autoFilters, confirmBulk, strictBindings }) => {
+        if (updates.length > BULK_MAX_ITEMS) {
+            return bulkSizeLimitError("rebind", updates.length);
+        }
         if (updates.length > BULK_CONFIRM_THRESHOLD && !confirmBulk) {
             return bulkSafetyError("rebind", updates.length);
         }
@@ -253,6 +280,12 @@ function registerBulkTools(server, ctx) {
         if (validation.errors.length > 0) {
             bulkResponse.bindingWarnings = validation.errors;
             bulkResponse.bindingWarningMessage = validation.message;
+        }
+        if ((0, bindingValidation_js_1.isNoteworthySkip)(validation.skipReason)) {
+            bulkResponse.bindingValidation = {
+                skipped: validation.skipReason,
+                note: "Bindings were NOT checked against the semantic model. Double-check field names — a typo will load silently and render nothing.",
+            };
         }
         return {
             content: [

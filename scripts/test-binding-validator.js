@@ -23,6 +23,9 @@ const {
   validateBindings,
   formatBindingErrors,
   resolveValidationMode,
+  runBindingValidation,
+  isNoteworthySkip,
+  _resetBindingValidationWarnings,
 } = require("../dist/helpers/bindingValidation.js");
 
 // ---------------------------------------------------------------------------
@@ -310,6 +313,78 @@ else fail("MODE 5  env=warn");
 
 if (origEnv === undefined) delete process.env.MCP_BINDING_VALIDATION;
 else process.env.MCP_BINDING_VALIDATION = origEnv;
+
+// ---------------------------------------------------------------------------
+// Skip-reason surface — runBindingValidation should expose why validation
+// was bypassed so tool handlers can warn the agent on noteworthy skips.
+// ---------------------------------------------------------------------------
+
+console.log("\n─── Skip reasons (validation telemetry) ───────────────────────────");
+
+// Stub project whose reportPath points at a folder with no sibling
+// .SemanticModel — validation must degrade with skipReason="model_not_found".
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
+const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "pbir-mcp-bv-"));
+const reportOnlyPath = path.join(tmpDir, "NoModel.Report");
+fs.mkdirSync(reportOnlyPath);
+const stubProject = { reportPath: reportOnlyPath };
+
+_resetBindingValidationWarnings();
+
+// off mode → skipReason = "mode_off", proceed = true
+const offOutcome = runBindingValidation(stubProject, [
+  { bucket: "Values", fields: [{ field: "Sales[Whatever]", type: "measure" }] },
+], undefined /* strictBindings */);
+// With env unset, default is strict — but we want off. Set explicitly.
+process.env.MCP_BINDING_VALIDATION = "off";
+const offOutcome2 = runBindingValidation(stubProject, [
+  { bucket: "Values", fields: [{ field: "Sales[Whatever]", type: "measure" }] },
+], undefined);
+if (offOutcome2.skipReason === "mode_off" && offOutcome2.proceed === true) {
+  pass("SKIP 1  env=off → skipReason=mode_off, proceed=true");
+} else {
+  fail(`SKIP 1  env=off  got skipReason=${offOutcome2.skipReason}, proceed=${offOutcome2.proceed}`);
+}
+delete process.env.MCP_BINDING_VALIDATION;
+
+// No .SemanticModel sibling → skipReason = "model_not_found"
+_resetBindingValidationWarnings();
+const mnfOutcome = runBindingValidation(stubProject, [
+  { bucket: "Values", fields: [{ field: "Sales[Whatever]", type: "measure" }] },
+], true /* strict */);
+if (mnfOutcome.skipReason === "model_not_found" && mnfOutcome.proceed === true) {
+  pass("SKIP 2  no .SemanticModel → skipReason=model_not_found, proceed=true (silent degrade)");
+} else {
+  fail(`SKIP 2  no model  got skipReason=${mnfOutcome.skipReason}, proceed=${mnfOutcome.proceed}`);
+}
+
+// Empty bindings → skipReason = "empty_bindings" (not noteworthy)
+const emptyOutcome = runBindingValidation(stubProject, [], true);
+if (emptyOutcome.skipReason === "empty_bindings") {
+  pass("SKIP 3  empty bindings → skipReason=empty_bindings");
+} else {
+  fail(`SKIP 3  empty bindings  got skipReason=${emptyOutcome.skipReason}`);
+}
+
+// isNoteworthySkip classifier
+if (
+  isNoteworthySkip("model_not_found") === true &&
+  isNoteworthySkip("model_parse_error") === true &&
+  isNoteworthySkip("mode_off") === false &&
+  isNoteworthySkip("empty_bindings") === false &&
+  isNoteworthySkip(null) === false
+) {
+  pass("SKIP 4  isNoteworthySkip classifies model_not_found/parse_error as surface-worthy");
+} else {
+  fail("SKIP 4  isNoteworthySkip classifier");
+}
+
+// Cleanup the tmpdir
+try {
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+} catch { /* ignore */ }
 
 // ---------------------------------------------------------------------------
 // Summary
