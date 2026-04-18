@@ -297,7 +297,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
               const isFirst =
                 i === 0 &&
                 (bucketName === "Category" ||
-                  (SLICER_VISUAL_TYPES.has(vType) && bucketName === "Values"));
+                  (SLICER_VISUAL_TYPES.has(vType) && (bucketName === "Values" || bucketName === "Rows")));
               return {
                 field,
                 queryRef: buildQueryRef(field),
@@ -325,11 +325,12 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
               ],
               isDefaultSort: true,
             };
-          } else if (SLICER_VISUAL_TYPES.has(vType) && queryState.Values?.projections?.[0]) {
+          } else if (SLICER_VISUAL_TYPES.has(vType) && (queryState.Values?.projections?.[0] || queryState.Rows?.projections?.[0])) {
+            const slicerBucket = queryState.Values ?? queryState.Rows;
             visual.visual.query.sortDefinition = {
               sort: [
                 {
-                  field: JSON.parse(JSON.stringify(queryState.Values.projections[0].field)),
+                  field: JSON.parse(JSON.stringify(slicerBucket!.projections[0].field)),
                   direction: "Ascending",
                 },
               ],

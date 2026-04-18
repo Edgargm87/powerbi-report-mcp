@@ -55,7 +55,8 @@ function registerBindingTools(server, ctx) {
             const projections = binding.fields.map((fieldSpec, i) => {
                 const field = (0, createVisual_js_1.parseFieldSpec)(fieldSpec);
                 const isFirst = i === 0 &&
-                    (bucketName === "Category" || (createVisual_js_1.SLICER_VISUAL_TYPES.has(vType) && bucketName === "Values"));
+                    (bucketName === "Category" ||
+                        (createVisual_js_1.SLICER_VISUAL_TYPES.has(vType) && (bucketName === "Values" || bucketName === "Rows")));
                 return {
                     field,
                     queryRef: (0, pbir_js_1.buildQueryRef)(field),
@@ -83,11 +84,12 @@ function registerBindingTools(server, ctx) {
                 isDefaultSort: true,
             };
         }
-        else if (createVisual_js_1.SLICER_VISUAL_TYPES.has(vType) && queryState.Values?.projections?.[0]) {
+        else if (createVisual_js_1.SLICER_VISUAL_TYPES.has(vType) && (queryState.Values?.projections?.[0] || queryState.Rows?.projections?.[0])) {
+            const slicerBucket = queryState.Values ?? queryState.Rows;
             visual.visual.query.sortDefinition = {
                 sort: [
                     {
-                        field: JSON.parse(JSON.stringify(queryState.Values.projections[0].field)),
+                        field: JSON.parse(JSON.stringify(slicerBucket.projections[0].field)),
                         direction: "Ascending",
                     },
                 ],

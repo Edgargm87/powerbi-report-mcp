@@ -19,8 +19,9 @@ Power BI uses non-obvious internal names for its built-in visuals. These cause t
 Additional naming traps:
 
 - **There is NO `stackedBarChart` or `stackedColumnChart` type.** The "stacked" variants are just `barChart` and `columnChart`. See [pbir-gotchas.md, section 1.2](pbir-gotchas.md).
-- **Combo charts** use `ColumnY` and `LineY` as bucket names -- not `Y` and `Y2`.
-- **Scatter charts** use `Details` as the dimension bucket -- not `Category`.
+- **Combo charts** use `Y` (column series) and `Y2` (line series) as bucket names -- the same naming as `lineChart`. (Earlier revisions of this doc said `ColumnY`/`LineY` -- that was wrong against the Fabric 2.7.0 schema.)
+- **Scatter charts** use `Category` as the dimension bucket (verified against schema + Desktop output). Earlier revisions said `Details` -- that was wrong.
+- **Advanced slicer** (`advancedSlicerVisual`) uses `Rows`, not `Values`.
 - **Treemap** uses `Group` and `Values` -- not `Category` and `Y`.
 - **Matrix** is `pivotTable` -- not `matrix`.
 - **Table** is `tableEx` -- not `table`.
@@ -54,8 +55,8 @@ Additional naming traps:
 
 | `visualType` | Display Name | Data Buckets | Notes |
 |-------------|-------------|--------------|-------|
-| `lineClusteredColumnComboChart` | Line + clustered column | Category, ColumnY, LineY, Series | Use `ColumnY` and `LineY` -- not Y/Y2 |
-| `lineStackedColumnComboChart` | Line + stacked column | Category, ColumnY, LineY, Series | Use `ColumnY` and `LineY` -- not Y/Y2 |
+| `lineClusteredColumnComboChart` | Line + clustered column | Category, Y, Y2, Series | `Y` = column series, `Y2` = line series |
+| `lineStackedColumnComboChart` | Line + stacked column | Category, Y, Y2, Series | `Y` = column series, `Y2` = line series |
 
 ### Pie, Donut, Funnel, and Treemap
 
@@ -70,7 +71,7 @@ Additional naming traps:
 
 | `visualType` | Display Name | Data Buckets | Notes |
 |-------------|-------------|--------------|-------|
-| `scatterChart` | Scatter chart | Details, X, Y, Size, Series | Uses `Details` -- not Category |
+| `scatterChart` | Scatter chart | Category, X, Y, Size, Series | Dimension bucket is `Category` (verified against Fabric schema 2.7.0) |
 
 ### Maps
 
@@ -105,7 +106,7 @@ Additional naming traps:
 | `slicer` | Slicer (classic) | Values | Supports `slicerMode`: `Basic` (list) or `Dropdown` |
 | `listSlicer` | List slicer | Values | Always-expanded checkbox list; no slicerMode property |
 | `textSlicer` | Text slicer | Values | Free-text search box; no slicerMode property |
-| `advancedSlicerVisual` | Advanced slicer | Values | Range / between slicer; no slicerMode property |
+| `advancedSlicerVisual` | Advanced slicer | Rows | Range / between slicer; dimension bucket is `Rows` (not Values); no slicerMode property |
 
 ### Decorative and Navigation
 
@@ -192,11 +193,11 @@ Single lookup table for every supported visual type.
 | `areaChart` | Category | Y | Y2 | Series | |
 | `stackedAreaChart` | Category | Y | Series | | |
 | `hundredPercentStackedAreaChart` | Category | Y | Series | | |
-| `lineClusteredColumnComboChart` | Category | ColumnY | LineY | Series | |
-| `lineStackedColumnComboChart` | Category | ColumnY | LineY | Series | |
+| `lineClusteredColumnComboChart` | Category | Y | Y2 | Series | |
+| `lineStackedColumnComboChart` | Category | Y | Y2 | Series | |
 | `ribbonChart` | Category | Y | Series | | |
 | `waterfallChart` | Category | Y | Breakdown | | |
-| `scatterChart` | Details | X | Y | Size | Series |
+| `scatterChart` | Category | X | Y | Size | Series |
 | `pieChart` | Category | Y | Series | | |
 | `donutChart` | Category | Y | Series | | |
 | `funnelChart` | Category | Y | | | |
@@ -216,7 +217,7 @@ Single lookup table for every supported visual type.
 | `slicer` | Values | | | | |
 | `listSlicer` | Values | | | | |
 | `textSlicer` | Values | | | | |
-| `advancedSlicerVisual` | Values | | | | |
+| `advancedSlicerVisual` | Rows | | | | |
 | `textbox` | (none) | | | | |
 | `shape` | (none) | | | | |
 | `image` | (none) | | | | |

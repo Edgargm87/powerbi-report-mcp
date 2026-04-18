@@ -217,7 +217,8 @@ function createAndSaveVisual(project, pageId, spec, baseZ) {
             const projections = binding.fields.map((fieldSpec, i) => {
                 const field = parseFieldSpec(fieldSpec);
                 const isFirst = i === 0 &&
-                    (bucketName === "Category" || (exports.SLICER_VISUAL_TYPES.has(visualType) && bucketName === "Values"));
+                    (bucketName === "Category" ||
+                        (exports.SLICER_VISUAL_TYPES.has(visualType) && (bucketName === "Values" || bucketName === "Rows")));
                 return {
                     field,
                     queryRef: (0, pbir_js_1.buildQueryRef)(field),
@@ -230,7 +231,9 @@ function createAndSaveVisual(project, pageId, spec, baseZ) {
     }
     // Build sort definition
     let sortDefinition;
-    // Category bucket (most charts) or Details bucket (scatterChart)
+    // Primary dimension bucket: "Category" for most charts; "Details" is
+    // kept as a fallback only for treemap (legacy scatter revisions used
+    // "Details" but Desktop actually writes "Category" — see pbir.ts).
     const categoryBucket = queryState.Category ?? queryState.Details;
     if (categoryBucket?.projections?.[0]) {
         sortDefinition = {
@@ -243,15 +246,19 @@ function createAndSaveVisual(project, pageId, spec, baseZ) {
             isDefaultSort: true,
         };
     }
-    if (!sortDefinition && exports.SLICER_VISUAL_TYPES.has(visualType) && queryState.Values?.projections?.[0]) {
-        sortDefinition = {
-            sort: [
-                {
-                    field: JSON.parse(JSON.stringify(queryState.Values.projections[0].field)),
-                    direction: "Ascending",
-                },
-            ],
-        };
+    if (!sortDefinition && exports.SLICER_VISUAL_TYPES.has(visualType)) {
+        // advancedSlicerVisual uses "Rows"; classic slicer/listSlicer/textSlicer use "Values"
+        const slicerBucket = queryState.Values ?? queryState.Rows;
+        if (slicerBucket?.projections?.[0]) {
+            sortDefinition = {
+                sort: [
+                    {
+                        field: JSON.parse(JSON.stringify(slicerBucket.projections[0].field)),
+                        direction: "Ascending",
+                    },
+                ],
+            };
+        }
     }
     // Build visual objects (for slicers, shapes, textboxes)
     let visualObjects;

@@ -116,10 +116,10 @@ When in doubt, call `get_visual_types` — it dumps the live bucket map straight
 |---|---|
 | columnChart, barChart, clusteredColumnChart, clusteredBarChart, etc. | Category, Y, Series |
 | lineChart, areaChart, stackedAreaChart | Category, Y, Y2, Series |
-| **lineStackedColumnComboChart** | Category, **ColumnY**, **LineY**, Series |
-| **lineClusteredColumnComboChart** | Category, **ColumnY**, **LineY**, Series |
+| **lineStackedColumnComboChart** | Category, **Y** (column), **Y2** (line), Series |
+| **lineClusteredColumnComboChart** | Category, **Y** (column), **Y2** (line), Series |
 | pieChart, donutChart | Category, Y |
-| **scatterChart** | **Details**, X, Y, Size, Series — use "Details" not "Category" |
+| **scatterChart** | **Category**, X, Y, Size, Series |
 | card, multiRowCard | Values |
 | **cardVisual** | **Data** |
 | tableEx | Values |
@@ -136,7 +136,7 @@ When in doubt, call `get_visual_types` — it dumps the live bucket map straight
 | slicer, listSlicer, textSlicer, advancedSlicerVisual | Values |
 
 **Series bucket** = breakdown/legend field for stacked charts.
-**ColumnY / LineY** — combo charts use separate Y buckets, not Y/Y2.
+**Combo charts** — use `Y` (column series) and `Y2` (line series), same naming as `lineChart`. (Earlier revisions of this doc said `ColumnY`/`LineY` — that was wrong. Desktop's PBIR writer uses `Y`/`Y2`.)
 **`kpi` vs `card` vs `cardVisual`** — three different visuals, different binding shapes:
 - `kpi` — compound visual. Needs **three different fields**: Indicator (the value) + TrendLine (the prior-period series) + Goal (the target). Don't pick this unless the user really wants all three.
 - `card` (classic) — **single `Values` field only**. One measure, one number. Binding two fields here is wrong.
@@ -145,7 +145,8 @@ When in doubt, call `get_visual_types` — it dumps the live bucket map straight
   2. `Data: [measure, referenceMeasure, …]` → callout + one or more reference values (e.g. current + SPLY)
   3. `Data: [measure]` + `Rows: [category]` → one small-multiple card per row value
 - When a user says "KPI card" with **one number**, pick `card` or `cardVisual` (1 measure), never `kpi`.
-**Details** — scatter chart uses Details (not Category) for the dimension field.
+**scatterChart dimension** — use `Category` (verified against Fabric schema v2.7.0 and Desktop-generated PBIR). Earlier revisions said `Details` — that was wrong. Only `treemap` legitimately uses `Details` as a separate bucket.
+**advancedSlicerVisual** — dimension bucket is `Rows`, not `Values`.
 
 ## Field Spec — Table[Column] shorthand
 

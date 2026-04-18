@@ -165,14 +165,20 @@ export const VISUAL_BUCKETS: Record<string, string[]> = {
   areaChart: ["Category", "Y", "Y2", "Series"],
   stackedAreaChart: ["Category", "Y", "Series"],
   hundredPercentStackedAreaChart: ["Category", "Y", "Series"],
-  // --- Combo charts — use ColumnY / LineY (not Y / Y2) ---
-  lineClusteredColumnComboChart: ["Category", "ColumnY", "LineY", "Series"],
-  lineStackedColumnComboChart: ["Category", "ColumnY", "LineY", "Series"],
+  // --- Combo charts — use Y / Y2 (verified against fabric schema v2.7.0
+  // and the data-goblin reference scaffolds). Column series = Y,
+  // line series = Y2. Do NOT use ColumnY / LineY — those are not
+  // recognised by Desktop's PBIR reader.
+  lineClusteredColumnComboChart: ["Category", "Y", "Y2", "Series"],
+  lineStackedColumnComboChart: ["Category", "Y", "Y2", "Series"],
   // --- Other charts ---
   ribbonChart: ["Category", "Y", "Series"],
   waterfallChart: ["Category", "Y", "Breakdown"],
-  // --- Scatter — dimension bucket is "Details", not "Category" ---
-  scatterChart: ["Details", "X", "Y", "Size", "Series"],
+  // --- Scatter — dimension bucket is "Category" (verified against
+  // fabric schema v2.7.0 and data-goblin reference). Earlier revisions
+  // used "Details" — that was wrong and caused bindings to be ignored
+  // by Desktop.
+  scatterChart: ["Category", "X", "Y", "Size", "Series"],
   pieChart: ["Category", "Y", "Series"],
   donutChart: ["Category", "Y", "Series"],
   funnelChart: ["Category", "Y"],                          // correct PBI type name
@@ -200,7 +206,7 @@ export const VISUAL_BUCKETS: Record<string, string[]> = {
   slicer: ["Values"],
   listSlicer: ["Values"],
   textSlicer: ["Values"],
-  advancedSlicerVisual: ["Values"],
+  advancedSlicerVisual: ["Rows"],  // advancedSlicerVisual uses "Rows", not "Values" (verified against fabric 2.7.0 + data-goblin reference)
   // --- No data binding ---
   textbox: [],
   basicShape: [],
