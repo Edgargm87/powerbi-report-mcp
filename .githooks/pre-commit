@@ -57,4 +57,13 @@ node scripts/test-extract-title.js >/dev/null || {
   exit 1
 }
 
-echo "[pre-commit] ✓ audit + wireframe + binding + title pass"
+echo "[pre-commit] running layout-validator suite..."
+node scripts/test-layout-validator.js >/dev/null || {
+  echo ""
+  echo "✗ layout-validator suite failed — the write-time validator that guards"
+  echo "  against bad positions on add_visual has a regression."
+  echo "  Run 'npm run test:layout' to see which cases broke."
+  exit 1
+}
+
+echo "[pre-commit] ✓ audit + wireframe + binding + title + layout pass"

@@ -43,3 +43,6 @@ jobs:
 
       - name: Run title-extractor smoke test
         run: npm run test:extract-title
+
+      - name: Run layout-validator suite
+        run: npm run test:layout

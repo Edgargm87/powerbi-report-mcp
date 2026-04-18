@@ -42,6 +42,7 @@ const pbir_js_1 = require("../pbir.js");
 const model_usage_js_1 = require("../model-usage.js");
 const extractTitle_js_1 = require("../helpers/extractTitle.js");
 const mcpResult_js_1 = require("../helpers/mcpResult.js");
+const layoutValidation_js_1 = require("../helpers/layoutValidation.js");
 function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: set_report — switch report at runtime
@@ -83,7 +84,9 @@ function registerReportTools(server, ctx) {
                 return base;
             return { ...base, width: page.width, height: page.height, displayOption: page.displayOption };
         });
-        return { content: [{ type: "text", text: JSON.stringify(pages, null, 2) }] };
+        // Canvas constants help the LLM place visuals without guessing —
+        // cheap to include, enormous payoff on layout accuracy.
+        return { content: [{ type: "text", text: JSON.stringify({ pages, canvas: (0, layoutValidation_js_1.getCanvasSummary)() }, null, 2) }] };
     });
     // ============================================================
     // TOOL: create_page
@@ -140,7 +143,16 @@ function registerReportTools(server, ctx) {
         ctx.project.savePagesMetadata(meta);
         return {
             content: [
-                { type: "text", text: JSON.stringify({ success: true, pageId, displayName, type: isTooltip ? "tooltip" : "standard", drillthrough: !!drillthrough }, null, 2) },
+                { type: "text", text: JSON.stringify({
+                        success: true,
+                        pageId,
+                        displayName,
+                        type: isTooltip ? "tooltip" : "standard",
+                        drillthrough: !!drillthrough,
+                        // Echo canvas constants on create — LLM now knows exactly what
+                        // usable area it has for placing visuals on the new page.
+                        canvas: isTooltip ? null : (0, layoutValidation_js_1.getCanvasSummary)(),
+                    }, null, 2) },
             ],
         };
     });
@@ -426,7 +438,7 @@ function registerReportTools(server, ctx) {
             };
         });
         return {
-            content: [{ type: "text", text: JSON.stringify({ pageCount: pages.length, pages }, null, 2) }],
+            content: [{ type: "text", text: JSON.stringify({ pageCount: pages.length, pages, canvas: (0, layoutValidation_js_1.getCanvasSummary)() }, null, 2) }],
         };
     });
     // ============================================================

@@ -7,6 +7,7 @@ const createVisual_js_1 = require("../helpers/createVisual.js");
 const model_usage_js_1 = require("../model-usage.js");
 const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
 const extractTitle_js_1 = require("../helpers/extractTitle.js");
+const layoutValidation_js_1 = require("../helpers/layoutValidation.js");
 function registerVisualTools(server, ctx) {
     // ============================================================
     // TOOL: get_visual_types
@@ -172,6 +173,10 @@ function registerVisualTools(server, ctx) {
             .boolean()
             .optional()
             .describe("Binding validation: true=strict (fail on unknown field, default), false=warn (proceed with warnings). Omit for env default (MCP_BINDING_VALIDATION)."),
+        strictLayout: zod_1.z
+            .boolean()
+            .optional()
+            .describe("Layout validation: true=strict (default, reject overflow/overlap/margin violations), false=warn (proceed with warnings). Omit for env default (MCP_LAYOUT_VALIDATION). Canvas is 1280x720 with 15px L/R and 6px bottom margins, 5px gaps."),
         containerFormat: zod_1.z.array(createVisual_js_1.FormatCategorySchema).optional().describe("Inline container formatting"),
         visualFormat: zod_1.z.array(createVisual_js_1.FormatCategorySchema).optional().describe("Inline visual formatting"),
         dataColors: zod_1.z.array(createVisual_js_1.DataColorSchema).optional().describe("Inline data point colors"),
@@ -282,6 +287,49 @@ function registerVisualTools(server, ctx) {
                 ],
             };
         }
+        // Layout validation — run against EVERY visual that will be on the
+        // page after this call completes. Existing visuals + the new specs.
+        // Validator needs the full picture to spot overlaps/alignment.
+        const existingWireframe = existingVisuals.map((vid) => {
+            const v = ctx.project.getVisual(pageId, vid);
+            return {
+                id: vid,
+                visualType: v.visual.visualType,
+                x: v.position.x,
+                y: v.position.y,
+                width: v.position.width,
+                height: v.position.height,
+                title: (0, extractTitle_js_1.extractVisualTitle)(v.visual.visualContainerObjects) || undefined,
+            };
+        });
+        const newWireframe = specs.map((s, i) => ({
+            id: `__pending_${i}`,
+            visualType: s.visualType,
+            x: s.x ?? 0,
+            y: s.y ?? 0,
+            width: s.width ?? 280,
+            height: s.height ?? 280,
+            title: s.title,
+        }));
+        const layoutValidation = (0, layoutValidation_js_1.runLayoutValidation)([...existingWireframe, ...newWireframe], params.strictLayout);
+        if (!layoutValidation.proceed) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({
+                            success: false,
+                            error: "layout_validation_failed",
+                            hint: "Set strictLayout:false to proceed with warnings, or fix the positions per `suggestion`. Canvas constants echoed for grounding.",
+                            mode: layoutValidation.mode,
+                            canvas: layoutValidation.canvas,
+                            layoutErrors: layoutValidation.errors,
+                            layoutWarnings: layoutValidation.warnings,
+                        }, null, 2),
+                    },
+                ],
+            };
+        }
         const results = [];
         for (let i = 0; i < specs.length; i++) {
             const result = (0, createVisual_js_1.createAndSaveVisual)(ctx.project, pageId, specs[i], maxZ + (i + 1) * 1000);
@@ -292,6 +340,7 @@ function registerVisualTools(server, ctx) {
             success: true,
             pageId,
             created: results,
+            canvas: (0, layoutValidation_js_1.getCanvasSummary)(),
         };
         if (validation.errors.length > 0) {
             response.bindingWarnings = validation.errors;
@@ -302,6 +351,9 @@ function registerVisualTools(server, ctx) {
                 skipped: validation.skipReason,
                 note: "Bindings were NOT checked against the semantic model. Double-check field names — a typo will load silently and render nothing.",
             };
+        }
+        if (layoutValidation.warnings.length > 0) {
+            response.layoutWarnings = layoutValidation.warnings;
         }
         return {
             content: [

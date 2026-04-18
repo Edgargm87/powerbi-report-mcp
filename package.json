@@ -19,7 +19,8 @@
     "test:wireframe": "node scripts/test-wireframe-validator.js",
     "test:binding": "node scripts/test-binding-validator.js",
     "test:extract-title": "node scripts/test-extract-title.js",
-    "test:all": "npm run build && npm run audit:strict && npm run test:wireframe && npm run test:binding && npm run test:extract-title",
+    "test:layout": "node scripts/test-layout-validator.js",
+    "test:all": "npm run build && npm run audit:strict && npm run test:wireframe && npm run test:binding && npm run test:extract-title && npm run test:layout",
     "hooks:install": "node scripts/install-hooks.js"
   },
   "dependencies": {

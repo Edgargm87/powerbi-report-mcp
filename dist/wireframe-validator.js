@@ -38,7 +38,15 @@ function label(v) {
     return v.title || v.id || v.visualType;
 }
 function isBanner(v) {
-    return v.visualType === "shape" && v.y === 0 && v.x === 0 && v.width === exports.CANVAS.width;
+    // A banner is a shape pinned to (0,0). We treat any shape that LOOKS like it's
+    // trying to be a banner — i.e. width spans the canvas OR height matches the
+    // canonical banner height — as banner-intent, so we can surface BANNER_WIDTH
+    // / BANNER_POSITION errors instead of noisily flagging it as a left-margin +
+    // silent-default violation.
+    return (v.visualType === "shape" &&
+        v.y === 0 &&
+        v.x === 0 &&
+        (v.width === exports.CANVAS.width || v.height === exports.CANVAS.bannerHeight));
 }
 function rectsOverlap(a, b) {
     return !(a.x + a.width <= b.x ||
@@ -115,6 +123,14 @@ function validateWireframe(visuals) {
         }
         // Banner rule
         if (isBanner(v)) {
+            if (v.width !== exports.CANVAS.width) {
+                issues.push({
+                    severity: "error",
+                    code: "BANNER_WIDTH",
+                    message: `${tag} banner width is ${v.width}px, expected ${exports.CANVAS.width}px (banners must span the full canvas)`,
+                    visuals: [tag],
+                });
+            }
             if (v.height !== exports.CANVAS.bannerHeight) {
                 issues.push({
                     severity: "warning",

@@ -9,6 +9,7 @@ import type { ServerContext } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
 import { extractVisualTitle } from "../helpers/extractTitle.js";
 import { ok, fail } from "../helpers/mcpResult.js";
+import { getCanvasSummary } from "../helpers/layoutValidation.js";
 
 export function registerReportTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
@@ -66,7 +67,9 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         if (slim) return base;
         return { ...base, width: page.width, height: page.height, displayOption: page.displayOption };
       });
-      return { content: [{ type: "text", text: JSON.stringify(pages, null, 2) }] };
+      // Canvas constants help the LLM place visuals without guessing —
+      // cheap to include, enormous payoff on layout accuracy.
+      return { content: [{ type: "text", text: JSON.stringify({ pages, canvas: getCanvasSummary() }, null, 2) }] };
     }
   );
 
@@ -137,7 +140,16 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
 
       return {
         content: [
-          { type: "text", text: JSON.stringify({ success: true, pageId, displayName, type: isTooltip ? "tooltip" : "standard", drillthrough: !!drillthrough }, null, 2) },
+          { type: "text", text: JSON.stringify({
+            success: true,
+            pageId,
+            displayName,
+            type: isTooltip ? "tooltip" : "standard",
+            drillthrough: !!drillthrough,
+            // Echo canvas constants on create — LLM now knows exactly what
+            // usable area it has for placing visuals on the new page.
+            canvas: isTooltip ? null : getCanvasSummary(),
+          }, null, 2) },
         ],
       };
     }
@@ -495,7 +507,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       });
 
       return {
-        content: [{ type: "text", text: JSON.stringify({ pageCount: pages.length, pages }, null, 2) }],
+        content: [{ type: "text", text: JSON.stringify({ pageCount: pages.length, pages, canvas: getCanvasSummary() }, null, 2) }],
       };
     }
   );
