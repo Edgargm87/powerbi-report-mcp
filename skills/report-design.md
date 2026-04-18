@@ -83,10 +83,19 @@ Don't invent ad-hoc layouts in prose — read `guide("wireframes")` for the vali
 
 ## KPI Card Pattern
 
-A KPI card typically shows:
-1. **Value** — the primary metric (large, bold)
-2. **Label** — what the metric is (smaller, muted)
-3. **Trend indicator** — vs prior period (arrow/color)
+**Terminology gotcha — "KPI card" ≠ `kpi` visual.**
+
+When a user says "KPI card", "KPI tile", or "KPIs across the top", they almost always mean a **single-value card** (`visualType: "card"`, single `Values` bucket, one field bound). They do **not** mean the true `kpi` visual, which is a compound visual with three separate buckets (`Indicator`, `TrendLine`, `Goal`) and expects three different fields.
+
+Rule of thumb:
+- One measure to display big + a label → `card` (or `cardVisual` for the new card).
+- Three fields: a value + a prior-period trend series + a target → `kpi`.
+- Anything else (value + trend arrow, value + target delta) → `card` with conditional formatting or an SVG measure — see `guide("svg-visuals")`.
+
+A "KPI card" in Power BI practice typically shows:
+1. **Value** — the primary metric (large, bold) → the single `Values` field
+2. **Label** — what the metric is (smaller, muted) → the visual title
+3. **Trend indicator** — vs prior period (arrow/color) → conditional format or SVG
 
 Use the new `cardVisual` type for richer card formatting.
 For inline trend arrows, use SVG measures — see `guide("svg-visuals")`.

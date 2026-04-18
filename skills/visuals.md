@@ -75,8 +75,9 @@ When `visuals` is provided, the top-level single-mode params (`visualType`, `x`,
 | Pie chart | `pieChart` |
 | Donut chart | `donutChart` |
 | Scatter | `scatterChart` |
-| KPI | `kpi` |
-| Card (classic) | `card` |
+| KPI (true KPI visual — headline + trend + goal) | `kpi` |
+| **"KPI card" / "KPI tile" / single-metric card** (common parlance) | **`card`** — NOT `kpi` |
+| Card (classic, single value) | `card` |
 | Card (new visual) | `cardVisual` |
 | Multi-row card | `multiRowCard` |
 | Table | `tableEx` |
@@ -136,6 +137,7 @@ When in doubt, call `get_visual_types` — it dumps the live bucket map straight
 
 **Series bucket** = breakdown/legend field for stacked charts.
 **ColumnY / LineY** — combo charts use separate Y buckets, not Y/Y2.
+**`kpi` vs `card`** — a `kpi` visual needs **three different fields** (Indicator + TrendLine + Goal). If the user just wants a "KPI card" showing one number, use `card` with a single field in `Values`. Binding two or three fields to a `card` or `cardVisual` is a mistake — those are single-metric visuals.
 **Details** — scatter chart uses Details (not Category) for the dimension field.
 
 ## Field Spec — Table[Column] shorthand
