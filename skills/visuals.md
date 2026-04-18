@@ -137,7 +137,14 @@ When in doubt, call `get_visual_types` — it dumps the live bucket map straight
 
 **Series bucket** = breakdown/legend field for stacked charts.
 **ColumnY / LineY** — combo charts use separate Y buckets, not Y/Y2.
-**`kpi` vs `card`** — a `kpi` visual needs **three different fields** (Indicator + TrendLine + Goal). If the user just wants a "KPI card" showing one number, use `card` with a single field in `Values`. Binding two or three fields to a `card` or `cardVisual` is a mistake — those are single-metric visuals.
+**`kpi` vs `card` vs `cardVisual`** — three different visuals, different binding shapes:
+- `kpi` — compound visual. Needs **three different fields**: Indicator (the value) + TrendLine (the prior-period series) + Goal (the target). Don't pick this unless the user really wants all three.
+- `card` (classic) — **single `Values` field only**. One measure, one number. Binding two fields here is wrong.
+- `cardVisual` (new card) — **flexible**. Legit patterns:
+  1. `Data: [measure]` → single-measure callout
+  2. `Data: [measure, referenceMeasure, …]` → callout + one or more reference values (e.g. current + SPLY)
+  3. `Data: [measure]` + `Rows: [category]` → one small-multiple card per row value
+- When a user says "KPI card" with **one number**, pick `card` or `cardVisual` (1 measure), never `kpi`.
 **Details** — scatter chart uses Details (not Category) for the dimension field.
 
 ## Field Spec — Table[Column] shorthand

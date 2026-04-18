@@ -87,10 +87,13 @@ Don't invent ad-hoc layouts in prose — read `guide("wireframes")` for the vali
 
 When a user says "KPI card", "KPI tile", or "KPIs across the top", they almost always mean a **single-value card** (`visualType: "card"`, single `Values` bucket, one field bound). They do **not** mean the true `kpi` visual, which is a compound visual with three separate buckets (`Indicator`, `TrendLine`, `Goal`) and expects three different fields.
 
-Rule of thumb:
-- One measure to display big + a label → `card` (or `cardVisual` for the new card).
-- Three fields: a value + a prior-period trend series + a target → `kpi`.
-- Anything else (value + trend arrow, value + target delta) → `card` with conditional formatting or an SVG measure — see `guide("svg-visuals")`.
+Rule of thumb — pick by shape, not by the word "KPI":
+- Single number, nothing else → `card` (`Values`: one measure).
+- Single number but you want richer formatting (accent bar, reference lines, callout typography) → `cardVisual` (`Data`: one measure).
+- Primary value **plus** one or more reference values side-by-side (e.g. current + prior-year) → `cardVisual` (`Data`: 2+ measures).
+- One measure repeated per category as a grid of small-multiple cards → `cardVisual` (`Data`: one measure, `Rows`: one category).
+- Value + prior-period *series* + a *target* (all three, explicitly) → `kpi` (`Indicator` + `TrendLine` + `Goal`).
+- Value + trend arrow / value + target delta (no trend series) → `card` with conditional formatting or an SVG measure — see `guide("svg-visuals")`.
 
 A "KPI card" in Power BI practice typically shows:
 1. **Value** — the primary metric (large, bold) → the single `Values` field
