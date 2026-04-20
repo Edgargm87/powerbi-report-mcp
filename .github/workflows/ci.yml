@@ -49,3 +49,9 @@ jobs:
 
       - name: Run layout-grid suite
         run: npm run test:grid
+
+      - name: Run slicer-defaults regression test
+        run: npm run test:slicer
+
+      - name: Audit skills against bundled theme schema
+        run: npm run test:schema-docs

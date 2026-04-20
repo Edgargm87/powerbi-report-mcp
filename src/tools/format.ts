@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { applyFormattingToTarget, applyDataColors } from "../helpers/formatting.js";
 import { FormatCategorySchema, DataColorSchema, NO_DATA_VISUAL_TYPES } from "../helpers/createVisual.js";
+import { validateFormatting } from "../helpers/themeSchema.js";
 import { THEME_PRESETS } from "../helpers/defaults.js";
 import type { ServerContext } from "../context.js";
 
@@ -91,7 +92,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "format_visual",
-    "Format visual properties. Auto-routes categories: title/background/border/padding/dropShadow/visualHeader → visualContainerObjects, everything else → objects. Override with target='visual' or target='container'.",
+    "Format visual properties. Auto-routes categories: title/background/border/padding/dropShadow/visualHeader → visualContainerObjects, everything else → objects. Override with target='visual' or target='container'. Validates category+property names against the bundled PBI theme schema — returns {success:false, issues:[...]} on unknown names (override with strict=false).",
     {
       pageId: z.string().describe("The page ID"),
       visualId: z.string().describe("The visual ID"),
@@ -104,9 +105,42 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
         .describe(
           "'auto' (default) routes container categories (title/background/border/padding/dropShadow/visualHeader) to visualContainerObjects and everything else to objects. Use 'visual' or 'container' to force."
         ),
+      strict: z
+        .boolean()
+        .optional()
+        .default(true)
+        .describe(
+          "When true (default), reject writes that contain unknown category or property names (per the bundled PBI theme schema). Set false to force-write anyway — only do this for schema-newer-than-bundled cases."
+        ),
     },
-    async ({ pageId, visualId, formatting, target }) => {
+    async ({ pageId, visualId, formatting, target, strict }) => {
       const visual = ctx.project.getVisual(pageId, visualId);
+      const visualType = (visual.visual?.visualType as string) || "";
+
+      // Pre-write validation against the bundled theme schema.
+      // Unknown visualType skips silently (schema may lag); known type + typo fails loudly.
+      if (strict && visualType) {
+        const issues = validateFormatting(visualType, formatting);
+        if (issues.length > 0) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  success: false,
+                  error: "Formatting rejected: unknown category or property names for this visualType.",
+                  visualType,
+                  issues,
+                  hint:
+                    "Call lookup_theme_property({ visualType, category }) to see valid names. " +
+                    "If you're certain the schema is stale (PBI shipped something new), retry with strict: false.",
+                }),
+              },
+            ],
+            isError: true,
+          };
+        }
+      }
 
       if (target === "auto") {
         // Split formatting into container vs visual categories

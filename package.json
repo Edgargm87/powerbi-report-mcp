@@ -21,7 +21,11 @@
     "test:extract-title": "node scripts/test-extract-title.js",
     "test:layout": "node scripts/test-layout-validator.js",
     "test:grid": "node scripts/test-layout-grid.js",
-    "test:all": "npm run build && npm run audit:strict && npm run test:wireframe && npm run test:binding && npm run test:extract-title && npm run test:layout && npm run test:grid",
+    "test:slicer": "node scripts/test-slicer-defaults.js",
+    "test:schema-docs": "node scripts/audit-skills-against-schema.js",
+    "schema:check": "node scripts/refresh-theme-schema.js --check",
+    "schema:refresh": "node scripts/refresh-theme-schema.js",
+    "test:all": "npm run build && npm run audit:strict && npm run test:wireframe && npm run test:binding && npm run test:extract-title && npm run test:layout && npm run test:grid && npm run test:slicer && npm run test:schema-docs",
     "hooks:install": "node scripts/install-hooks.js"
   },
   "dependencies": {

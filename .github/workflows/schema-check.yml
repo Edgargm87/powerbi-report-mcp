@@ -1,0 +1,101 @@
+name: Theme-schema freshness
+
+# Weekly check against Microsoft's powerbi-desktop-samples repo. When a newer
+# reportThemeSchema-*.json ships upstream, this job opens (or updates) a tracking
+# issue so a maintainer can run `npm run schema:refresh`, review the diff, and
+# commit. We deliberately do NOT auto-commit — the diff can change semantics
+# and deserves a human pass.
+
+on:
+  schedule:
+    # Mondays 09:00 UTC. Weekly cadence is plenty — schema updates are rare.
+    - cron: "0 9 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: check for newer theme schema
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run schema:check (exit 1 when newer version available)
+        id: check
+        continue-on-error: true
+        run: |
+          set +e
+          OUTPUT=$(node scripts/refresh-theme-schema.js --check 2>&1)
+          RC=$?
+          echo "$OUTPUT"
+          # Persist output and return code for later steps.
+          {
+            echo "rc=$RC"
+            echo "output<<SCHEMAEOF"
+            echo "$OUTPUT"
+            echo "SCHEMAEOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open / update tracking issue when newer schema is available
+        if: steps.check.outputs.rc == '1'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `${{ steps.check.outputs.output }}`;
+            const title = "Theme schema: upstream version available";
+            const body = [
+              "The scheduled schema freshness check detected a newer",
+              "`reportThemeSchema-*.json` in microsoft/powerbi-desktop-samples.",
+              "",
+              "```",
+              output,
+              "```",
+              "",
+              "Next steps for a maintainer:",
+              "1. Run `npm run schema:refresh` locally.",
+              "2. Review the diff printed by the refresh script.",
+              "3. If nothing breaks `npm run test:all`, commit the new schema",
+              "   (and `git rm` the previous version unless a grace period is wanted).",
+            ].join("\n");
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: "schema-refresh",
+              state: "open",
+            });
+            if (existing.data.length > 0) {
+              const issue = existing.data[0];
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                body,
+              });
+              console.log(`Updated existing issue #${issue.number}`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ["schema-refresh"],
+              });
+              console.log(`Opened issue #${created.data.number}`);
+            }
+
+      - name: Fail the job when the check errored (rc != 0, != 1)
+        if: steps.check.outputs.rc != '0' && steps.check.outputs.rc != '1'
+        run: |
+          echo "Schema check failed unexpectedly (rc=${{ steps.check.outputs.rc }})"
+          exit 1

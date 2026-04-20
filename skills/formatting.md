@@ -14,6 +14,19 @@ Before reaching for any formatting tool, decide which band the work falls in.
 
 **Why this split matters.** Inline formatting (`containerFormat`, `visualFormat`) writes override property blocks into the PBIR that the theme can't reach through. When the developer later changes the theme, those overrides silently win — requiring a manual cleanup pass to remove them before the theme takes effect. The right default is: **theme handles chrome, agent handles content, developer handles polish.**
 
+### Precedence — what wins when two sources set the same property
+
+1. **Inline visual formatting** (`visualFormat` / `containerFormat` on `add_visual`, `format_visual`) — highest
+2. `visualStyles.<visualType>.<category>[0]` in the custom theme
+3. `visualStyles.*.*` (theme-wide wildcard)
+4. PBI built-in defaults — lowest
+
+If a theme change "doesn't seem to take effect," run `audit_theme_compliance` — it flags visuals whose inline overrides are masking theme values. Then decide: accept the override (keep it), or clear it (re-run `set_report_theme` after stripping the override block).
+
+### Schema-backed validation (new)
+
+`format_visual` validates every `category` + `property` name against the bundled PBI theme schema (`schemas/reportThemeSchema-<version>.json`) before writing. Typos like `"fnotSize"` or invalid categories like `"labls"` return `{ success: false, issues: [...] }` with `didYouMean` suggestions, instead of writing silently-ignored garbage into the PBIR. Call `lookup_theme_property({ visualType, category })` to discover valid names. Pass `strict: false` to `format_visual` only when you're certain the bundled schema has fallen behind a newer PBI release.
+
 ### Decision rule
 
 1. Is it a `title`, `binding`, or semantic color? → **Inline in `add_visual`.**

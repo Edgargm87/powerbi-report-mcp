@@ -74,4 +74,22 @@ node scripts/test-layout-grid.js >/dev/null || {
   exit 1
 }
 
-echo "[pre-commit] ✓ audit + wireframe + binding + title + layout + grid pass"
+echo "[pre-commit] running slicer-defaults regression test..."
+node scripts/test-slicer-defaults.js >/dev/null || {
+  echo ""
+  echo "✗ slicer-defaults regression test failed — slicer house defaults (184×60,"
+  echo "  title.show=false, header.show=true) have drifted."
+  echo "  Run 'node scripts/test-slicer-defaults.js' to see which cases broke."
+  exit 1
+}
+
+echo "[pre-commit] running skills-vs-schema audit..."
+node scripts/audit-skills-against-schema.js >/dev/null || {
+  echo ""
+  echo "✗ skills-vs-schema audit failed — a skills/*.md file references a"
+  echo "  category or property name that isn't in the bundled PBI theme schema."
+  echo "  Run 'node scripts/audit-skills-against-schema.js' to see the list."
+  exit 1
+}
+
+echo "[pre-commit] ✓ audit + wireframe + binding + title + layout + grid + slicer + schema-docs pass"
