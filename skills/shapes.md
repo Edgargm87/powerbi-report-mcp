@@ -1,4 +1,5 @@
 <!-- doc-version: 2.0 | Last updated: 2026-04-14 -->
+<!-- summary: Rectangles, rounded corners, banners, dividers, tab cuts, embedded text labels via objects.text. Use for wireframe scaffolding and section framing. -->
 # Skill: Shapes — Rectangles, Banners, Dividers, Labelled Blocks
 
 ## When to use

@@ -1,4 +1,5 @@
 <!-- doc-version: 1.0 | Last updated: 2026-04-15 -->
+<!-- summary: visualStyles block inside a theme — property tables per visualType (charts, tables, cards, kpi, slicers, maps, reference lines, scatter shading, donut geometry). Read when theming specific visual types. -->
 # Skill: Per-Visual Theme Overrides
 
 ## When to use

@@ -1,4 +1,5 @@
 <!-- doc-version: 2.1 | Last updated: 2026-04-15 -->
+<!-- summary: Cost-aware tool usage — slim modes, batch operations, get_page_summary over list_pages+list_visuals, when to call guide() vs inline. Read when optimising context. -->
 # Skill: Token Usage — Minimising LLM Cost & Context
 
 Estimates based on Claude Sonnet. All figures are approximate.

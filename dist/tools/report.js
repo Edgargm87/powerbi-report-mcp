@@ -43,6 +43,7 @@ const model_usage_js_1 = require("../model-usage.js");
 const extractTitle_js_1 = require("../helpers/extractTitle.js");
 const mcpResult_js_1 = require("../helpers/mcpResult.js");
 const layoutValidation_js_1 = require("../helpers/layoutValidation.js");
+const guide_js_1 = require("./guide.js");
 function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: set_report — switch report at runtime
@@ -51,7 +52,16 @@ function registerReportTools(server, ctx) {
         path: zod_1.z.string().describe("Absolute path to the .Report folder or the parent folder containing a .pbip project"),
     }, async ({ path: targetPath }) => {
         const result = ctx.connectReport(targetPath);
-        return { content: [{ type: "text", text: JSON.stringify(result) }] };
+        // Append the skills-index banner so every new session gets the index +
+        // the always-inline wireframes + report-design content at connect time.
+        // Clients that ignore the pbir-instructions MCP resource still see it
+        // because it rides along in the tool response.
+        return {
+            content: [
+                { type: "text", text: JSON.stringify(result) },
+                { type: "text", text: (0, guide_js_1.buildSkillsIndexBanner)() },
+            ],
+        };
     });
     // ============================================================
     // TOOL: get_report — show currently connected report

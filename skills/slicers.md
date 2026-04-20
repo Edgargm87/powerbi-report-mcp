@@ -1,4 +1,5 @@
 <!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
+<!-- summary: slicer/listSlicer/textSlicer/advancedSlicerVisual — orientation, selection mode, header/items styling, multiSelect, slicerMode. Read when adding filter controls. -->
 # Skill: Slicers — Filters & Selection Controls
 
 ## The 4 Slicer Visual Types

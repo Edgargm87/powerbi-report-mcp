@@ -1,4 +1,5 @@
 <!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
+<!-- summary: Report-level theme JSON — dataColors, background, foreground, tableAccent, structuralColors. set_report_theme / get_report_theme / diff_report_theme / audit_theme_compliance. See themes-per-visual.md for visualStyles block. -->
 # Skill: Themes — Report-Level Branding & Global Styling
 
 ## When to use

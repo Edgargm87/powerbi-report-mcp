@@ -1,4 +1,5 @@
 <!-- doc-version: 2.1 | Last updated: 2026-04-15 -->
+<!-- summary: Canvas math (1280×720, 20px margins, 5px gaps, max bottom y=714), the 5 validated layouts, layout_grid patterns. Read before placing any visual. -->
 # Skill: Wireframes — Report Layout Patterns
 
 All layouts use canvas **1280 x 720** (16:9), `displayOption: "FitToPage"`.

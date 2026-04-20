@@ -1,4 +1,5 @@
 <!-- doc-version: 2.3 | Last updated: 2026-04-15 -->
+<!-- summary: Design principles — typography, color budget, KPI-card disambiguation (concept vs kpi visual), slicer placement, the chrome/content/polish split. The "rules of taste". -->
 # Power BI Report Design Principles
 
 > This file covers **principles** (typography, color, slicer placement, KPI patterns).
@@ -21,6 +22,29 @@ Most "bad" Power BI reports aren't broken because of formatting or colors. They'
 **Step 6 — Stop at the theme. Polish belongs to the developer.** Set the report theme once (`set_report_theme`) and let it cascade. Don't call `format_visual` or pass `containerFormat`/`visualFormat` unless the user explicitly asked for a specific look. Per-visual formatting writes override blocks that fight future theme changes, produces inconsistent results across runs, and costs tokens with no proportional payoff. The only things you should inline at creation time are titles, bindings, and semantic colors (gains green / losses red) — everything else is chrome the theme handles or polish the developer does in PBI Desktop. See `skills/formatting.md` "Three bands" for the decision rule.
 
 These are not invented rules — they're the common core of every serious dataviz reference (Stephen Few's *Information Dashboard Design*, Cole Nussbaumer Knaflic's *Storytelling with Data*, Edward Tufte's *The Visual Display of Quantitative Information*, IBCS standards). Read one of those books once and the specific patterns below will make sense as consequences of the mental model rather than arbitrary rules.
+
+## Checkpoint discipline
+
+Steps 1–6 tell you *how to think about a page*. Checkpoints tell you *when to stop and show your work*. The key rule: **checkpoints scale with scope**. A small ask gets zero checkpoints. A dashboard build gets three. Any other policy either wastes hours rebuilding wrong work, or wastes the user's attention on pointless confirmations.
+
+| Page size | C1 — Plan approved | C2 — Skeleton review | C3 — Data review |
+|---|---|---|---|
+| **1–3 visuals** | skip | skip | optional (offer `reload_report`, don't block) |
+| **4–7 visuals** | **yes** — one message, confirm plan before any `add_visual` | skip | optional |
+| **8+ visuals or multi-page** | **yes** | **yes** — `get_page_summary` output before binding | **yes** — confirm numbers before theme/polish |
+
+What "yes" looks like in practice:
+
+- **C1** — one-sentence page job + layout choice (from `wireframes.md`) + bulleted visual list with bucket assignments. Ask: "Confirm or edit before I build?"
+- **C2** — `get_page_summary` output. Ask: "Bones right? Say go to bind data."
+- **C3** — prompt for `reload_report` and a human eyeball. Ask: "Numbers look right? Ready for polish?"
+
+Two rules that keep checkpoints honest:
+
+1. **Never ask permission twice for the same thing.** C1 approves the plan. C2 is *review*, not re-approval — unless the user flagged an issue at C2, proceed to C3 without asking again.
+2. **Honour bypass phrases.** If the user said "just build it" / "go" / "fast mode", skip all optional checkpoints. The required ones (≥4 visuals) still fire, but collapse to a single short confirmation message rather than a full show-and-ask.
+
+Elicitation (the questions you ask *before* C1 — also scoped by scope) lives in `skills/elicitation.md`. Build-by-default is the rule in both files.
 
 ## Layout Standards
 

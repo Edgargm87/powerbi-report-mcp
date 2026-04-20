@@ -1,4 +1,5 @@
 <!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
+<!-- summary: Visual-type picker, bucket reference per type, binding shorthand, batch add_visual, change_visual_type, bulk delete. Read before any add_visual call. -->
 # Skill: Visuals — Adding & Managing Chart/Data Visuals
 
 ## When to use

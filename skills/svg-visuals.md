@@ -1,4 +1,5 @@
 <!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
+<!-- summary: Measure-driven SVG patterns — sparklines, bullets, progress bars, gauges rendered as DAX measures and embedded via image URL category. Advanced visual composition. -->
 # SVG Visuals in Power BI
 
 SVG visuals are **DAX measures that return inline SVG strings** rendered as images in native visuals.

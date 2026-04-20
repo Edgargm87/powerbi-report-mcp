@@ -33,6 +33,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.listTopicsWithSummaries = listTopicsWithSummaries;
+exports.buildSkillsIndexBanner = buildSkillsIndexBanner;
 exports.registerGuideTool = registerGuideTool;
 const zod_1 = require("zod");
 const fs = __importStar(require("fs"));
@@ -49,9 +51,14 @@ function getSkillsDir() {
     const projectRoot = path.join(__dirname, "..", "..");
     return path.join(projectRoot, "skills");
 }
-/** Strip the leading HTML doc-version comment so it doesn't show in output. */
+/** Strip leading HTML comments (doc-version + summary) so they don't show in output. */
 function stripFrontmatter(md) {
-    return md.replace(/^<!--[^]*?-->\s*\n/, "");
+    // Remove any number of leading <!-- ... --> lines plus the blank line after.
+    let out = md;
+    while (/^<!--[^]*?-->\s*\n/.test(out)) {
+        out = out.replace(/^<!--[^]*?-->\s*\n/, "");
+    }
+    return out;
 }
 /** Discover all *.md files under skills/. Returns sorted topic keys. */
 function listTopics() {
@@ -63,6 +70,87 @@ function listTopics() {
         .filter((f) => f.endsWith(".md"))
         .map((f) => f.replace(/\.md$/, ""))
         .sort();
+}
+/** Read the <!-- summary: ... --> line from a skill file, if present. */
+function readSummary(key) {
+    const dir = getSkillsDir();
+    if (!/^[a-zA-Z0-9_-]+$/.test(key))
+        return null;
+    const file = path.join(dir, `${key}.md`);
+    if (!fs.existsSync(file))
+        return null;
+    // Only read the first ~8 lines — summary is line 2 by convention.
+    const head = fs.readFileSync(file, "utf8").split(/\r?\n/).slice(0, 8).join("\n");
+    const m = head.match(/<!--\s*summary:\s*([^]*?)\s*-->/i);
+    return m ? m[1].replace(/\s+/g, " ").trim() : null;
+}
+/**
+ * List every topic with its summary line (or "(no summary)" if missing).
+ * Priority order puts the skills most needed at session start at the top.
+ */
+const TOPIC_PRIORITY = [
+    "elicitation",
+    "wireframes",
+    "report-design",
+    "visuals",
+    "formatting",
+    "themes-per-visual",
+    "pages",
+    "shapes",
+    "slicers",
+    "filters",
+    "calculations",
+    "svg-visuals",
+    "themes",
+    "report",
+    "token-usage",
+];
+function listTopicsWithSummaries() {
+    const all = listTopics();
+    const rank = new Map(TOPIC_PRIORITY.map((k, i) => [k, i]));
+    const sorted = all.slice().sort((a, b) => {
+        const ra = rank.has(a) ? rank.get(a) : 1000;
+        const rb = rank.has(b) ? rank.get(b) : 1000;
+        if (ra !== rb)
+            return ra - rb;
+        return a.localeCompare(b);
+    });
+    return sorted.map((key) => ({
+        key,
+        summary: readSummary(key) ?? "(no summary)",
+    }));
+}
+/**
+ * Build a compact session-start banner that lists every skill topic with its
+ * summary, plus inlines the two skills most needed before any visual work
+ * (wireframes + report-design). Agents should read this once per session and
+ * then call guide(topic) for detail on any other topic.
+ */
+function buildSkillsIndexBanner() {
+    const topics = listTopicsWithSummaries();
+    const lines = [];
+    lines.push("## Skills index (call `guide(topic)` for full content)");
+    lines.push("");
+    for (const { key, summary } of topics) {
+        lines.push(`- **${key}** — ${summary}`);
+    }
+    // Always inline the three skills that govern first-turn behaviour:
+    // elicitation (what to ask), wireframes (geometry), report-design (taste).
+    // Every session gets these in-context so the agent asks the right questions
+    // before building and places visuals correctly when it does.
+    const alwaysInline = ["elicitation", "wireframes", "report-design"];
+    for (const key of alwaysInline) {
+        const body = readTopic(key);
+        if (!body)
+            continue;
+        lines.push("");
+        lines.push(`---`);
+        lines.push("");
+        lines.push(`## Inlined: ${key}.md`);
+        lines.push("");
+        lines.push(body.trim());
+    }
+    return lines.join("\n");
 }
 /** Read a single skill file. Returns null if not found. */
 function readTopic(key) {

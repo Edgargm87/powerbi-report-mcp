@@ -258,19 +258,56 @@ function renderJson(coverage) {
 // Main
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Step 5: verify every skill file has a summary line
+//
+// Every skills/*.md must have `<!-- summary: ... -->` somewhere in its top
+// few lines. The banner builder in src/tools/guide.ts reads this at session
+// start and surfaces each skill's one-line description to the agent without
+// needing to load the whole file. A missing summary means the skill is
+// invisible in the session-start index, which is a doc regression.
+// ---------------------------------------------------------------------------
+
+function auditSummaries(skills) {
+  const missing = [];
+  for (const s of skills) {
+    const head = s.content.split(/\r?\n/).slice(0, 8).join("\n");
+    if (!/<!--\s*summary:\s*[^]*?-->/i.test(head)) {
+      missing.push(s.file);
+    }
+  }
+  return missing;
+}
+
 function main() {
   const tools = collectTools();
   const skills = collectSkills();
   const defaultSet = loadDefaultTools();
   const coverage = findCoverage(tools, skills, defaultSet);
+  const missingSummaries = auditSummaries(skills);
 
   if (wantJson) {
     renderJson(coverage);
   } else {
     renderTable(coverage);
+    if (missingSummaries.length > 0) {
+      console.log("─".repeat(78));
+      console.log("SKILLS MISSING <!-- summary: ... --> FRONTMATTER:");
+      console.log("─".repeat(78));
+      for (const f of missingSummaries) {
+        console.log(`  ${f}`);
+      }
+      console.log("");
+      console.log("⚠ Every skills/*.md needs a summary line in its top 8 lines so the");
+      console.log("  session-start banner can index it. Example:");
+      console.log("    <!-- summary: one-line description, ≤ 180 chars -->");
+      console.log("");
+    }
   }
 
-  if (strict && coverage.some((c) => !c.covered)) {
+  const regressions =
+    (strict && coverage.some((c) => !c.covered)) || missingSummaries.length > 0;
+  if (strict && regressions) {
     process.exit(1);
   }
 }

@@ -1,4 +1,5 @@
 <!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
+<!-- summary: create_page, rename/reorder/duplicate/delete, page visibility, backgrounds (solid + image), bookmarks, page-level filters. Read when structuring multi-page reports. -->
 # Skill: Pages — Page Management, Navigation, Backgrounds, Bookmarks
 
 ## When to use

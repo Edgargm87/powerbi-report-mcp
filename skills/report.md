@@ -1,4 +1,5 @@
 <!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
+<!-- summary: set_report / reload_report, get_report_settings, load_tools progressive surface, model_usage for column/measure cross-reference against sibling SemanticModel. Read at session start. -->
 # Skill: Report — Connection, Settings, Tool Loading & Model Cross-Reference
 
 ## When to use

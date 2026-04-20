@@ -1,4 +1,5 @@
 <!-- doc-version: 2.1 | Last updated: 2026-04-15 -->
+<!-- summary: Chrome/content/polish split, format_visual auto-routing, inline containerFormat/visualFormat, conditional format rules & gradients, measure-driven titles/axes/colors, apply_theme presets. -->
 # Skill: Formatting — Visual Styling, Titles, Colors, Conditional Format, Sort
 
 ## Three bands: chrome / content / polish

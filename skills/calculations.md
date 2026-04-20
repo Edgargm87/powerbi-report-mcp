@@ -1,4 +1,5 @@
 <!-- doc-version: 1.0 | Last updated: 2026-04-15 -->
+<!-- summary: Visual-scope DAX calcs (running totals, period-over-period, ranking), authoring status, manage_extension_measures for report-level measures. -->
 # Skill: Visual Calculations — Status and DAX Authoring
 
 ## TL;DR

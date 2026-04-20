@@ -10,6 +10,7 @@ import { invalidateCache } from "../model-usage.js";
 import { extractVisualTitle } from "../helpers/extractTitle.js";
 import { ok, fail } from "../helpers/mcpResult.js";
 import { getCanvasSummary } from "../helpers/layoutValidation.js";
+import { buildSkillsIndexBanner } from "./guide.js";
 
 export function registerReportTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
@@ -23,7 +24,16 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     async ({ path: targetPath }) => {
       const result = ctx.connectReport(targetPath);
-      return { content: [{ type: "text", text: JSON.stringify(result) }] };
+      // Append the skills-index banner so every new session gets the index +
+      // the always-inline wireframes + report-design content at connect time.
+      // Clients that ignore the pbir-instructions MCP resource still see it
+      // because it rides along in the tool response.
+      return {
+        content: [
+          { type: "text", text: JSON.stringify(result) },
+          { type: "text", text: buildSkillsIndexBanner() },
+        ],
+      };
     }
   );
 

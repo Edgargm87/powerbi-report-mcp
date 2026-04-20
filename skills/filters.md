@@ -1,4 +1,5 @@
 <!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
+<!-- summary: Page/visual/report filter pane — add_page_filter, list/remove/clear filters, set_filter_pane visibility, visual interactions. Read when scoping data by filter. -->
 # Skill: Filters — Page & Visual Filter Pane
 
 ## When to use

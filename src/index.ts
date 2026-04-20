@@ -14,7 +14,7 @@ import { registerFilterTools } from "./tools/filters.js";
 import { registerBulkTools } from "./tools/bulk.js";
 import { registerModelUsageTool, findSemanticModelPath, startWatchers } from "./model-usage.js";
 import { registerBookmarkTools } from "./tools/bookmarks.js";
-import { registerGuideTool } from "./tools/guide.js";
+import { registerGuideTool, buildSkillsIndexBanner } from "./tools/guide.js";
 import { registerLayoutGridTool } from "./tools/layoutGrid.js";
 import { DEFAULT_TOOLS } from "./default-tools.js";
 // Visual calculations parked — not registering until PBI Desktop supports programmatic creation
@@ -319,13 +319,14 @@ async function main() {
     })
   );
 
-  // PBIR instructions resource
+  // PBIR instructions resource — base guide + live skills index banner
+  // (banner lists every skill with a summary and inlines wireframes/report-design).
   server.resource("pbir-instructions", "resource://pbir-instructions", () => ({
     contents: [
       {
         uri: "resource://pbir-instructions",
         mimeType: "text/markdown",
-        text: PBIR_INSTRUCTIONS,
+        text: `${PBIR_INSTRUCTIONS}\n\n${buildSkillsIndexBanner()}`,
       },
     ],
   }));
