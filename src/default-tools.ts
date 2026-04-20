@@ -30,4 +30,9 @@ export const DEFAULT_TOOLS: ReadonlySet<string> = new Set([
   // tool catalog at startup, so a lazy-loaded reload_report can be activated
   // but not invoked. Defaulting it avoids that trap.
   "reload_report",
+  // lookup_theme_property is lightweight (3 optional string params) and is the
+  // source of truth for valid format_visual / set_report_theme property names.
+  // Keeping it in the default set avoids the "agent guesses property name,
+  // PBI silently ignores it" failure mode.
+  "lookup_theme_property",
 ]);

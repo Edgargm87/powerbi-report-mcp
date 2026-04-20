@@ -8,6 +8,32 @@ Read this when you need to theme a **specific visual type** differently from the
 
 The general `set_report_theme` skill lives in `skills/themes.md`. This file zooms in on the `visualStyles` block inside a theme — the structure Power BI uses for per-type property overrides. Nothing here is proprietary: the schema is documented by Microsoft at [learn.microsoft.com/power-bi/create-reports/desktop-report-themes](https://learn.microsoft.com/en-us/power-bi/create-reports/desktop-report-themes). This file just collects the most common property categories in one place so an agent doesn't have to guess.
 
+## Source of truth: `lookup_theme_property`
+
+Before writing any `visualStyles` block, call `lookup_theme_property` to confirm category/property names for the target visual type. The tool reads the bundled `schemas/reportThemeSchema-<version>.json` (refreshed via `node scripts/refresh-theme-schema.js`).
+
+```
+lookup_theme_property({})                                        # list all 48 visualTypes
+lookup_theme_property({ visualType: "barChart" })                # list categories on barChart
+lookup_theme_property({ visualType: "slicer", category: "header" })   # list properties + types + enums
+lookup_theme_property({ visualType: "kpi", category: "*", propertyFilter: "color" })
+```
+
+The same property names apply in three places — this is the unified formatting schema:
+
+1. `set_report_theme({ visualStyles: { barChart: { labels: [{ ... }] } } })` — theme-wide
+2. `add_visual({ visualFormat: [{ category: "labels", properties: { ... } }] })` — inline at creation
+3. `format_visual({ category: "labels", properties: { ... } })` — inline after the fact
+
+**Precedence** (what wins when two sources set the same property):
+
+1. Inline visual formatting (`visualFormat`, `containerFormat`, `format_visual`) — highest
+2. `visualStyles.<visualType>.<category>[0]` in the custom theme
+3. `visualStyles.*.*` in the custom theme
+4. PBI built-in defaults — lowest
+
+Any inline `format_visual` / `visualFormat` write silently overrides the theme. If the theme "doesn't seem to apply", run `audit_theme_compliance` — it flags visuals with inline overrides that are hiding theme changes.
+
 ## Mental model
 
 A Power BI theme JSON has two tiers:

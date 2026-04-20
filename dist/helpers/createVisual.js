@@ -200,8 +200,11 @@ function createAndSaveVisual(project, pageId, spec, baseZ) {
     // Normalise basicShape → shape
     const visualType = spec.visualType === "basicShape" ? "shape" : spec.visualType;
     const slicerDefaultTypes = new Set(["slicer", "listSlicer", "textSlicer", "advancedSlicerVisual"]);
-    const width = rawWidth ?? (slicerDefaultTypes.has(visualType) ? 168 : 280);
-    const height = rawHeight ?? (slicerDefaultTypes.has(visualType) ? 65 : 280);
+    // Slicer house defaults: 184×60. Matches the training-report pattern —
+    // 184 wide holds common Segoe UI 8pt category labels without truncation;
+    // 60 tall fits a single-row dropdown slicer with ~5px gap to the next row.
+    const width = rawWidth ?? (slicerDefaultTypes.has(visualType) ? 184 : 280);
+    const height = rawHeight ?? (slicerDefaultTypes.has(visualType) ? 60 : 280);
     const zVal = baseZ;
     // Build query state from bindings
     const queryState = {};
@@ -518,6 +521,14 @@ function createAndSaveVisual(project, pageId, spec, baseZ) {
             },
         },
     ]);
+    // Slicer house default: title off (unless user passed a title string).
+    // Applied BEFORE containerFormat so the user can still explicitly turn it back on.
+    const slicerTypes = new Set(["slicer", "listSlicer", "textSlicer", "advancedSlicerVisual"]);
+    if (slicerTypes.has(visualType) && !title) {
+        (0, formatting_js_1.applyFormattingToTarget)(visual.visual.visualContainerObjects, [
+            { category: "title", properties: { show: false } },
+        ]);
+    }
     // Apply inline container formatting
     if (containerFormat && containerFormat.length > 0) {
         (0, formatting_js_1.applyFormattingToTarget)(visual.visual.visualContainerObjects, containerFormat);
@@ -527,7 +538,6 @@ function createAndSaveVisual(project, pageId, spec, baseZ) {
         fontSize: 8,
         fontFamily: "'Segoe UI', wf_segoe-ui_normal, helvetica, arial, sans-serif",
     };
-    const slicerTypes = new Set(["slicer", "listSlicer", "textSlicer", "advancedSlicerVisual"]);
     if (!exports.NO_DATA_VISUAL_TYPES.has(visualType)) {
         if (!visual.visual.objects)
             visual.visual.objects = {};
@@ -543,6 +553,7 @@ function createAndSaveVisual(project, pageId, spec, baseZ) {
                 {
                     category: "header",
                     properties: {
+                        show: true,
                         textSize: 8,
                         fontFamily: "'Segoe UI', wf_segoe-ui_normal, helvetica, arial, sans-serif",
                     },

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 "use strict";
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
     if (k2 === undefined) k2 = k;
@@ -51,6 +50,7 @@ const model_usage_js_1 = require("./model-usage.js");
 const bookmarks_js_1 = require("./tools/bookmarks.js");
 const guide_js_1 = require("./tools/guide.js");
 const layoutGrid_js_1 = require("./tools/layoutGrid.js");
+const themeLookup_js_1 = require("./tools/themeLookup.js");
 const default_tools_js_1 = require("./default-tools.js");
 // Visual calculations parked — not registering until PBI Desktop supports programmatic creation
 // import { registerCalculationTools } from "./tools/calculations.js";
@@ -111,6 +111,7 @@ const ALL_TOOLS = {
     diff_report_theme: "Diff current vs default theme",
     list_report_themes: "List available themes",
     audit_theme_compliance: "Audit visuals for formatting overrides conflicting with theme",
+    lookup_theme_property: "Query the bundled PBI theme JSON schema — valid categories/properties per visualType",
     // Bindings
     update_visual_bindings: "Update data bindings (DEFAULT)",
     // Bulk
@@ -270,6 +271,7 @@ async function main() {
     (0, bookmarks_js_1.registerBookmarkTools)(server, ctx);
     (0, guide_js_1.registerGuideTool)(server, ctx);
     (0, layoutGrid_js_1.registerLayoutGridTool)(server, ctx);
+    (0, themeLookup_js_1.registerThemeLookupTool)(server);
     (0, model_usage_js_1.registerModelUsageTool)(server, ctx);
     // registerCalculationTools(server, ctx); // PARKED
     // Meta tool: load_tools — lists available on-demand tools and activates them

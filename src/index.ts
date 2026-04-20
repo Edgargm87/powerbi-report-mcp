@@ -16,6 +16,7 @@ import { registerModelUsageTool, findSemanticModelPath, startWatchers } from "./
 import { registerBookmarkTools } from "./tools/bookmarks.js";
 import { registerGuideTool, buildSkillsIndexBanner } from "./tools/guide.js";
 import { registerLayoutGridTool } from "./tools/layoutGrid.js";
+import { registerThemeLookupTool } from "./tools/themeLookup.js";
 import { DEFAULT_TOOLS } from "./default-tools.js";
 // Visual calculations parked — not registering until PBI Desktop supports programmatic creation
 // import { registerCalculationTools } from "./tools/calculations.js";
@@ -78,6 +79,7 @@ const ALL_TOOLS: Record<string, string> = {
   diff_report_theme: "Diff current vs default theme",
   list_report_themes: "List available themes",
   audit_theme_compliance: "Audit visuals for formatting overrides conflicting with theme",
+  lookup_theme_property: "Query the bundled PBI theme JSON schema — valid categories/properties per visualType",
   // Bindings
   update_visual_bindings: "Update data bindings (DEFAULT)",
   // Bulk
@@ -250,6 +252,7 @@ async function main() {
   registerBookmarkTools(server, ctx);
   registerGuideTool(server, ctx);
   registerLayoutGridTool(server, ctx);
+  registerThemeLookupTool(server);
   registerModelUsageTool(server, ctx);
   // registerCalculationTools(server, ctx); // PARKED
 

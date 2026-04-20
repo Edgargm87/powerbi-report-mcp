@@ -103,10 +103,24 @@ Allowed keys:
 ## `reload_report`
 
 ```json
-{}
+{ "confirm": true }
 ```
 
 Kills `PBIDesktop.exe` (silently no-ops if not running), waits ~3 seconds, then reopens the `.pbip` next to the connected `.Report` folder. Use after a batch of changes to see them in Desktop.
+
+### ⚠ Save-first safety gate
+
+`reload_report` requires `confirm: true` to proceed. When called without it, the tool returns a structured warning instead of killing Desktop — the agent must relay the warning to the user, wait for acknowledgment, then retry with `confirm: true`.
+
+**Why the gate exists.** Closing PBI Desktop discards any in-memory state that hasn't been Ctrl+S'd. If the user (or a sibling modeling MCP) made measure/relationship/column changes that PBI Desktop hasn't flushed, they vaporise on reload. This MCP can't see Desktop's unsaved state, so the only safe default is to force a user acknowledgment.
+
+**Agent protocol:**
+1. First call to `reload_report` — omit `confirm` (or pass `false`). Tool returns a save-first warning.
+2. Relay the warning verbatim. Ask the user to focus PBI Desktop, hit Ctrl+S, then reply "reload" / "go" / "confirmed".
+3. On user confirmation, retry with `confirm: true`.
+4. **After** reload succeeds, run `model_usage` if any modeling work happened this session — verify the new measures/columns are actually present before binding visuals to them.
+
+**When to skip the gate.** Pass `confirm: true` on the first call only when you know there's no unsaved Desktop state — e.g. the user just connected via `set_report` and hasn't touched Desktop since, or the user has already confirmed save in a prior turn this session.
 
 > `reload_report` is intentionally in the **default** tool set rather than on-demand — most LLM harnesses snapshot the MCP tool catalog at startup, so a lazy-loaded `reload_report` could be activated server-side but never invoked from the client. Defaulting it closes that trap.
 

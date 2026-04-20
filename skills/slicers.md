@@ -161,9 +161,23 @@ Detection rules:
 ## All slicer types — common rules
 
 - Bucket is always **`Values`** (never `Category` or `Fields`)
-- Default size if you omit dimensions: **w=280, h=280** — usually too tall, override explicitly
-- For dropdown row: h=44 is correct; for Basic/listSlicer use h=120–200
 - Slicer items default to `textSize: 8`, Segoe UI (set by `createAndSaveVisual`)
+
+### House defaults (applied automatically by `add_visual` for all 4 slicer types)
+
+| Property | Default | Rationale |
+|---|---|---|
+| `width` | **184** | Fits Segoe UI 8pt category labels on a single row without truncation |
+| `height` | **60** | Fits a single-row dropdown slicer + 5px gap to next row |
+| `title.show` | **false** | Slicers self-identify via the field/header; a big visual title duplicates the slicer header |
+| `header.show` | **true** | The slicer header (column name + clear button) is on by default |
+| `header.textSize` | **8** | Matches house typography |
+| `items.textSize` | **8** | Matches house typography |
+
+Override rules:
+- If the user passes `title: "..."` on `add_visual`, **title.show stays on** (explicit title wins over the slicer-off default).
+- Any `containerFormat`/`visualFormat` entries override the house defaults — inline formatting always wins over the bundled defaults, which in turn win over the theme.
+- For Basic/listSlicer with a long list, pass `height: 120–200` explicitly — 60 is only right for single-row Dropdowns.
 
 ### Inline formatting (all types)
 ```json

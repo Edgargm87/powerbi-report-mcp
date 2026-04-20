@@ -527,12 +527,46 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "reload_report",
-    "Reload the report in Power BI Desktop by closing and reopening the .pbip file. Use this after making changes to see them in Power BI Desktop.",
-    {},
-    async () => {
+    "Reload the report in Power BI Desktop by closing and reopening the .pbip file. SAFETY: closes PBIDesktop.exe, so any unsaved work in Desktop (including modeling-MCP measures/relationships not yet flushed by Desktop autosave) is LOST. Requires confirm:true to proceed — otherwise returns a save-first warning for the agent to relay to the user.",
+    {
+      confirm: z
+        .boolean()
+        .optional()
+        .default(false)
+        .describe(
+          "Must be true to actually reload. When false/omitted, the tool returns a save-first warning instead of killing PBI Desktop. The agent should relay the warning, wait for user confirmation, then retry with confirm:true."
+        ),
+    },
+    async ({ confirm }) => {
       const reportPath = ctx.getReportPath();
       if (!reportPath) {
         return fail("No report connected. Use set_report first.");
+      }
+
+      // Save-first gate. Unsaved modeling work in PBI Desktop is invisible
+      // to this MCP — the only safe default is to make the agent ask the
+      // user to Ctrl+S before we force-close the editor.
+      if (!confirm) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                success: false,
+                requiresConfirmation: true,
+                warning:
+                  "About to close PBI Desktop. Unsaved work will be lost, including:\n" +
+                  "  • Measures / relationships / columns created this session via the modeling MCP\n" +
+                  "    (they're on disk, but PBI Desktop may have newer in-memory edits on top)\n" +
+                  "  • Any manual edits in PBI Desktop not yet Ctrl+S'd\n\n" +
+                  "Save first: focus PBI Desktop → Ctrl+S → reply \"reload\" to proceed.\n" +
+                  "To skip this prompt, call reload_report with confirm: true.\n\n" +
+                  "After reload, run model_usage to verify modeling changes survived before binding new visuals to them.",
+                nextAction: "Retry with confirm: true once the user has saved PBI Desktop.",
+              }),
+            },
+          ],
+        };
       }
 
       const parentDir = path.dirname(reportPath);
