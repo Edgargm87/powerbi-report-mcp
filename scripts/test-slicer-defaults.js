@@ -120,6 +120,81 @@ console.log("\nnon-slicer (barChart) gets neither slicer defaults nor title-off:
   assert(titleShow !== "false", `title.show not forced off on barChart (got ${titleShow})`);
 }
 
+// --- Minimum-height guard: height < 44 auto-bumps to 44 for slicer types ---
+console.log("\nslicer height < 44 auto-bumps to 44 (filter-bar guard):");
+for (const visualType of SLICER_TYPES) {
+  const project = makeFakeProject();
+  const { visualId } = createAndSaveVisual(
+    project,
+    "pageA",
+    {
+      visualType,
+      height: 40, // below floor — should be bumped
+      bindings: [{ bucket: "Values", fields: [{ field: "Sales[Region]", type: "column" }] }],
+    },
+    0
+  );
+  const visual = project.saved.get(visualId);
+  assert(
+    visual.position.height === 44,
+    `${visualType} height 40 → 44 (got ${visual.position.height})`
+  );
+}
+
+// Height at or above 44 is respected (no bump).
+console.log("\nslicer height >= 44 is respected:");
+{
+  const project = makeFakeProject();
+  const { visualId } = createAndSaveVisual(
+    project,
+    "pageA",
+    {
+      visualType: "slicer",
+      height: 44,
+      bindings: [{ bucket: "Values", fields: [{ field: "Sales[Region]", type: "column" }] }],
+    },
+    0
+  );
+  const visual = project.saved.get(visualId);
+  assert(visual.position.height === 44, `height 44 preserved (got ${visual.position.height})`);
+}
+{
+  const project = makeFakeProject();
+  const { visualId } = createAndSaveVisual(
+    project,
+    "pageA",
+    {
+      visualType: "slicer",
+      height: 120,
+      bindings: [{ bucket: "Values", fields: [{ field: "Sales[Region]", type: "column" }] }],
+    },
+    0
+  );
+  const visual = project.saved.get(visualId);
+  assert(visual.position.height === 120, `height 120 preserved (got ${visual.position.height})`);
+}
+
+// Non-slicer with low height is NOT bumped (guard is slicer-only).
+console.log("\nnon-slicer height < 44 is NOT bumped:");
+{
+  const project = makeFakeProject();
+  const { visualId } = createAndSaveVisual(
+    project,
+    "pageA",
+    {
+      visualType: "barChart",
+      height: 30,
+      bindings: [
+        { bucket: "Y", fields: [{ field: "Sales[Region]", type: "column" }] },
+        { bucket: "X", fields: [{ field: "Sales[Amount]", type: "aggregation", aggregation: "Sum" }] },
+      ],
+    },
+    0
+  );
+  const visual = project.saved.get(visualId);
+  assert(visual.position.height === 30, `barChart height 30 preserved (got ${visual.position.height})`);
+}
+
 console.log("");
 if (failures === 0) {
   console.log("✓ Slicer regression test passed.");

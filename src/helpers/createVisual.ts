@@ -324,7 +324,14 @@ export function createAndSaveVisual(
   // 184 wide holds common Segoe UI 8pt category labels without truncation;
   // 60 tall fits a single-row dropdown slicer with ~5px gap to the next row.
   const width = rawWidth ?? (slicerDefaultTypes.has(visualType) ? 184 : 280);
-  const height = rawHeight ?? (slicerDefaultTypes.has(visualType) ? 60 : 280);
+  let height = rawHeight ?? (slicerDefaultTypes.has(visualType) ? 60 : 280);
+  // Minimum render height for slicers: Power BI clips dropdowns under ~44px.
+  // Auto-bump any caller-supplied height below the floor — the LLM occasionally
+  // passes 40 to cram slicers into a filter bar, but the control renders broken.
+  // See skills/slicers.md ("House defaults"): 44 is the hard floor.
+  if (slicerDefaultTypes.has(visualType) && height < 44) {
+    height = 44;
+  }
   const zVal = baseZ;
 
   // Build query state from bindings

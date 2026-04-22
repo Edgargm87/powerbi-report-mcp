@@ -179,6 +179,14 @@ Override rules:
 - Any `containerFormat`/`visualFormat` entries override the house defaults — inline formatting always wins over the bundled defaults, which in turn win over the theme.
 - For Basic/listSlicer with a long list, pass `height: 120–200` explicitly — 60 is only right for single-row Dropdowns.
 
+### DO / DON'T for LLM callers
+
+**DON'T pass `title: "..."` on slicers.** The header already shows the column name — a title on top duplicates it and wastes ~20px of vertical space. Leave `title` off and let `header.show=true` (the default) identify the slicer. If the user explicitly asks for a labelled slicer, use `containerFormat` with `title: { show: true, text: "..." }` so the intent is visible in the spec.
+
+**DON'T pass `height < 44`.** Power BI clips a dropdown slicer's chevron/control under ~44px and the visual renders broken. The write-time guard in `createAndSaveVisual` auto-bumps any `height < 44` up to 44 for all 4 slicer types — but you should pass `60` (the house default) or higher so the intent is explicit and the caller doesn't rely on the auto-correct.
+
+**DON'T cram slicers into a 40px filter-bar strip.** If you need a top-of-page filter row, use `y: <row_top>`, `height: 60`, and space 3–4 slicers horizontally at `width: 184` each. The strip then occupies a single 60px row, not a clipped 40px one.
+
 ### Inline formatting (all types)
 ```json
 {
