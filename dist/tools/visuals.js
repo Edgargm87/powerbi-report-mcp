@@ -56,9 +56,7 @@ function registerVisualTools(server, ctx) {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().describe("The visual ID"),
         slim: zod_1.z.boolean().optional().default(true).describe("Slim mode (default true) — summary instead of full JSON"),
-    }, 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async ({ pageId, visualId, slim }) => {
+    }, async ({ pageId, visualId, slim }) => {
         const visual = ctx.project.getVisual(pageId, visualId);
         if (!slim) {
             return { content: [{ type: "text", text: JSON.stringify(visual, null, 2) }] };
@@ -67,11 +65,9 @@ function registerVisualTools(server, ctx) {
         const titleValue = (0, extractTitle_js_1.extractVisualTitle)(visual.visual.visualContainerObjects);
         // Extract bindings as Table[Field] strings
         const bindings = {};
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const qs = visual.visual.query?.queryState;
         if (qs) {
             for (const [bucket, state] of Object.entries(qs)) {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const projs = state?.projections ?? [];
                 bindings[bucket] = projs.map((p) => {
                     const f = p.field;
@@ -111,11 +107,12 @@ function registerVisualTools(server, ctx) {
         const SLICER_TYPES = new Set(["slicer", "listSlicer", "textSlicer", "advancedSlicerVisual"]);
         const vType = visual.visual.visualType;
         if (SLICER_TYPES.has(vType)) {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const objs = visual.visual.objects;
+            const dataArr = objs?.data;
+            const selectionArr = objs?.selection;
             let slicerMode;
             if (vType === "slicer") {
-                const modeLit = objs?.data?.[0]?.properties?.mode?.expr?.Literal?.Value;
+                const modeLit = dataArr?.[0]?.properties?.mode?.expr?.Literal?.Value;
                 if (typeof modeLit === "string") {
                     slicerMode = modeLit.replace(/^'|'$/g, "");
                 }
@@ -124,7 +121,7 @@ function registerVisualTools(server, ctx) {
                 }
                 result.slicerMode = slicerMode;
             }
-            const singleLit = objs?.selection?.[0]?.properties?.singleSelect?.expr?.Literal?.Value;
+            const singleLit = selectionArr?.[0]?.properties?.singleSelect?.expr?.Literal?.Value;
             let multiSelect;
             if (singleLit === "true") {
                 multiSelect = false;

@@ -4,7 +4,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { execFileSync, spawn } from "child_process";
 import { generateId, columnRef } from "../pbir.js";
-import type { PageDefinition } from "../pbir.js";
+import type { PageDefinition, ExtensionEntity } from "../pbir.js";
 import type { ServerContext } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
 import { extractVisualTitle } from "../helpers/extractTitle.js";
@@ -670,8 +670,8 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         if (!ext?.entities?.length) {
           return { content: [{ type: "text", text: JSON.stringify({ success: true, measures: [], count: 0 }) }] };
         }
-        const measures = ext.entities.flatMap((e: any) =>
-          (e.measures || []).map((m: any) => ({ table: e.name, name: m.name, expression: m.expression, dataType: m.dataType }))
+        const measures = ext.entities.flatMap((e) =>
+          (e.measures || []).map((m) => ({ table: e.name, name: m.name, expression: m.expression, dataType: m.dataType }))
         );
         return { content: [{ type: "text", text: JSON.stringify({ success: true, measures, count: measures.length }) }] };
       }
@@ -691,7 +691,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         }
 
         // Find or create the entity (table)
-        let entity = ext.entities.find((e: any) => e.name === tableName);
+        let entity: ExtensionEntity | undefined = ext.entities.find((e) => e.name === tableName);
         if (!entity) {
           entity = { name: tableName, measures: [] };
           ext.entities.push(entity);
@@ -699,7 +699,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         if (!entity.measures) entity.measures = [];
 
         // Remove existing measure with same name (update)
-        entity.measures = entity.measures.filter((m: any) => m.name !== measureName);
+        entity.measures = entity.measures.filter((m) => m.name !== measureName);
 
         entity.measures.push({
           name: measureName,
@@ -725,13 +725,13 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         for (const entity of ext.entities) {
           const before = entity.measures?.length ?? 0;
           if (entity.measures) {
-            entity.measures = entity.measures.filter((m: any) => m.name !== measureName);
+            entity.measures = entity.measures.filter((m) => m.name !== measureName);
             if (entity.measures.length < before) removed = true;
           }
         }
 
         // Clean up empty entities
-        ext.entities = ext.entities.filter((e: any) => e.measures?.length > 0);
+        ext.entities = ext.entities.filter((e) => (e.measures?.length ?? 0) > 0);
 
         // Save (auto-deletes file if empty)
         ctx.project.saveReportExtensions(ext);
@@ -835,7 +835,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
 
       // Find existing interaction between this source and target
       const existingIdx = page.visualInteractions.findIndex(
-        (vi: any) => vi.source === source && vi.target === target
+        (vi) => vi.source === source && vi.target === target
       );
 
       const interaction = { source, target, type };

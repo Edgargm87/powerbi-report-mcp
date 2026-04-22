@@ -5,6 +5,7 @@ import { FormatCategorySchema, DataColorSchema, NO_DATA_VISUAL_TYPES } from "../
 import { validateFormatting } from "../helpers/themeSchema.js";
 import { THEME_PRESETS } from "../helpers/defaults.js";
 import type { ServerContext } from "../context.js";
+import type { FieldRef } from "../pbir.js";
 
 // Categories that belong in visualContainerObjects (container chrome)
 const CONTAINER_CATEGORIES = new Set([
@@ -516,7 +517,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
         const entity = match[1].trim();
         const property = match[2].trim();
 
-        let field: any;
+        let field: FieldRef;
         if (s.type === "measure") {
           field = {
             Measure: {

@@ -5,13 +5,11 @@ import type { FilterItem, FieldRef } from "../pbir.js";
 import type { ServerContext } from "../context.js";
 
 // --- Helper: flatten a PBIR FieldRef to "Table[Field]" string ---
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function fieldRefToString(field: FieldRef): string {
-  const f = field as any;
-  if (f?.Column) return `${f.Column.Expression?.SourceRef?.Entity}[${f.Column.Property}]`;
-  if (f?.Measure) return `${f.Measure.Expression?.SourceRef?.Entity}[${f.Measure.Property}]`;
-  if (f?.Aggregation?.Expression?.Column) {
-    const col = f.Aggregation.Expression.Column;
+  if (field?.Column) return `${field.Column.Expression?.SourceRef?.Entity}[${field.Column.Property}]`;
+  if (field?.Measure) return `${field.Measure.Expression?.SourceRef?.Entity}[${field.Measure.Property}]`;
+  if (field?.Aggregation?.Expression?.Column) {
+    const col = field.Aggregation.Expression.Column;
     return `${col.Expression?.SourceRef?.Entity}[${col.Property}]`;
   }
   return JSON.stringify(field);

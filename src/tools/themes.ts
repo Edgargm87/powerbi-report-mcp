@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ServerContext } from "../context.js";
+import type { ReportDefinition, ResourcePackage } from "../pbir.js";
 
 // Current PBIR schema versions — used when writing reportVersionAtImport
 const REPORT_VERSION = { visual: "2.7.0", report: "3.2.0", page: "2.3.0" };
@@ -14,8 +15,7 @@ function themeFilename(name: string): string {
 
 // --- Helper: upsert customTheme in report.json ---
 function applyThemeToReport(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  report: any,
+  report: ReportDefinition,
   filename: string
 ): void {
   // Set themeCollection.customTheme
@@ -32,9 +32,8 @@ function applyThemeToReport(
   }
 
   // Find or create the RegisteredResources package
-  let pkg = report.resourcePackages.find(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (p: any) => p.type === "RegisteredResources"
+  let pkg: ResourcePackage | undefined = report.resourcePackages.find(
+    (p) => p.type === "RegisteredResources"
   );
   if (!pkg) {
     pkg = { name: "RegisteredResources", type: "RegisteredResources", items: [] };
@@ -42,8 +41,7 @@ function applyThemeToReport(
   }
 
   // Remove any existing CustomTheme entries, then add the new one
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  pkg.items = (pkg.items as any[]).filter((item: any) => item.type !== "CustomTheme");
+  pkg.items = pkg.items.filter((item) => item.type !== "CustomTheme");
   pkg.items.push({ name: filename, path: filename, type: "CustomTheme" });
 }
 
@@ -137,8 +135,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
     {},
     async () => {
       const report = ctx.project.getReport();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tc = report.themeCollection as any;
+      const tc = report.themeCollection;
       const baseTheme = tc?.baseTheme?.name ?? null;
       const customThemeName = tc?.customTheme?.name ?? null;
 
@@ -171,8 +168,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
     {},
     async () => {
       const report = ctx.project.getReport();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tc = report.themeCollection as any;
+      const tc = report.themeCollection;
 
       if (!tc?.customTheme) {
         return {
@@ -185,11 +181,9 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
 
       // Remove from resourcePackages
       if (Array.isArray(report.resourcePackages)) {
-        for (const pkg of report.resourcePackages as Array<Record<string, unknown>>) {
+        for (const pkg of report.resourcePackages) {
           if (pkg.type === "RegisteredResources" && Array.isArray(pkg.items)) {
-            pkg.items = (pkg.items as Array<Record<string, unknown>>).filter(
-              (item) => item.type !== "CustomTheme"
-            );
+            pkg.items = pkg.items.filter((item) => item.type !== "CustomTheme");
           }
         }
       }
@@ -220,8 +214,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
     },
     async ({ theme }) => {
       const report = ctx.project.getReport();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tc = report.themeCollection as any;
+      const tc = report.themeCollection;
       const customThemeName = tc?.customTheme?.name ?? null;
 
       const current: Record<string, unknown> = customThemeName

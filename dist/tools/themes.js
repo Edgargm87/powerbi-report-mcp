@@ -11,9 +11,7 @@ function themeFilename(name) {
     return `${safe}${ts}.json`;
 }
 // --- Helper: upsert customTheme in report.json ---
-function applyThemeToReport(
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-report, filename) {
+function applyThemeToReport(report, filename) {
     // Set themeCollection.customTheme
     if (!report.themeCollection)
         report.themeCollection = {};
@@ -27,15 +25,12 @@ report, filename) {
         report.resourcePackages = [];
     }
     // Find or create the RegisteredResources package
-    let pkg = report.resourcePackages.find(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (p) => p.type === "RegisteredResources");
+    let pkg = report.resourcePackages.find((p) => p.type === "RegisteredResources");
     if (!pkg) {
         pkg = { name: "RegisteredResources", type: "RegisteredResources", items: [] };
         report.resourcePackages.push(pkg);
     }
     // Remove any existing CustomTheme entries, then add the new one
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     pkg.items = pkg.items.filter((item) => item.type !== "CustomTheme");
     pkg.items.push({ name: filename, path: filename, type: "CustomTheme" });
 }
@@ -122,7 +117,6 @@ function registerThemeTools(server, ctx) {
     // ============================================================
     server.tool("get_report_theme", "Get the currently applied theme for this report. Returns the base theme name and, if a custom theme is applied, its name and full JSON content.", {}, async () => {
         const report = ctx.project.getReport();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const tc = report.themeCollection;
         const baseTheme = tc?.baseTheme?.name ?? null;
         const customThemeName = tc?.customTheme?.name ?? null;
@@ -144,7 +138,6 @@ function registerThemeTools(server, ctx) {
     // ============================================================
     server.tool("remove_report_theme", "Remove the custom theme from the report, reverting to the default base theme. The theme file is kept in StaticResources but unlinked from report.json.", {}, async () => {
         const report = ctx.project.getReport();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const tc = report.themeCollection;
         if (!tc?.customTheme) {
             return {
@@ -180,7 +173,6 @@ function registerThemeTools(server, ctx) {
             .describe("Proposed theme JSON object to compare against the current theme"),
     }, async ({ theme }) => {
         const report = ctx.project.getReport();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const tc = report.themeCollection;
         const customThemeName = tc?.customTheme?.name ?? null;
         const current = customThemeName

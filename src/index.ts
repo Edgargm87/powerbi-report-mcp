@@ -1,5 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import * as fs from "fs";
 import * as path from "path";
 import { z } from "zod";
@@ -133,9 +134,8 @@ process.on("unhandledRejection", (reason) => console.error("[unhandledRejection]
 
 // --- Tool handler wrapper — returns isError response instead of crashing ---
 function safe<T extends Record<string, unknown>>(
-  fn: (args: T) => Promise<unknown>
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-): (args: T) => Promise<any> {
+  fn: (args: T) => Promise<CallToolResult>
+): (args: T) => Promise<CallToolResult> {
   return async (args: T) => {
     try {
       return await fn(args);
@@ -218,13 +218,12 @@ async function main() {
   const activeTools = new Set(loadAll ? Object.keys(ALL_TOOLS) : DEFAULT_TOOLS);
 
   // Store deferred tool registrations so load_tools can activate them later
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const deferredTools: Map<string, { desc: string; schema: any; handler: any }> = new Map();
+  type ToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult>;
+  const deferredTools: Map<string, { desc: string; schema: unknown; handler: ToolHandler }> = new Map();
 
   // Auto-wrap all tool handlers with safe() and filter by active set
   const _tool = server.tool.bind(server);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (server as any).tool = (name: string, desc: string, schema: unknown, handler: (args: any) => Promise<any>) => {
+  (server as unknown as { tool: (name: string, desc: string, schema: unknown, handler: ToolHandler) => void }).tool = (name, desc, schema, handler) => {
     const safeHandler = safe(handler);
     if (activeTools.has(name)) {
       _tool(name, desc, schema as Record<string, unknown>, safeHandler);

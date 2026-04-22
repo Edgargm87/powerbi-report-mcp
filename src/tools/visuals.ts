@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { generateId, VISUAL_BUCKETS } from "../pbir.js";
-import type { VisualDefinition } from "../pbir.js";
+import type { VisualDefinition, QueryState, Projection } from "../pbir.js";
 import {
   VisualSpecSchema,
   BucketBindingSchema,
@@ -82,7 +82,6 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       visualId: z.string().describe("The visual ID"),
       slim: z.boolean().optional().default(true).describe("Slim mode (default true) — summary instead of full JSON"),
     },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     async ({ pageId, visualId, slim }) => {
       const visual = ctx.project.getVisual(pageId, visualId);
 
@@ -95,12 +94,10 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
 
       // Extract bindings as Table[Field] strings
       const bindings: Record<string, string[]> = {};
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const qs = (visual.visual.query as any)?.queryState;
+      const qs: QueryState | undefined = visual.visual.query?.queryState;
       if (qs) {
         for (const [bucket, state] of Object.entries(qs)) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const projs: any[] = (state as any)?.projections ?? [];
+          const projs: Projection[] = state?.projections ?? [];
           bindings[bucket] = projs.map((p) => {
             const f = p.field;
             if (f?.Column) return `${f.Column.Expression?.SourceRef?.Entity}[${f.Column.Property}]`;
@@ -137,11 +134,12 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       const SLICER_TYPES = new Set(["slicer", "listSlicer", "textSlicer", "advancedSlicerVisual"]);
       const vType = visual.visual.visualType;
       if (SLICER_TYPES.has(vType)) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const objs = visual.visual.objects as any;
+        const objs = visual.visual.objects as Record<string, unknown> | undefined;
+        const dataArr = objs?.data as Array<{ properties?: { mode?: { expr?: { Literal?: { Value?: unknown } } } } }> | undefined;
+        const selectionArr = objs?.selection as Array<{ properties?: { singleSelect?: { expr?: { Literal?: { Value?: unknown } } } } }> | undefined;
         let slicerMode: string | undefined;
         if (vType === "slicer") {
-          const modeLit = objs?.data?.[0]?.properties?.mode?.expr?.Literal?.Value;
+          const modeLit = dataArr?.[0]?.properties?.mode?.expr?.Literal?.Value;
           if (typeof modeLit === "string") {
             slicerMode = modeLit.replace(/^'|'$/g, "");
           } else {
@@ -149,7 +147,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
           }
           result.slicerMode = slicerMode;
         }
-        const singleLit = objs?.selection?.[0]?.properties?.singleSelect?.expr?.Literal?.Value;
+        const singleLit = selectionArr?.[0]?.properties?.singleSelect?.expr?.Literal?.Value;
         let multiSelect: boolean;
         if (singleLit === "true") {
           multiSelect = false;

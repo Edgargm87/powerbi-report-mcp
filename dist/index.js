@@ -162,9 +162,7 @@ process.on("SIGTERM", () => process.exit(0));
 process.on("uncaughtException", (err) => console.error("[uncaughtException]", err));
 process.on("unhandledRejection", (reason) => console.error("[unhandledRejection]", reason));
 // --- Tool handler wrapper — returns isError response instead of crashing ---
-function safe(fn
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-) {
+function safe(fn) {
     return async (args) => {
         try {
             return await fn(args);
@@ -239,12 +237,9 @@ async function main() {
     const loadMinimal = mode === "minimal";
     const loadAll = !loadMinimal;
     const activeTools = new Set(loadAll ? Object.keys(ALL_TOOLS) : default_tools_js_1.DEFAULT_TOOLS);
-    // Store deferred tool registrations so load_tools can activate them later
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const deferredTools = new Map();
     // Auto-wrap all tool handlers with safe() and filter by active set
     const _tool = server.tool.bind(server);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     server.tool = (name, desc, schema, handler) => {
         const safeHandler = safe(handler);
         if (activeTools.has(name)) {

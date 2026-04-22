@@ -624,7 +624,7 @@ function registerReportTools(server, ctx) {
                 }
             }
             // Clean up empty entities
-            ext.entities = ext.entities.filter((e) => e.measures?.length > 0);
+            ext.entities = ext.entities.filter((e) => (e.measures?.length ?? 0) > 0);
             // Save (auto-deletes file if empty)
             ctx.project.saveReportExtensions(ext);
             return { content: [{ type: "text", text: JSON.stringify({ success: true, operation: "remove", measure: measureName, removed }) }] };

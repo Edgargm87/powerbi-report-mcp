@@ -128,12 +128,59 @@ export interface PagesMetadata {
   activePageName: string;
 }
 
+/** Reference to a theme file registered under StaticResources. */
+export interface ThemeReference {
+  name: string;
+  reportVersionAtImport?: { visual: string; report: string; page: string };
+  type?: string;
+}
+
+/** report.json themeCollection — baseTheme is a stock PBI theme, customTheme is a user JSON. */
+export interface ThemeCollection {
+  baseTheme?: ThemeReference;
+  customTheme?: ThemeReference;
+}
+
+/** Entry inside a resource package (themes, images, etc.) */
+export interface ResourcePackageItem {
+  name: string;
+  path: string;
+  type: string;
+}
+
+export interface ResourcePackage {
+  name: string;
+  type: string;
+  items: ResourcePackageItem[];
+}
+
 export interface ReportDefinition {
   $schema: string;
-  themeCollection?: Record<string, unknown>;
+  themeCollection?: ThemeCollection;
   objects?: Record<string, unknown>;
-  resourcePackages?: unknown[];
+  resourcePackages?: ResourcePackage[];
   settings?: Record<string, unknown>;
+}
+
+// --- Report extensions (reportExtensions.json) — user-defined measures attached
+// to the report rather than the semantic model. Used by manage_extension_measures.
+export interface ExtensionMeasure {
+  name: string;
+  expression: string;
+  dataType?: string;
+  [key: string]: unknown; // PBI ships extra fields like formatInformation
+}
+
+export interface ExtensionEntity {
+  name: string;
+  measures?: ExtensionMeasure[];
+  [key: string]: unknown;
+}
+
+export interface ReportExtensions {
+  $schema?: string;
+  entities: ExtensionEntity[];
+  [key: string]: unknown;
 }
 
 // --- Aggregation function mapping ---
@@ -489,12 +536,12 @@ export class PbirProject {
     return path.join(this.definitionPath, "reportExtensions.json");
   }
 
-  getReportExtensions(): any | null {
+  getReportExtensions(): ReportExtensions | null {
     if (!fs.existsSync(this.reportExtensionsPath)) return null;
-    return this.readJson(this.reportExtensionsPath);
+    return this.readJson(this.reportExtensionsPath) as ReportExtensions;
   }
 
-  saveReportExtensions(extensions: any): void {
+  saveReportExtensions(extensions: ReportExtensions): void {
     // CRITICAL: delete file if no entities/measures to avoid PBI Desktop crash
     if (!extensions?.entities?.length) {
       if (fs.existsSync(this.reportExtensionsPath)) {

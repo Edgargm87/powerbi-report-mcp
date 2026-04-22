@@ -124,12 +124,54 @@ export interface PagesMetadata {
     pageOrder: string[];
     activePageName: string;
 }
+/** Reference to a theme file registered under StaticResources. */
+export interface ThemeReference {
+    name: string;
+    reportVersionAtImport?: {
+        visual: string;
+        report: string;
+        page: string;
+    };
+    type?: string;
+}
+/** report.json themeCollection — baseTheme is a stock PBI theme, customTheme is a user JSON. */
+export interface ThemeCollection {
+    baseTheme?: ThemeReference;
+    customTheme?: ThemeReference;
+}
+/** Entry inside a resource package (themes, images, etc.) */
+export interface ResourcePackageItem {
+    name: string;
+    path: string;
+    type: string;
+}
+export interface ResourcePackage {
+    name: string;
+    type: string;
+    items: ResourcePackageItem[];
+}
 export interface ReportDefinition {
     $schema: string;
-    themeCollection?: Record<string, unknown>;
+    themeCollection?: ThemeCollection;
     objects?: Record<string, unknown>;
-    resourcePackages?: unknown[];
+    resourcePackages?: ResourcePackage[];
     settings?: Record<string, unknown>;
+}
+export interface ExtensionMeasure {
+    name: string;
+    expression: string;
+    dataType?: string;
+    [key: string]: unknown;
+}
+export interface ExtensionEntity {
+    name: string;
+    measures?: ExtensionMeasure[];
+    [key: string]: unknown;
+}
+export interface ReportExtensions {
+    $schema?: string;
+    entities: ExtensionEntity[];
+    [key: string]: unknown;
 }
 export declare const AggregationFunction: Record<string, number>;
 export declare const VISUAL_BUCKETS: Record<string, string[]>;
@@ -190,8 +232,8 @@ export declare class PbirProject {
     listRegisteredResources(): string[];
     deleteRegisteredResource(filename: string): void;
     get reportExtensionsPath(): string;
-    getReportExtensions(): any | null;
-    saveReportExtensions(extensions: any): void;
+    getReportExtensions(): ReportExtensions | null;
+    saveReportExtensions(extensions: ReportExtensions): void;
 }
 export declare function columnRef(entity: string, property: string): FieldRef;
 export declare function aggregationRef(entity: string, property: string, func?: number): FieldRef;
