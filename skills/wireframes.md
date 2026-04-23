@@ -154,34 +154,40 @@ For unequal splits:
 |  BANNER (0,0) 1280x52                                                | y:0
 +--[15px margin]------------------------------------------------[15px]--+
 |  SLICER-1           |5| SLICER-2           |5| SLICER-3             | y:57
-|  413x40                 413x40                 414x40                |
+|  413x60                 413x60                 414x60                |
 +-----------------------------------------------------------------------+
-|  MAIN CHART (2/3 width)         |5| KPI-1               415x93     | y:102
+|  MAIN CHART (2/3 width)         |5| KPI-1               415x93     | y:122
 |  830x380                           KPI-2               415x93      |
 |                                    KPI-3               415x93      |
 |                                    KPI-4               415x86      |
 +-----------------------------------------------------------------------+
-|  TABLE (full width) 1250x227                                         | y:487
+|  TABLE (full width) 1250x207                                         | y:507
 +-----------------------------------------------------------------------+
                                                                    y:714
 ```
 
 **Visuals:** 10  |  **Coverage:** 94.1%  |  **Bottom:** 714
 
+> **Slicer heights:** the 60px rows here match the slicer house default
+> (see skills/slicers.md). Do NOT shrink slicers below `height: 44` — the
+> dropdown chevron clips. The write-time guard in `createAndSaveVisual`
+> auto-bumps `height < 44` to 44 for all 4 slicer types, but pass `60`
+> explicitly so the intent is visible.
+
 | Visual      | x    | y    | width | height | z     |
 |-------------|------|------|-------|--------|-------|
 | Banner      | 0    | 0    | 1280  | 52     | 0     |
-| Slicer 1    | 15   | 57   | 413   | 40     | 1000  |
-| Slicer 2    | 433  | 57   | 413   | 40     | 2000  |
-| Slicer 3    | 851  | 57   | 414   | 40     | 3000  |
-| Main Chart  | 15   | 102  | 830   | 380    | 4000  |
-| KPI 1       | 850  | 102  | 415   | 93     | 5000  |
-| KPI 2       | 850  | 200  | 415   | 93     | 6000  |
-| KPI 3       | 850  | 298  | 415   | 93     | 7000  |
-| KPI 4       | 850  | 396  | 415   | 86     | 8000  |
-| Table       | 15   | 487  | 1250  | 227    | 9000  |
+| Slicer 1    | 15   | 57   | 413   | 60     | 1000  |
+| Slicer 2    | 433  | 57   | 413   | 60     | 2000  |
+| Slicer 3    | 851  | 57   | 414   | 60     | 3000  |
+| Main Chart  | 15   | 122  | 830   | 380    | 4000  |
+| KPI 1       | 850  | 122  | 415   | 93     | 5000  |
+| KPI 2       | 850  | 220  | 415   | 93     | 6000  |
+| KPI 3       | 850  | 318  | 415   | 93     | 7000  |
+| KPI 4       | 850  | 416  | 415   | 86     | 8000  |
+| Table       | 15   | 507  | 1250  | 207    | 9000  |
 
-KPI stack bottom: `102 + 93 + 5 + 93 + 5 + 93 + 5 + 86 = 482`, matches chart bottom (`102 + 380 = 482`).
+KPI stack bottom: `122 + 93 + 5 + 93 + 5 + 93 + 5 + 86 = 502`, matches chart bottom (`122 + 380 = 502`). Table ends at `507 + 207 = 714` — the canvas floor.
 
 ---
 
