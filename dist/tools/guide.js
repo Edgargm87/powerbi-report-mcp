@@ -121,34 +121,28 @@ function listTopicsWithSummaries() {
     }));
 }
 /**
- * Build a compact session-start banner that lists every skill topic with its
- * summary, plus inlines the two skills most needed before any visual work
- * (wireframes + report-design). Agents should read this once per session and
- * then call guide(topic) for detail on any other topic.
+ * Build a compact session-start banner — just the skills index, no inlined
+ * file bodies. Every skill file is accessible via `guide(topic)`; the banner
+ * is only a map, not the territory.
+ *
+ * Rationale: earlier versions inlined elicitation.md + wireframes.md +
+ * report-design.md (~35KB / ~9k tokens) into every session. That bloated
+ * the context for sessions that never built visuals, and — worse — surfaced
+ * concrete example numbers (e.g. slicer 413x40 in wireframes.md) ahead of
+ * the house-default docs (slicers.md), which led the LLM to copy wrong
+ * sizes. The banner is now a pure index; skills load on demand.
  */
 function buildSkillsIndexBanner() {
     const topics = listTopicsWithSummaries();
     const lines = [];
-    lines.push("## Skills index (call `guide(topic)` for full content)");
+    lines.push("## Skills index — call `guide(topic)` for full content");
+    lines.push("");
+    lines.push("Before placing visuals, read `guide(\"elicitation\")` for what to ask the user, " +
+        "`guide(\"wireframes\")` for layout geometry, and `guide(\"report-design\")` for taste. " +
+        "Call any other topic below on demand.");
     lines.push("");
     for (const { key, summary } of topics) {
         lines.push(`- **${key}** — ${summary}`);
-    }
-    // Always inline the three skills that govern first-turn behaviour:
-    // elicitation (what to ask), wireframes (geometry), report-design (taste).
-    // Every session gets these in-context so the agent asks the right questions
-    // before building and places visuals correctly when it does.
-    const alwaysInline = ["elicitation", "wireframes", "report-design"];
-    for (const key of alwaysInline) {
-        const body = readTopic(key);
-        if (!body)
-            continue;
-        lines.push("");
-        lines.push(`---`);
-        lines.push("");
-        lines.push(`## Inlined: ${key}.md`);
-        lines.push("");
-        lines.push(body.trim());
     }
     return lines.join("\n");
 }
