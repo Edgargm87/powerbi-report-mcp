@@ -7,6 +7,7 @@ const createVisual_js_1 = require("../helpers/createVisual.js");
 const model_usage_js_1 = require("../model-usage.js");
 const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
 const extractTitle_js_1 = require("../helpers/extractTitle.js");
+const themeSchema_js_1 = require("../helpers/themeSchema.js");
 const layoutValidation_js_1 = require("../helpers/layoutValidation.js");
 function registerVisualTools(server, ctx) {
     // ============================================================
@@ -151,6 +152,11 @@ function registerVisualTools(server, ctx) {
             .boolean()
             .optional()
             .describe("Layout validation: true=strict, false=warn. Omit for env default. Canvas 1280x720, 15px L/R and 6px bottom margins, 5px gaps."),
+        strictFormat: zod_1.z
+            .boolean()
+            .optional()
+            .default(true)
+            .describe("When true (default), validate inline containerFormat/visualFormat against the bundled theme schema before creating visuals. Mirrors format_visual's `strict`."),
     }, async (params) => {
         const { pageId } = params;
         const existingVisuals = ctx.project.listVisualIds(pageId);
@@ -234,6 +240,44 @@ function registerVisualTools(server, ctx) {
                     },
                 ],
             };
+        }
+        // Formatting validation — mirror format_visual's strict path for any
+        // spec that ships inline containerFormat/visualFormat. Catches typos
+        // before they get written into PBIR (where PBI Desktop silently ignores
+        // unknown property names). Unknown visualType → validateFormatting is a
+        // no-op, same as in format_visual, so unknown types still proceed.
+        if (params.strictFormat ?? true) {
+            const formatIssues = [];
+            for (let i = 0; i < specs.length; i++) {
+                const s = specs[i];
+                const entries = [
+                    ...(s.containerFormat ?? []),
+                    ...(s.visualFormat ?? []),
+                ];
+                if (entries.length === 0)
+                    continue;
+                const issues = (0, themeSchema_js_1.validateFormatting)(s.visualType, entries);
+                if (issues.length > 0) {
+                    formatIssues.push({ index: i, visualType: s.visualType, issues });
+                }
+            }
+            if (formatIssues.length > 0) {
+                return {
+                    content: [
+                        {
+                            type: "text",
+                            text: JSON.stringify({
+                                success: false,
+                                error: "Formatting rejected: unknown category or property names for one or more visuals.",
+                                issues: formatIssues,
+                                hint: "Call lookup_theme_property({ visualType, category }) to see valid names. " +
+                                    "If you're certain the schema is stale (PBI shipped something new), retry with strictFormat: false.",
+                            }, null, 2),
+                        },
+                    ],
+                    isError: true,
+                };
+            }
         }
         const results = [];
         for (let i = 0; i < specs.length; i++) {

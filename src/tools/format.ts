@@ -93,7 +93,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "format_visual",
-    "Format visual properties. Auto-routes title/background/border/padding/dropShadow/visualHeader to container, others to visual; override with target='visual'|'container'. Validates names against bundled theme schema (strict=false to skip).",
+    "Format visual properties. Auto-routes title/background/border/padding/dropShadow/visualHeader to container, others to visual; override with target='visual'|'container'. Validates names against bundled theme schema (strict=false to skip). Gotchas: slicer uses `textSize`, not `fontSize` (items/header); waterfall uses `sentimentColors`, not `dataPoint`.",
     {
       pageId: z.string().describe("The page ID"),
       visualId: z.string().describe("The visual ID"),
