@@ -12,7 +12,7 @@ import {
 import type { VisualSpec, FieldSpecInput } from "../helpers/createVisual.js";
 import type { ServerContext } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
-import { runBindingValidation, isNoteworthySkip } from "../helpers/bindingValidation.js";
+import { runBindingValidation, attachBindingValidationMetadata } from "../helpers/bindingValidation.js";
 import { extractVisualTitle } from "../helpers/extractTitle.js";
 import { runLayoutValidation, getCanvasSummary } from "../helpers/layoutValidation.js";
 import type { WireframeVisual } from "../wireframe-validator.js";
@@ -373,16 +373,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
         created: results,
         canvas: getCanvasSummary(),
       };
-      if (validation.errors.length > 0) {
-        response.bindingWarnings = validation.errors;
-        response.bindingWarningMessage = validation.message;
-      }
-      if (isNoteworthySkip(validation.skipReason)) {
-        response.bindingValidation = {
-          skipped: validation.skipReason,
-          note: "Bindings were NOT checked against the semantic model. Double-check field names — a typo will load silently and render nothing.",
-        };
-      }
+      attachBindingValidationMetadata(response, validation);
       if (layoutValidation.warnings.length > 0) {
         response.layoutWarnings = layoutValidation.warnings;
       }

@@ -29,6 +29,7 @@ exports.validateFieldSpec = validateFieldSpec;
 exports.validateBindings = validateBindings;
 exports.formatBindingErrors = formatBindingErrors;
 exports.isNoteworthySkip = isNoteworthySkip;
+exports.attachBindingValidationMetadata = attachBindingValidationMetadata;
 exports.runBindingValidation = runBindingValidation;
 const model_usage_js_1 = require("../model-usage.js");
 // ---------------------------------------------------------------------------
@@ -321,6 +322,29 @@ function formatBindingErrors(errors) {
  */
 function isNoteworthySkip(reason) {
     return reason === "model_not_found" || reason === "model_parse_error";
+}
+/**
+ * Attach binding-validation metadata (`bindingWarnings`, `bindingWarningMessage`,
+ * and the conditional `bindingValidation.skipped` notice) to a response body.
+ *
+ * Three tool handlers — `add_visual`, `update_visual_bindings`, `bulk_bind` —
+ * all need to surface the same information in the same shape. Before this
+ * helper existed, each inlined the same 10-line block, which meant every
+ * tweak (e.g. wording of the "typo loads silently" note) had to be made three
+ * times. Mutates and returns `response` for chaining convenience.
+ */
+function attachBindingValidationMetadata(response, validation) {
+    if (validation.errors.length > 0) {
+        response.bindingWarnings = validation.errors;
+        response.bindingWarningMessage = validation.message;
+    }
+    if (isNoteworthySkip(validation.skipReason)) {
+        response.bindingValidation = {
+            skipped: validation.skipReason,
+            note: "Bindings were NOT checked against the semantic model. Double-check field names — a typo will load silently and render nothing.",
+        };
+    }
+    return response;
 }
 /**
  * Run validation with the three-mode policy and return a structured outcome.

@@ -98,6 +98,17 @@ export interface ValidationOutcome {
  */
 export declare function isNoteworthySkip(reason: SkippedReason | null): boolean;
 /**
+ * Attach binding-validation metadata (`bindingWarnings`, `bindingWarningMessage`,
+ * and the conditional `bindingValidation.skipped` notice) to a response body.
+ *
+ * Three tool handlers — `add_visual`, `update_visual_bindings`, `bulk_bind` —
+ * all need to surface the same information in the same shape. Before this
+ * helper existed, each inlined the same 10-line block, which meant every
+ * tweak (e.g. wording of the "typo loads silently" note) had to be made three
+ * times. Mutates and returns `response` for chaining convenience.
+ */
+export declare function attachBindingValidationMetadata(response: Record<string, unknown>, validation: ValidationOutcome): Record<string, unknown>;
+/**
  * Run validation with the three-mode policy and return a structured outcome.
  * Tool handlers should branch on `outcome.proceed`:
  *   - strict + errors → return error response, skip the write

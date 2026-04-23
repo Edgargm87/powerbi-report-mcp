@@ -1,18 +1,15 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { buildQueryRef, buildNativeQueryRef, buildAutoFilters, VISUAL_BUCKETS } from "../pbir.js";
-import type { Projection, QueryState } from "../pbir.js";
 import {
   BucketBindingSchema,
   FormatCategorySchema,
-  parseFieldSpec,
-  SLICER_VISUAL_TYPES,
 } from "../helpers/createVisual.js";
 import type { FieldSpecInput } from "../helpers/createVisual.js";
 import { applyFormattingToTarget } from "../helpers/formatting.js";
 import type { ServerContext } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
-import { runBindingValidation, isNoteworthySkip } from "../helpers/bindingValidation.js";
+import { runBindingValidation, attachBindingValidationMetadata } from "../helpers/bindingValidation.js";
+import { applyBindingsToVisual } from "../helpers/bindingApply.js";
 import { fail } from "../helpers/mcpResult.js";
 
 // Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk).
@@ -280,69 +277,11 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
             }
           }
           const visual = ctx.project.getVisual(pageId, visualId);
-          const vType = visual.visual.visualType;
-
-          // Build query state
-          const queryState: QueryState = {};
-          for (const binding of bindings) {
-            let bucketName = binding.bucket;
-            if (bucketName === "Fields") {
-              const validBuckets = VISUAL_BUCKETS[vType as keyof typeof VISUAL_BUCKETS];
-              if (validBuckets && validBuckets.length > 0 && !validBuckets.includes("Fields")) {
-                bucketName = validBuckets[0];
-              }
-            }
-            const projections: Projection[] = binding.fields.map((fieldSpec, i) => {
-              const field = parseFieldSpec(fieldSpec);
-              const isFirst =
-                i === 0 &&
-                (bucketName === "Category" ||
-                  (SLICER_VISUAL_TYPES.has(vType) && (bucketName === "Values" || bucketName === "Rows")));
-              return {
-                field,
-                queryRef: buildQueryRef(field),
-                nativeQueryRef: buildNativeQueryRef(field),
-                ...(isFirst ? { active: true } : {}),
-              };
-            });
-            queryState[bucketName] = { projections };
-          }
-
-          if (!visual.visual.query) {
-            visual.visual.query = { queryState };
-          } else {
-            visual.visual.query.queryState = queryState;
-          }
-
-          // Rebuild sort
-          if (queryState.Category?.projections?.[0]) {
-            visual.visual.query.sortDefinition = {
-              sort: [
-                {
-                  field: JSON.parse(JSON.stringify(queryState.Category.projections[0].field)),
-                  direction: "Ascending",
-                },
-              ],
-              isDefaultSort: true,
-            };
-          } else if (SLICER_VISUAL_TYPES.has(vType) && (queryState.Values?.projections?.[0] || queryState.Rows?.projections?.[0])) {
-            const slicerBucket = queryState.Values ?? queryState.Rows;
-            visual.visual.query.sortDefinition = {
-              sort: [
-                {
-                  field: JSON.parse(JSON.stringify(slicerBucket!.projections[0].field)),
-                  direction: "Ascending",
-                },
-              ],
-            };
-          } else if (visual.visual.query.sortDefinition) {
-            delete visual.visual.query.sortDefinition;
-          }
-
-          if (autoFilters) {
-            visual.filterConfig = { filters: buildAutoFilters(queryState) };
-          }
-
+          applyBindingsToVisual(
+            visual,
+            bindings.map((b) => ({ bucket: b.bucket, fields: b.fields as FieldSpecInput[] })),
+            { autoFilters: autoFilters ?? true }
+          );
           ctx.project.saveVisual(pageId, visualId, visual);
           updated.push(visualId);
         } catch (err) {
@@ -358,16 +297,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
         errors,
         ...(perEntryBindingErrors.length > 0 ? { perEntryBindingErrors } : {}),
       };
-      if (validation.errors.length > 0) {
-        bulkResponse.bindingWarnings = validation.errors;
-        bulkResponse.bindingWarningMessage = validation.message;
-      }
-      if (isNoteworthySkip(validation.skipReason)) {
-        bulkResponse.bindingValidation = {
-          skipped: validation.skipReason,
-          note: "Bindings were NOT checked against the semantic model. Double-check field names — a typo will load silently and render nothing.",
-        };
-      }
+      attachBindingValidationMetadata(bulkResponse, validation);
       return {
         content: [
           {

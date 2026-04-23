@@ -328,16 +328,7 @@ function registerVisualTools(server, ctx) {
             created: results,
             canvas: (0, layoutValidation_js_1.getCanvasSummary)(),
         };
-        if (validation.errors.length > 0) {
-            response.bindingWarnings = validation.errors;
-            response.bindingWarningMessage = validation.message;
-        }
-        if ((0, bindingValidation_js_1.isNoteworthySkip)(validation.skipReason)) {
-            response.bindingValidation = {
-                skipped: validation.skipReason,
-                note: "Bindings were NOT checked against the semantic model. Double-check field names — a typo will load silently and render nothing.",
-            };
-        }
+        (0, bindingValidation_js_1.attachBindingValidationMetadata)(response, validation);
         if (layoutValidation.warnings.length > 0) {
             response.layoutWarnings = layoutValidation.warnings;
         }

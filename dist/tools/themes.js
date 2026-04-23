@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerThemeTools = registerThemeTools;
 const zod_1 = require("zod");
+const extractTitle_js_1 = require("../helpers/extractTitle.js");
 // Current PBIR schema versions — used when writing reportVersionAtImport
 const REPORT_VERSION = { visual: "2.7.0", report: "3.2.0", page: "2.3.0" };
 // --- Helper: sanitise a theme name into a safe filename ---
@@ -227,12 +228,7 @@ function registerThemeTools(server, ctx) {
         for (const vid of visualIds) {
             const visual = ctx.project.getVisual(pageId, vid);
             const vType = visual.visual?.visualType || "unknown";
-            // Get title if present
-            const titleObj = visual.visual?.visualContainerObjects?.title;
-            let titleText = null;
-            if (Array.isArray(titleObj) && titleObj[0]?.properties?.text?.expr?.Literal?.Value) {
-                titleText = titleObj[0].properties.text.expr.Literal.Value.replace(/^'|'$/g, "");
-            }
+            const titleText = (0, extractTitle_js_1.extractVisualTitle)(visual.visual?.visualContainerObjects);
             const objects = visual.visual?.objects || {};
             const containerObjects = visual.visual?.visualContainerObjects || {};
             // Filter out auto-generated categories that are expected (not overrides)
