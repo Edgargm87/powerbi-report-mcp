@@ -83,7 +83,7 @@ Checkpoints (show work, wait for go-ahead) have the same scope rule as elicitati
 |---|---|---|---|
 | **1–3 visuals** | skip | skip | optional — offer a `reload_report` and stop |
 | **4–7 visuals** | **yes** — one message, confirm plan | skip | optional |
-| **8+ visuals or multi-page** | **yes** | **yes** — `get_page_summary`, confirm before binding | **yes** — confirm after binding, before polish |
+| **8+ visuals or multi-page** | **yes** | **yes** — `list_pages({includeVisuals: true})`, confirm before binding | **yes** — confirm after binding, before polish |
 
 "Optional" means: mention the step exists, but don't block. "Yes" means: actually pause and wait for a reply.
 

@@ -163,7 +163,7 @@ IF(HASONEVALUE('Table'[Segment]),
 2. Create the SVG DAX measure:
    - Model measure: `measure_operations({ operation: "Create", definitions: [{ name, expression, dataType: "String", dataCategory: "ImageUrl", tableName }] })`
    - Extension measure: `manage_extension_measures({ operation: "add", measureName, expression, dataType: "Text" })`
-3. Add visual: `add_visual({ visualType: "tableEx", bindings: [{ bucket: "Values", fields: [..., { type: "measure", field: "Table[SVG Measure]" }] }] })`
+3. Add visual: `add_visual({ visuals: [{ visualType: "tableEx", bindings: [{ bucket: "Values", fields: [..., { type: "measure", field: "Table[SVG Measure]" }] }] }] })`
 4. Format image height: `format_visual({ target: "visual", categories: [{ category: "grid", properties: { imageHeight: 20 } }] })`
 
 ## Community UDF Libraries

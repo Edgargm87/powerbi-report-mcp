@@ -54,7 +54,6 @@ const ALL_TOOLS: readonly string[] = [
   "update_page_size",
   "auto_layout",
   "duplicate_page",
-  "get_page_summary",
   "reload_report",
   "set_filter_pane",
   "set_page_background",

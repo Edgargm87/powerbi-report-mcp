@@ -9,7 +9,7 @@ Use these patterns when asked to add charts, tables, cards, KPIs, shapes, button
 
 | Tool | Purpose |
 |---|---|
-| `add_visual` | Create one visual (single mode) or many (batch mode). Inline format = 0 extra calls. |
+| `add_visual` | Create one or more visuals via the `visuals` array. Inline format = 0 extra calls. |
 | `get_visual` | Inspect one visual (slim by default — bindings as `Table[Field]` strings) |
 | `list_visuals` | List all visuals on a page (slim mode = id, type, x, y, w, h, title) |
 | `get_visual_types` | Dump the full visual-type → bucket map (use when you forget bucket names) |
@@ -19,27 +19,27 @@ Use these patterns when asked to add charts, tables, cards, KPIs, shapes, button
 | `delete_visual` | Remove one visual from a page |
 | `bulk_delete_visuals` | Remove many visuals in one call |
 
-For batch creation use `add_visual` batch mode. For batch reformat / rebind see `skills/formatting.md` and `bulk_bind`.
+For batch reformat / rebind see `skills/formatting.md` and `bulk_bind`.
 
-## `add_visual` — single mode
+## `add_visual`
+
+All calls pass the `visuals` array — one entry or many. One call, one round-trip, one set of side-effects (auto-z-order, cache invalidation).
 
 ```json
 {
   "pageId": "<id>",
-  "visualType": "clusteredBarChart",
-  "x": 20, "y": 80,
-  "width": 560, "height": 300,
-  "title": "Orders by Store",
-  "bindings": [
-    { "bucket": "Category", "fields": [{ "field": "Store[StoreName]", "type": "column" }] },
-    { "bucket": "Y",        "fields": [{ "field": "Sales[Order Count]", "type": "measure" }] }
+  "visuals": [
+    { "visualType": "clusteredBarChart", "x": 20, "y": 80, "width": 560, "height": 300,
+      "title": "Orders by Store",
+      "bindings": [
+        { "bucket": "Category", "fields": [{ "field": "Store[StoreName]", "type": "column" }] },
+        { "bucket": "Y",        "fields": [{ "field": "Sales[Order Count]", "type": "measure" }] }
+      ] }
   ]
 }
 ```
 
-## `add_visual` — batch mode
-
-When you need more than one visual on a page, **always use batch mode**. One call, one round-trip, one set of side-effects (auto-z-order, cache invalidation).
+Multiple visuals in one call:
 
 ```json
 {
@@ -58,7 +58,7 @@ When you need more than one visual on a page, **always use batch mode**. One cal
 }
 ```
 
-When `visuals` is provided, the top-level single-mode params (`visualType`, `x`, `y`, `width`, `height`, `bindings`, …) are ignored. Inline `containerFormat`, `visualFormat`, `dataColors`, `title`, `multiSelect`, `slicerMode`, etc. all work per-entry inside the `visuals` array.
+Inline `containerFormat`, `visualFormat`, `dataColors`, `title`, `multiSelect`, `slicerMode`, etc. all work per-entry inside the `visuals` array.
 
 ## Visual Type Reference
 
@@ -317,7 +317,7 @@ Case-sensitivity: field names are matched exactly — `sales[quantity]` is treat
 ### Inspect what's on a page
 - `list_visuals` (slim) — id, type, x, y, w, h, title
 - `get_visual` (slim) — bindings as `Table[Field]` strings, position, filterCount, plus `slicerMode`/`multiSelect` for slicers
-- `get_page_summary` — replaces `list_pages` + N×`list_visuals` in one call
+- `list_pages({includeVisuals: true})` — replaces `list_pages` + N×`list_visuals` in one call
 
 ### Rearrange visuals
 - `move_visual` to reposition/resize/re-layer one visual

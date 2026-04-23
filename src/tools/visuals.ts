@@ -4,9 +4,6 @@ import { generateId, VISUAL_BUCKETS } from "../pbir.js";
 import type { VisualDefinition, QueryState, Projection } from "../pbir.js";
 import {
   VisualSpecSchema,
-  BucketBindingSchema,
-  FormatCategorySchema,
-  DataColorSchema,
   createAndSaveVisual,
 } from "../helpers/createVisual.js";
 import type { VisualSpec, FieldSpecInput } from "../helpers/createVisual.js";
@@ -169,31 +166,10 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "add_visual",
-    "Add one or more visuals to a page. Batch mode (preferred): pass `visuals` array. Single mode: top-level `visualType` + params. Inline containerFormat/visualFormat/dataColors avoid extra format_visual calls. Chart naming: columnChart/barChart=stacked; clusteredColumnChart/clusteredBarChart=clustered.",
+    "Add one or more visuals to a page. Pass `visuals` array. Inline containerFormat/visualFormat/dataColors per entry avoids extra format_visual calls. Stacked charts (columnChart/barChart) need a Series binding. 'KPI card' = `card` with one measure. Scatter uses `Details` bucket.",
     {
       pageId: z.string(),
-      // Single-mode params (batch is preferred; these duplicate VisualSpec fields
-      // without descriptions — see createVisual.ts VisualSpecSchema for docs).
-      visualType: z.string().optional(),
-      x: z.number().optional().default(0),
-      y: z.number().optional().default(0),
-      width: z.number().optional().default(280),
-      height: z.number().optional().default(280),
-      bindings: z.array(BucketBindingSchema).optional(),
-      autoFilters: z.boolean().optional().default(true),
-      slicerMode: z.enum(["Basic", "Dropdown"]).optional(),
-      multiSelect: z.boolean().optional(),
-      shapeType: z
-        .enum(["rectangle", "rectangleRounded", "line", "tabCutCorner", "tabCutTopCorners", "tabRoundCorner", "tabRoundTopCorners"])
-        .optional(),
-      shapeRotation: z.number().optional().default(0),
-      fillColor: z.string().optional(),
-      textContent: z.string().optional(),
-      textColor: z.string().optional(),
-      textAlign: z.enum(["left", "center", "right"]).optional(),
-      textSize: z.number().optional(),
-      textBold: z.boolean().optional(),
-      title: z.string().optional(),
+      visuals: z.array(VisualSpecSchema),
       strictBindings: z
         .boolean()
         .optional()
@@ -202,18 +178,6 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
         .boolean()
         .optional()
         .describe("Layout validation: true=strict, false=warn. Omit for env default. Canvas 1280x720, 15px L/R and 6px bottom margins, 5px gaps."),
-      containerFormat: z.array(FormatCategorySchema).optional(),
-      visualFormat: z.array(FormatCategorySchema).optional(),
-      dataColors: z.array(DataColorSchema).optional(),
-      imageUrl: z.string().optional(),
-      imageScaling: z.enum(["fit", "fill", "normal"]).optional(),
-      buttonText: z.string().optional(),
-      buttonAction: z.enum(["pageNavigation", "URL", "bookmark", "back"]).optional(),
-      buttonActionTarget: z.string().optional(),
-      visuals: z
-        .array(VisualSpecSchema)
-        .optional()
-        .describe("Batch mode: array of visuals. When provided, top-level params are ignored."),
     },
     async (params) => {
       const { pageId } = params;
@@ -225,53 +189,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
         if (v.position.z > maxZ) maxZ = v.position.z;
       }
 
-      let specs: VisualSpec[];
-      if (params.visuals && params.visuals.length > 0) {
-        specs = params.visuals as VisualSpec[];
-      } else if (params.visualType) {
-        specs = [
-          {
-            visualType: params.visualType,
-            x: params.x,
-            y: params.y,
-            width: params.width,
-            height: params.height,
-            bindings: params.bindings as VisualSpec["bindings"],
-            autoFilters: params.autoFilters,
-            slicerMode: params.slicerMode as VisualSpec["slicerMode"],
-            multiSelect: params.multiSelect,
-            shapeType: params.shapeType,
-            shapeRotation: params.shapeRotation,
-            fillColor: params.fillColor,
-            textContent: params.textContent,
-            textColor: params.textColor,
-            textAlign: params.textAlign as VisualSpec["textAlign"],
-            textSize: params.textSize,
-            textBold: params.textBold,
-            title: params.title,
-            containerFormat: params.containerFormat as VisualSpec["containerFormat"],
-            visualFormat: params.visualFormat as VisualSpec["visualFormat"],
-            dataColors: params.dataColors as VisualSpec["dataColors"],
-            imageUrl: params.imageUrl,
-            imageScaling: params.imageScaling as VisualSpec["imageScaling"],
-            buttonText: params.buttonText,
-            buttonAction: params.buttonAction as VisualSpec["buttonAction"],
-            buttonActionTarget: params.buttonActionTarget,
-          },
-        ];
-      } else {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({
-                success: false,
-                error: "Provide either 'visualType' (single) or 'visuals' array (batch)",
-              }),
-            },
-          ],
-        };
-      }
+      const specs: VisualSpec[] = params.visuals as VisualSpec[];
 
       // Binding validation (strict / warn / off).
       // Flatten bindings across every spec in the call so one validator pass

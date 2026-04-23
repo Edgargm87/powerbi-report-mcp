@@ -20,7 +20,7 @@ Use these patterns to create, organise, size, theme, navigate between, and inter
 | `update_page_size` | Change width / height / displayOption |
 | `duplicate_page` | Clone a page with all its visuals (regenerates filter IDs) |
 | `auto_layout` | Reflow all visuals on a page into a grid |
-| `get_page_summary` | One-shot replacement for `list_pages` + N×`list_visuals` |
+| `list_pages({includeVisuals: true})` | One-shot pages + visuals recon (replaces `list_pages` + N×`list_visuals`) |
 
 ### Page visuals & chrome
 | Tool | Purpose |
@@ -58,7 +58,7 @@ Returns per page:
 }
 ```
 
-`slim: false` adds `width`, `height`, `displayOption`. For a deeper one-shot dump including visuals, use `get_page_summary`.
+`slim: false` adds `width`, `height`, `displayOption`. Pass `includeVisuals: true` (or a `pageId`) to get each page's visuals in the same call — replaces `list_pages` + N×`list_visuals`.
 
 ---
 
@@ -168,19 +168,19 @@ Useful as a starting point after dumping a bunch of visuals onto a page without 
 
 ---
 
-## `get_page_summary`
+## `list_pages({includeVisuals: true})`
 
-The one-shot replacement for `list_pages` + N×`list_visuals` — saves a huge number of round-trips when you just want to know what's on each page.
+Pass `includeVisuals: true` (or a `pageId`) to get pages + per-visual summaries in one call — saves round-trips over `list_pages` + N×`list_visuals`.
 
 ```json
-// All pages
-{}
+// All pages with their visuals
+{ "includeVisuals": true }
 
-// Single page
+// Single page (implies includeVisuals)
 { "pageId": "<id>" }
 ```
 
-Returns each page with `id`, `displayName`, `isActive`, `hidden`, `visualCount`, plus a slim `visuals` array of `{ id, type, x, y, w, h, title }` per visual. Use this as the default reconnaissance call instead of `list_pages` whenever you also need to know what's on the canvas.
+Returns each page with `id`, `displayName`, `isActive`, `hidden`, `visualCount`, plus a slim `visuals` array of `{ id, type, x, y, w, h, title }` per visual. Use this as the default reconnaissance call whenever you also need to know what's on the canvas.
 
 ---
 
@@ -347,7 +347,7 @@ Creates a bookmark with an empty exploration state. Open the report in Desktop t
 
 ### Quick recon before editing
 ```
-1. get_page_summary           ← one call, all pages + visuals
+1. list_pages({includeVisuals: true})   ← one call, all pages + visuals
 2. (decide what to change)
 3. (apply edits)
 ```

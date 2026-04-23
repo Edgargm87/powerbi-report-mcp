@@ -1,5 +1,5 @@
 <!-- doc-version: 2.1 | Last updated: 2026-04-15 -->
-<!-- summary: Cost-aware tool usage — slim modes, batch operations, get_page_summary over list_pages+list_visuals, when to call guide() vs inline. Read when optimising context. -->
+<!-- summary: Cost-aware tool usage — slim modes, batch operations, list_pages({includeVisuals:true}) over list_pages+list_visuals, when to call guide() vs inline. Read when optimising context. -->
 # Skill: Token Usage — Minimising LLM Cost & Context
 
 Estimates based on Claude Sonnet. All figures are approximate.
@@ -28,7 +28,7 @@ Power BI report-building can be done in 5–6 well-chosen tool calls per page or
 
 > **`MCP_TOOLS=minimal`** opts into the tiered mode. Worth it only for long Claude Code sessions where the ~7,500 token savings compounds. Claude Desktop users: stick with the default.
 
-> In minimal mode, `get_page_summary` is on-demand. It's the lowest-token recon call (~100 tokens replaces `list_pages` + N×`list_visuals`), but you have to activate it first with `load_tools(["get_page_summary"])`. The trade-off: 1 `load_tools` call + the schema cost (~80 tokens) vs. saving 2–3 extra recon calls per session. Worth it on sessions that touch more than one page.
+> `list_pages({includeVisuals: true})` is the lowest-token recon call (~100 tokens replaces `list_pages` + N×`list_visuals`). `list_pages` is a default tool, so no `load_tools` dance required — just pass the flag.
 
 ---
 
@@ -119,7 +119,7 @@ This looks like waste, but it's the gate for "accidentally pipe every id from `l
 
 | Operation | Input | Output | Total | Notes |
 |---|---|---|---|---|
-| `get_page_summary` (all pages) | ~20 | ~80 | ~100 | Replaces `list_pages` + N×`list_visuals` |
+| `list_pages({includeVisuals: true})` | ~20 | ~80 | ~100 | Replaces `list_pages` + N×`list_visuals` |
 | `list_pages` slim | ~10 | ~30 | ~40 | When you only need the page list |
 | `create_page` | ~30 | ~25 | ~55 | |
 | `add_visual` batch — shapes (~8) | ~450 | ~180 | ~630 | Wireframe layer |
@@ -248,7 +248,7 @@ After each page, accumulated tool results grow the context window:
 | Inline `containerFormat` | 🟢 Free | No extra call |
 | Inline `visualFormat` / `dataColors` | 🟢 Free | No extra call |
 | Inline `title` | 🟢 Free | No extra call |
-| `get_page_summary` | 🟢 Cheap | ~100 tokens, replaces N+1 calls |
+| `list_pages({includeVisuals: true})` | 🟢 Cheap | ~100 tokens, replaces N+1 calls |
 | `list_pages` slim | 🟢 Cheap | ~40 tokens |
 | `list_visuals` slim | 🟢 Cheap | ~30 tokens per visual |
 | `get_visual` slim | 🟢 Cheap | ~50 tokens — bindings summary |
@@ -280,7 +280,7 @@ After each page, accumulated tool results grow the context window:
 5. **`/compact` every 3–4 pages** — biggest single lever for long sessions
 6. **`set_report_theme` once per report** — not once per page
 7. **Batch everything** — 1 `add_visual` with 13 visuals beats 13 `add_visual` calls
-8. **Use `get_page_summary` for recon** — not `list_pages` + N×`list_visuals` (activate via `load_tools` once)
+8. **Use `list_pages({includeVisuals: true})` for recon** — not `list_pages` + N×`list_visuals`
 9. **Use `bulk_*` tools** when the same change applies to many visuals (respects `confirmBulk` gate at >5 items)
 10. **Activate non-default tools sparingly** — each `load_tools` call adds schemas to context
 11. **Cache `model_usage`** — it auto-invalidates on file changes; don't re-call needlessly

@@ -76,27 +76,58 @@ function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: list_pages
     // ============================================================
-    server.tool("list_pages", "List all pages in the report. Slim mode (default) returns id, displayName, visualCount, isActive, hidden. Set slim=false for full details including width, height, displayOption.", {
+    server.tool("list_pages", "List all pages in the report. Slim mode (default) returns id, displayName, visualCount, isActive, hidden. Set slim=false for width/height/displayOption. Set includeVisuals=true (or pass pageId) to include a per-visual summary (id, type, x, y, w, h, title) — replaces the old get_page_summary tool.", {
         slim: zod_1.z.boolean().optional().default(true).describe("Slim mode (default true) — omits width/height/displayOption to reduce token usage"),
-    }, async ({ slim }) => {
+        includeVisuals: zod_1.z.boolean().optional().default(false).describe("When true, each page also includes a `visuals` array with slim per-visual entries."),
+        pageId: zod_1.z.string().optional().describe("Scope to a single page (implies includeVisuals)."),
+    }, async ({ slim, includeVisuals, pageId }) => {
         const meta = ctx.project.getPagesMetadata();
-        const pages = meta.pageOrder.map((id) => {
+        const ids = pageId ? [pageId] : meta.pageOrder;
+        const withVisuals = includeVisuals || !!pageId;
+        const pages = ids.map((id) => {
             const page = ctx.project.getPage(id);
-            const visualCount = ctx.project.listVisualIds(id).length;
+            const visualIds = ctx.project.listVisualIds(id);
             const base = {
                 id,
                 displayName: page.displayName,
-                visualCount,
+                visualCount: visualIds.length,
                 isActive: id === meta.activePageName,
                 hidden: page.visibility === "HiddenInViewMode",
             };
-            if (slim)
-                return base;
-            return { ...base, width: page.width, height: page.height, displayOption: page.displayOption };
+            if (!slim) {
+                base.width = page.width;
+                base.height = page.height;
+                base.displayOption = page.displayOption;
+            }
+            if (withVisuals) {
+                base.visuals = visualIds.map((vid) => {
+                    const v = ctx.project.getVisual(id, vid);
+                    const titleValue = (0, extractTitle_js_1.extractVisualTitle)(v.visual.visualContainerObjects);
+                    const entry = {
+                        id: vid,
+                        type: v.visual.visualType,
+                        x: v.position.x,
+                        y: v.position.y,
+                        w: v.position.width,
+                        h: v.position.height,
+                    };
+                    if (titleValue)
+                        entry.title = titleValue;
+                    return entry;
+                });
+            }
+            return base;
         });
         // Canvas constants help the LLM place visuals without guessing —
         // cheap to include, enormous payoff on layout accuracy.
-        return { content: [{ type: "text", text: JSON.stringify({ pages, canvas: (0, layoutValidation_js_1.getCanvasSummary)() }, null, 2) }] };
+        return {
+            content: [
+                {
+                    type: "text",
+                    text: JSON.stringify(pageId ? { pageCount: pages.length, pages, canvas: (0, layoutValidation_js_1.getCanvasSummary)() } : { pages, canvas: (0, layoutValidation_js_1.getCanvasSummary)() }, null, 2),
+                },
+            ],
+        };
     });
     // ============================================================
     // TOOL: create_page
@@ -410,45 +441,6 @@ function registerReportTools(server, ctx) {
                     }),
                 },
             ],
-        };
-    });
-    // ============================================================
-    // TOOL: get_page_summary
-    // ============================================================
-    server.tool("get_page_summary", "Get pages with their visuals in one call — replaces list_pages + list_visuals. Returns slim visual list per page. Provide pageId to scope to one page.", {
-        pageId: zod_1.z.string().optional().describe("Scope to a single page. Omit for all pages."),
-    }, async ({ pageId }) => {
-        const meta = ctx.project.getPagesMetadata();
-        const ids = pageId ? [pageId] : meta.pageOrder;
-        const pages = ids.map((id) => {
-            const page = ctx.project.getPage(id);
-            const visualIds = ctx.project.listVisualIds(id);
-            const visuals = visualIds.map((vid) => {
-                const v = ctx.project.getVisual(id, vid);
-                const titleValue = (0, extractTitle_js_1.extractVisualTitle)(v.visual.visualContainerObjects);
-                const entry = {
-                    id: vid,
-                    type: v.visual.visualType,
-                    x: v.position.x,
-                    y: v.position.y,
-                    w: v.position.width,
-                    h: v.position.height,
-                };
-                if (titleValue)
-                    entry.title = titleValue;
-                return entry;
-            });
-            return {
-                id,
-                displayName: page.displayName,
-                isActive: id === meta.activePageName,
-                hidden: page.visibility === "HiddenInViewMode",
-                visualCount: visualIds.length,
-                visuals,
-            };
-        });
-        return {
-            content: [{ type: "text", text: JSON.stringify({ pageCount: pages.length, pages, canvas: (0, layoutValidation_js_1.getCanvasSummary)() }, null, 2) }],
         };
     });
     // ============================================================

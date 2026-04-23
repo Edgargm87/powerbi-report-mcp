@@ -305,7 +305,7 @@ Topics are discovered live from `skills/*.md` files. Editing a `.md` file takes 
 ### Start a new session
 ```
 1. set_report path=<path to .Report or .pbip>
-2. get_page_summary                ← one-call recon
+2. list_pages({includeVisuals: true})                ← one-call recon
 3. (optional) load_tools tools=[…] ← activate any non-default tools you need
 ```
 
@@ -323,7 +323,7 @@ Topics are discovered live from `skills/*.md` files. Editing a `.md` file takes 
 ### Audit an existing report
 ```
 1. set_report
-2. get_page_summary               ← all pages + visuals
+2. list_pages({includeVisuals: true})               ← all pages + visuals
 3. model_usage slim=true          ← unused fields, coverage by page
 4. audit_theme_compliance pageId  ← per-page override audit (skills/themes.md)
 ```

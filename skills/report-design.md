@@ -31,12 +31,12 @@ Steps 1–6 tell you *how to think about a page*. Checkpoints tell you *when to 
 |---|---|---|---|
 | **1–3 visuals** | skip | skip | optional (offer `reload_report`, don't block) |
 | **4–7 visuals** | **yes** — one message, confirm plan before any `add_visual` | skip | optional |
-| **8+ visuals or multi-page** | **yes** | **yes** — `get_page_summary` output before binding | **yes** — confirm numbers before theme/polish |
+| **8+ visuals or multi-page** | **yes** | **yes** — `list_pages({includeVisuals: true})` output before binding | **yes** — confirm numbers before theme/polish |
 
 What "yes" looks like in practice:
 
 - **C1** — one-sentence page job + layout choice (from `wireframes.md`) + bulleted visual list with bucket assignments. Ask: "Confirm or edit before I build?"
-- **C2** — `get_page_summary` output. Ask: "Bones right? Say go to bind data."
+- **C2** — `list_pages({includeVisuals: true})` output. Ask: "Bones right? Say go to bind data."
 - **C3** — prompt for `reload_report` and a human eyeball. Ask: "Numbers look right? Ready for polish?"
 
 Two rules that keep checkpoints honest:
