@@ -93,7 +93,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "format_visual",
-    "Format visual properties. Auto-routes categories: title/background/border/padding/dropShadow/visualHeader → visualContainerObjects, everything else → objects. Override with target='visual' or target='container'. Validates category+property names against the bundled PBI theme schema — returns {success:false, issues:[...]} on unknown names (override with strict=false).",
+    "Format visual properties. Auto-routes title/background/border/padding/dropShadow/visualHeader to container, others to visual; override with target='visual'|'container'. Validates names against bundled theme schema (strict=false to skip).",
     {
       pageId: z.string().describe("The page ID"),
       visualId: z.string().describe("The visual ID"),

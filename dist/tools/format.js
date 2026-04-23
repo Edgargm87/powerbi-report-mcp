@@ -77,7 +77,7 @@ function registerFormatTools(server, ctx) {
     // ============================================================
     // TOOL: format_visual
     // ============================================================
-    server.tool("format_visual", "Format visual properties. Auto-routes categories: title/background/border/padding/dropShadow/visualHeader → visualContainerObjects, everything else → objects. Override with target='visual' or target='container'. Validates category+property names against the bundled PBI theme schema — returns {success:false, issues:[...]} on unknown names (override with strict=false).", {
+    server.tool("format_visual", "Format visual properties. Auto-routes title/background/border/padding/dropShadow/visualHeader to container, others to visual; override with target='visual'|'container'. Validates names against bundled theme schema (strict=false to skip).", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().describe("The visual ID"),
         formatting: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(createVisual_js_1.FormatCategorySchema))

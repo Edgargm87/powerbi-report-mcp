@@ -258,7 +258,7 @@ async function main() {
   // Meta tool: load_tools — lists available on-demand tools and activates them
   _tool(
     "load_tools",
-    "List available on-demand tools, or activate specific tools by name. Use without arguments to see what's available. Pass tool names to activate them for this session.",
+    "List on-demand tools (no args) or activate by name (pass `tools` array).",
     {
       tools: z
         .array(z.string())

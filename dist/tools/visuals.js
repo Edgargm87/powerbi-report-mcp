@@ -140,10 +140,11 @@ function registerVisualTools(server, ctx) {
     // ============================================================
     // TOOL: add_visual (single + batch mode)
     // ============================================================
-    server.tool("add_visual", "Add one or more visuals to a page. Single mode: top-level params. Batch mode: 'visuals' array. Inline containerFormat/visualFormat/dataColors = 0 extra format calls. Chart naming: columnChart=stacked column (Series=stack), barChart=stacked bar (Series=stack), clusteredColumnChart=clustered column, clusteredBarChart=clustered bar. Call get_visual_types for full type list.", {
-        pageId: zod_1.z.string().describe("The page ID to add the visual(s) to"),
-        // Single mode params
-        visualType: zod_1.z.string().optional().describe("Visual type for single mode"),
+    server.tool("add_visual", "Add one or more visuals to a page. Batch mode (preferred): pass `visuals` array. Single mode: top-level `visualType` + params. Inline containerFormat/visualFormat/dataColors avoid extra format_visual calls. Chart naming: columnChart/barChart=stacked; clusteredColumnChart/clusteredBarChart=clustered.", {
+        pageId: zod_1.z.string(),
+        // Single-mode params (batch is preferred; these duplicate VisualSpec fields
+        // without descriptions — see createVisual.ts VisualSpecSchema for docs).
+        visualType: zod_1.z.string().optional(),
         x: zod_1.z.number().optional().default(0),
         y: zod_1.z.number().optional().default(0),
         width: zod_1.z.number().optional().default(280),
@@ -151,10 +152,7 @@ function registerVisualTools(server, ctx) {
         bindings: zod_1.z.array(createVisual_js_1.BucketBindingSchema).optional(),
         autoFilters: zod_1.z.boolean().optional().default(true),
         slicerMode: zod_1.z.enum(["Basic", "Dropdown"]).optional(),
-        multiSelect: zod_1.z
-            .boolean()
-            .optional()
-            .describe("Slicer selection mode (slicer/listSlicer). true=multi-select, false=single-select. Omit for PBI default."),
+        multiSelect: zod_1.z.boolean().optional(),
         shapeType: zod_1.z
             .enum(["rectangle", "rectangleRounded", "line", "tabCutCorner", "tabCutTopCorners", "tabRoundCorner", "tabRoundTopCorners"])
             .optional(),
@@ -169,32 +167,23 @@ function registerVisualTools(server, ctx) {
         strictBindings: zod_1.z
             .boolean()
             .optional()
-            .describe("Binding validation: true=strict (fail on unknown field, default), false=warn (proceed with warnings). Omit for env default (MCP_BINDING_VALIDATION)."),
+            .describe("Binding validation: true=strict, false=warn. Omit for env default."),
         strictLayout: zod_1.z
             .boolean()
             .optional()
-            .describe("Layout validation: true=strict (default, reject overflow/overlap/margin violations), false=warn (proceed with warnings). Omit for env default (MCP_LAYOUT_VALIDATION). Canvas is 1280x720 with 15px L/R and 6px bottom margins, 5px gaps."),
-        containerFormat: zod_1.z.array(createVisual_js_1.FormatCategorySchema).optional().describe("Inline container formatting"),
-        visualFormat: zod_1.z.array(createVisual_js_1.FormatCategorySchema).optional().describe("Inline visual formatting"),
-        dataColors: zod_1.z.array(createVisual_js_1.DataColorSchema).optional().describe("Inline data point colors"),
-        // Image params
-        imageUrl: zod_1.z.string().optional().describe("Image URL (image visual only)"),
-        imageScaling: zod_1.z.enum(["fit", "fill", "normal"]).optional().describe("Image scaling (default fit)"),
-        // actionButton params
-        buttonText: zod_1.z.string().optional().describe("Button label (actionButton only)"),
-        buttonAction: zod_1.z
-            .enum(["pageNavigation", "URL", "bookmark", "back"])
-            .optional()
-            .describe("Button action type"),
-        buttonActionTarget: zod_1.z
-            .string()
-            .optional()
-            .describe("Action target: page ID for pageNavigation, URL for URL, bookmark ID for bookmark"),
-        // Batch mode
+            .describe("Layout validation: true=strict, false=warn. Omit for env default. Canvas 1280x720, 15px L/R and 6px bottom margins, 5px gaps."),
+        containerFormat: zod_1.z.array(createVisual_js_1.FormatCategorySchema).optional(),
+        visualFormat: zod_1.z.array(createVisual_js_1.FormatCategorySchema).optional(),
+        dataColors: zod_1.z.array(createVisual_js_1.DataColorSchema).optional(),
+        imageUrl: zod_1.z.string().optional(),
+        imageScaling: zod_1.z.enum(["fit", "fill", "normal"]).optional(),
+        buttonText: zod_1.z.string().optional(),
+        buttonAction: zod_1.z.enum(["pageNavigation", "URL", "bookmark", "back"]).optional(),
+        buttonActionTarget: zod_1.z.string().optional(),
         visuals: zod_1.z
             .array(createVisual_js_1.VisualSpecSchema)
             .optional()
-            .describe("Array of visuals to add (batch mode). When provided, top-level visual params are ignored."),
+            .describe("Batch mode: array of visuals. When provided, top-level params are ignored."),
     }, async (params) => {
         const { pageId } = params;
         const existingVisuals = ctx.project.listVisualIds(pageId);

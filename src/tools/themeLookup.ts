@@ -16,14 +16,7 @@ import {
 export function registerThemeLookupTool(server: McpServer): void {
   server.tool(
     "lookup_theme_property",
-    [
-      "Query the bundled Power BI theme JSON Schema — source of truth for valid",
-      "visualStyles property names. Use before calling format_visual, set_report_theme,",
-      "or passing visualFormat/containerFormat on add_visual to confirm the category+property",
-      "combination is real. Without a visualType: lists all 48 visual types. With visualType:",
-      "lists that type's categories. With visualType + category: lists every property (name,",
-      "JSON type, enum values, description).",
-    ].join(" "),
+    "Query the bundled Power BI theme schema for valid visualStyles property names. No args = list visual types; +visualType = list categories; +category = list properties with types/enums.",
     {
       visualType: z
         .string()
