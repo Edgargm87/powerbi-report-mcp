@@ -51,41 +51,17 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
   // ============================================================
   server.tool(
     "set_report_theme",
-    "Apply a custom JSON theme to the report. Saved to StaticResources, wired into report.json, affects all visuals globally.",
+    "Apply a custom JSON theme to the report. Saved to StaticResources, wired into report.json, affects all visuals globally. Colors are hex (#RRGGBB). dataColors: 6-12 values. visualStyles: per-visual-type overrides keyed by visualType or '*'.",
     {
-      name: z.string().describe("Display name of the theme (e.g. 'Corporate Brand', 'Dark Mode')"),
-      dataColors: z
-        .array(z.string())
-        .optional()
-        .describe("Data series colors — 6–12 hex values"),
-      background: z
-        .string()
-        .optional()
-        .describe("Page background (hex)"),
-      foreground: z
-        .string()
-        .optional()
-        .describe("Primary text/title (hex)"),
-      foregroundNeutralSecondary: z
-        .string()
-        .optional()
-        .describe("Axis labels/subtitle text (hex)"),
-      backgroundLight: z
-        .string()
-        .optional()
-        .describe("Card/panel background (hex)"),
-      backgroundNeutral: z
-        .string()
-        .optional()
-        .describe("Neutral background (hex)"),
-      tableAccent: z
-        .string()
-        .optional()
-        .describe("Table/matrix header accent (hex)"),
-      visualStyles: z
-        .record(z.string(), z.unknown())
-        .optional()
-        .describe("Per-visual-type style overrides. Key=visual type (e.g. 'barChart', '*'). See PBI theme docs."),
+      name: z.string(),
+      dataColors: z.array(z.string()).optional(),
+      background: z.string().optional(),
+      foreground: z.string().optional(),
+      foregroundNeutralSecondary: z.string().optional(),
+      backgroundLight: z.string().optional(),
+      backgroundNeutral: z.string().optional(),
+      tableAccent: z.string().optional(),
+      visualStyles: z.record(z.string(), z.unknown()).optional(),
     },
     async ({ name, dataColors, background, foreground, foregroundNeutralSecondary,
              backgroundLight, backgroundNeutral, tableAccent, visualStyles }) => {

@@ -67,77 +67,79 @@ const default_tools_js_1 = require("./default-tools.js");
 //
 // The DEFAULT_TOOLS set lives in src/default-tools.ts (single source of truth
 // shared with scripts/audit-skill-coverage.js).
-const ALL_TOOLS = {
+// Names only — descriptions are set at registration sites and shipped to the LLM from there.
+// Keeping a separate description map here just drifts; this list exists solely to filter
+// which tools are active vs deferred via load_tools.
+const ALL_TOOLS = [
     // Report management
-    set_report: "Connect to a different Power BI report",
-    get_report: "Get report metadata",
-    list_pages: "List all pages (DEFAULT)",
-    create_page: "Create a new page — supports standard, tooltip, and drillthrough types (DEFAULT)",
-    rename_page: "Rename a page",
-    delete_page: "Delete a page",
-    reorder_pages: "Reorder pages",
-    set_active_page: "Set the active page",
-    set_page_visibility: "Show or hide a page",
-    get_report_settings: "Get report-level settings",
-    update_report_settings: "Update report-level settings",
-    update_page_size: "Change page dimensions",
-    auto_layout: "Auto-arrange visuals on a page",
-    duplicate_page: "Duplicate an entire page",
-    get_page_summary: "Get a detailed page summary",
-    reload_report: "Reload report from disk (DEFAULT)",
-    set_filter_pane: "Show or hide the report filter pane",
-    set_page_background: "Set page canvas background color and/or wallpaper",
-    set_visual_interaction: "Set cross-filter/highlight interaction between visuals",
-    manage_extension_measures: "Add, list, or remove report-level DAX measures",
+    "set_report",
+    "get_report",
+    "list_pages",
+    "create_page",
+    "rename_page",
+    "delete_page",
+    "reorder_pages",
+    "set_active_page",
+    "set_page_visibility",
+    "get_report_settings",
+    "update_report_settings",
+    "update_page_size",
+    "auto_layout",
+    "duplicate_page",
+    "get_page_summary",
+    "reload_report",
+    "set_filter_pane",
+    "set_page_background",
+    "set_visual_interaction",
+    "manage_extension_measures",
     // Visuals
-    list_visuals: "List visuals on a page (DEFAULT)",
-    get_visual: "Inspect a visual's full config (DEFAULT)",
-    get_visual_types: "List available visual types",
-    add_visual: "Add one or more visuals (DEFAULT)",
-    delete_visual: "Delete a visual",
-    move_visual: "Move or resize a visual",
-    duplicate_visual: "Duplicate a visual",
-    change_visual_type: "Change a visual's type",
+    "list_visuals",
+    "get_visual",
+    "get_visual_types",
+    "add_visual",
+    "delete_visual",
+    "move_visual",
+    "duplicate_visual",
+    "change_visual_type",
     // Formatting
-    format_visual: "Format visual properties (DEFAULT)",
-    set_visual_title: "Set a visual's title",
-    set_datapoint_colors: "Set data point colors",
-    set_conditional_format: "Apply conditional formatting",
-    set_visual_sort: "Set or change the sort order of a visual",
-    apply_theme: "Apply a theme JSON to the report",
+    "format_visual",
+    "set_visual_title",
+    "set_datapoint_colors",
+    "set_conditional_format",
+    "set_visual_sort",
+    "apply_theme",
     // Themes
-    set_report_theme: "Set the report theme (DEFAULT)",
-    get_report_theme: "Get the current theme JSON",
-    remove_report_theme: "Remove the custom theme",
-    diff_report_theme: "Diff current vs default theme",
-    list_report_themes: "List available themes",
-    audit_theme_compliance: "Audit visuals for formatting overrides conflicting with theme",
-    lookup_theme_property: "Query the bundled PBI theme JSON schema — valid categories/properties per visualType",
+    "set_report_theme",
+    "get_report_theme",
+    "remove_report_theme",
+    "diff_report_theme",
+    "list_report_themes",
+    "audit_theme_compliance",
+    "lookup_theme_property",
     // Bindings
-    update_visual_bindings: "Update data bindings (DEFAULT)",
+    "update_visual_bindings",
     // Bulk
-    bulk_bind: "Rebind multiple visuals at once (DEFAULT)",
-    bulk_delete_visuals: "Delete multiple visuals",
-    bulk_update_format: "Format multiple visuals at once",
+    "bulk_bind",
+    "bulk_delete_visuals",
+    "bulk_update_format",
     // Filters
-    list_filters: "List filters on a page or visual",
-    add_page_filter: "Add a page-level filter",
-    remove_filter: "Remove a filter",
-    clear_filters: "Clear all filters",
+    "list_filters",
+    "add_page_filter",
+    "remove_filter",
+    "clear_filters",
     // Model usage
-    model_usage: "Cross-reference semantic model with report — measures, columns, DAX lineage, unused fields, per-page coverage",
+    "model_usage",
     // Bookmarks
-    list_bookmarks: "List all bookmarks in the report",
-    add_bookmark: "Create a new bookmark",
-    delete_bookmark: "Delete a bookmark",
-    rename_bookmark: "Rename a bookmark",
+    "list_bookmarks",
+    "add_bookmark",
+    "delete_bookmark",
+    "rename_bookmark",
     // Guide (knowledge layer)
-    guide: "Domain knowledge for PBI development — topics discovered live from skills/*.md",
+    "guide",
     // Layout
-    layout_grid: "Compute (or compute+write) a deterministic rows×cols grid layout for a page",
+    "layout_grid",
     // Calculations — PARKED: visual calculations don't render when written programmatically
-    // list_visual_calculations, add_visual_calculation, delete_visual_calculation
-};
+];
 // --- Discover .Report folder ---
 function findReportFolder(basePath) {
     if (fs.existsSync(basePath) && fs.statSync(basePath).isDirectory()) {
@@ -236,7 +238,7 @@ async function main() {
     const mode = (process.env.MCP_TOOLS || "").toLowerCase();
     const loadMinimal = mode === "minimal";
     const loadAll = !loadMinimal;
-    const activeTools = new Set(loadAll ? Object.keys(ALL_TOOLS) : default_tools_js_1.DEFAULT_TOOLS);
+    const activeTools = new Set(loadAll ? ALL_TOOLS : default_tools_js_1.DEFAULT_TOOLS);
     const deferredTools = new Map();
     // Auto-wrap all tool handlers with safe() and filter by active set
     const _tool = server.tool.bind(server);
@@ -379,87 +381,23 @@ You are working with Power BI reports in the PBIR (Power BI Report) format — a
 - \`byPath\` — local PBIP project, references a relative path like \`../MyModel.SemanticModel\`
 - \`byConnection\` — remote/thin report with a connection string to a published dataset
 
-## Visual Types — Power BI Naming Convention
-Power BI uses non-obvious names for column/bar charts. Always use the correct visualType:
+## Knowledge layer — call \`guide(topic)\`
+For visualType names, bucket bindings, canvas/layout rules, and formatting gotchas, call
+\`guide(topic)\` — topics are discovered live from skills/*.md (wireframes, visuals, slicers,
+formatting, themes, themes-per-visual, shapes, filters, svg-visuals, calculations, pages,
+report-design, report, elicitation, token-usage). Start with \`guide("wireframes")\` when
+building a fresh page; canvas constants and layout formulas live there.
 
-| What you want | visualType to use |
-|---|---|
-| Stacked column chart | columnChart |
-| Clustered column chart | clusteredColumnChart |
-| 100% stacked column chart | hundredPercentStackedColumnChart |
-| Stacked bar chart (horizontal) | barChart |
-| Clustered bar chart (horizontal) | clusteredBarChart |
-| 100% stacked bar chart (horizontal) | hundredPercentStackedBarChart |
-
-Other common types: lineChart, areaChart, stackedAreaChart, pieChart, donutChart, scatterChart,
-lineClusteredColumnComboChart, lineStackedColumnComboChart, ribbonChart, waterfallChart,
-pivotTable, tableEx, card, cardVisual, multiRowCard, kpi, gauge, slicer, treemap, map, filledMap,
-decompositionTreeVisual, funnel, textbox, shape, image, actionButton
-
-## Data Binding
-
-### Bucket Names by Visual Type
-- Stacked/clustered bar/column charts: Category (axis), Y (values), Series (stack/legend breakdown)
-- Line/area charts: Category (axis), Y (values), Y2 (secondary axis), Series (legend)
-- **Combo charts** (lineStackedColumnComboChart, lineClusteredColumnComboChart): Category, **ColumnY**, **LineY**, Series
-- Tables/matrix: Rows, Columns, Values
-- Cards (card, multiRowCard): Values
-- cardVisual: Data
-- cardNew: Fields
-- Slicers: Values
-- KPI: Indicator, TrendLine, Goal
-- **Scatter: Details** (not Category!), X, Y, Size, Series
-- Gauge: Y, MinValue, MaxValue, TargetValue
-- azureMap: Category, Size
-- funnelChart: Category, Y
-
-**Series bucket** — for stacked charts (columnChart, barChart) this is the field that defines each
-stack segment. Always bind a dimension column (e.g. Segment, Country) to Series to get a
-proper stacked chart.
-
-### Field Types
-- **column**: Direct column reference (for axes, categories, slicers)
-- **aggregation**: Aggregated column (Sum, Avg, Count, Min, Max, etc.)
-- **measure**: DAX measure reference
-
-### Table[Column] Shorthand
-Instead of passing separate entity and property, you can use the shorthand notation:
-\`\`\`json
-{ "field": "Sales[Net Price]", "type": "measure" }
-{ "field": "Date[Year]", "type": "column" }
-{ "field": "financials[Gross Sales]", "type": "aggregation", "aggregation": "Sum" }
-\`\`\`
-Both formats are equivalent and can be mixed in the same bindings array.
-
-## Layout Rules
-- Visual gap: **5px** between all visuals (horizontal and vertical)
-- Page margins: **15px** left, **15px** right, **6px** bottom (top 0)
-- Usable content width: **1250px** (1280 − 15 − 15)
-- Banner: shape at (0, 0, 1280, 52), full width, no margins
-- First content row starts at y=57 (banner 52 + gap 5)
-- See \`skills/wireframes.md\` (via \`guide("wireframes")\`) for the five validated layouts and the spacing formula
-
-## Formatting Gotchas
-- Classic slicer uses \`textSize\`, not \`fontSize\` (in \`items\` and \`header\` containers)
-- Legacy card uses \`color\`, new cardVisual uses \`fontColor\`, axes use \`labelColor\`
-- Waterfall has no \`dataPoint\` — use \`sentimentColors\` (increaseFill/decreaseFill/totalFill)
-- Scatter has no \`labels\` — use \`categoryLabels\`
-- Pie/donut label position is PascalCase: \`Outside\`, \`Inside\`, \`BestFit\`
-- Combo chart secondary axis: \`sec\` prefix in \`valueAxis\` (secShow, secFontSize)
-- See docs/visual-types.md for full formatting reference per visual type
-
-## Unsupported Features
-- **Visual interactions** — use \`set_visual_interaction\` to control cross-filter/cross-highlight between visuals (\`visualInteractions\` in page.json).
-- **Sort definitions** — \`sortDefinition\` in visual query controls default sort order. Not yet exposed as a tool.
-- **Extension measures** — use \`manage_extension_measures\` to add/list/remove report-level DAX measures (\`reportExtensions.json\`). WARNING: file is auto-deleted when empty — empty \`entities: []\` crashes PBI Desktop.
-- **Bookmarks** — use \`list_bookmarks\`, \`add_bookmark\`, \`delete_bookmark\`, \`rename_bookmark\` to manage report bookmarks (\`definition/bookmarks/\`).
-- **Filter pane visibility** — use \`set_filter_pane\` to show/hide the filter pane (\`objects.outspacePane\` in report.json).
+## Unsupported / non-obvious surface
+- **Visual interactions** — \`set_visual_interaction\` for cross-filter/cross-highlight (\`visualInteractions\` in page.json).
+- **Sort definitions** — \`sortDefinition\` in visual query controls default sort order. Not exposed as a tool.
+- **Extension measures** — \`manage_extension_measures\` for report-level DAX (\`reportExtensions.json\`). WARNING: file auto-deletes when empty; empty \`entities: []\` crashes PBI Desktop.
+- **Bookmarks** — \`list_bookmarks\`, \`add_bookmark\`, \`delete_bookmark\`, \`rename_bookmark\`.
+- **Filter pane visibility** — \`set_filter_pane\` (\`objects.outspacePane\` in report.json).
 
 ## Tips
-- Use auto_layout to quickly arrange visuals in a grid
-- Use duplicate_visual to clone and modify existing visuals
-- Visual z-order controls layering (higher z = on top)
-- Use batch mode in add_visual (visuals array) to create multiple visuals in one call
-- **When building a fresh page from scratch**, prefer \`layout_grid\` with \`planOnly:true\` over guessing pixel coords for multiple \`add_visual\` calls. The server computes exact x/y/w/h per cell (including remainder distribution), so the layout is guaranteed to pass strict validation.
+- Batch \`add_visual\` via the \`visuals\` array to create multiple visuals in one call.
+- When building a fresh page from scratch, prefer \`layout_grid\` with \`planOnly:true\` over guessing pixel coords. The server computes exact x/y/w/h per cell (remainder distributed), so the layout is guaranteed to pass strict validation.
+- \`duplicate_visual\` clones and is often faster than re-specifying a near-duplicate.
 `;
 main().catch(console.error);

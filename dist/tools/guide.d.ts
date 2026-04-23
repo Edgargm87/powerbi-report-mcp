@@ -5,10 +5,16 @@ export declare function listTopicsWithSummaries(): Array<{
     summary: string;
 }>;
 /**
- * Build a compact session-start banner that lists every skill topic with its
- * summary, plus inlines the two skills most needed before any visual work
- * (wireframes + report-design). Agents should read this once per session and
- * then call guide(topic) for detail on any other topic.
+ * Build a compact session-start banner — just the skills index, no inlined
+ * file bodies. Every skill file is accessible via `guide(topic)`; the banner
+ * is only a map, not the territory.
+ *
+ * Rationale: earlier versions inlined elicitation.md + wireframes.md +
+ * report-design.md (~35KB / ~9k tokens) into every session. That bloated
+ * the context for sessions that never built visuals, and — worse — surfaced
+ * concrete example numbers (e.g. slicer 413x40 in wireframes.md) ahead of
+ * the house-default docs (slicers.md), which led the LLM to copy wrong
+ * sizes. The banner is now a pure index; skills load on demand.
  */
 export declare function buildSkillsIndexBanner(): string;
 export declare function registerGuideTool(server: McpServer, _ctx: ServerContext): void;

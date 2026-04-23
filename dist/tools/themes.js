@@ -38,40 +38,16 @@ function registerThemeTools(server, ctx) {
     // ============================================================
     // TOOL: set_report_theme
     // ============================================================
-    server.tool("set_report_theme", "Apply a custom JSON theme to the report. Saved to StaticResources, wired into report.json, affects all visuals globally.", {
-        name: zod_1.z.string().describe("Display name of the theme (e.g. 'Corporate Brand', 'Dark Mode')"),
-        dataColors: zod_1.z
-            .array(zod_1.z.string())
-            .optional()
-            .describe("Data series colors — 6–12 hex values"),
-        background: zod_1.z
-            .string()
-            .optional()
-            .describe("Page background (hex)"),
-        foreground: zod_1.z
-            .string()
-            .optional()
-            .describe("Primary text/title (hex)"),
-        foregroundNeutralSecondary: zod_1.z
-            .string()
-            .optional()
-            .describe("Axis labels/subtitle text (hex)"),
-        backgroundLight: zod_1.z
-            .string()
-            .optional()
-            .describe("Card/panel background (hex)"),
-        backgroundNeutral: zod_1.z
-            .string()
-            .optional()
-            .describe("Neutral background (hex)"),
-        tableAccent: zod_1.z
-            .string()
-            .optional()
-            .describe("Table/matrix header accent (hex)"),
-        visualStyles: zod_1.z
-            .record(zod_1.z.string(), zod_1.z.unknown())
-            .optional()
-            .describe("Per-visual-type style overrides. Key=visual type (e.g. 'barChart', '*'). See PBI theme docs."),
+    server.tool("set_report_theme", "Apply a custom JSON theme to the report. Saved to StaticResources, wired into report.json, affects all visuals globally. Colors are hex (#RRGGBB). dataColors: 6-12 values. visualStyles: per-visual-type overrides keyed by visualType or '*'.", {
+        name: zod_1.z.string(),
+        dataColors: zod_1.z.array(zod_1.z.string()).optional(),
+        background: zod_1.z.string().optional(),
+        foreground: zod_1.z.string().optional(),
+        foregroundNeutralSecondary: zod_1.z.string().optional(),
+        backgroundLight: zod_1.z.string().optional(),
+        backgroundNeutral: zod_1.z.string().optional(),
+        tableAccent: zod_1.z.string().optional(),
+        visualStyles: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()).optional(),
     }, async ({ name, dataColors, background, foreground, foregroundNeutralSecondary, backgroundLight, backgroundNeutral, tableAccent, visualStyles }) => {
         // Build theme JSON — only include provided properties
         const theme = { name };
