@@ -1,13 +1,73 @@
-<!-- doc-version: 2.1 | Last updated: 2026-04-15 -->
-<!-- summary: Cost-aware tool usage — slim modes, batch operations, list_pages({includeVisuals:true}) over list_pages+list_visuals, when to call guide() vs inline. Read when optimising context. -->
+<!-- doc-version: 2.2 | Last updated: 2026-04-25 -->
+<!-- summary: Cost-aware tool usage — slim modes, batch operations, auto-pageId, dedup cache, format-typo catcher, error-code legend pointer. Read when optimising context. -->
 # Skill: Token Usage — Minimising LLM Cost & Context
 
 Estimates based on Claude Sonnet. All figures are approximate.
 Pricing reference: ~$3/M input tokens, ~$15/M output tokens.
 
+## Highest-leverage patterns (do this / not that)
+
+| Do | Not | Why |
+|---|---|---|
+| Omit `pageId` on single-page reports | Always pass `pageId` | Server auto-resolves. Saves ~25-50 tokens per call. |
+| Batch `add_visual` with full inline `containerFormat` + `dataColors` | Call `format_visual` after | One call vs N+1 calls. ~2k saved on a 13-visual page. |
+| Trust the format-typo catcher | Pre-call `lookup_theme_property` for every property | Catcher is always-on, returns one `didYouMean` per typo. Free when clean. |
+| Read `skills/errors.md` once, learn the codes | Re-read prose after every validator hit | Codes are stable; the LLM only needs the legend once. |
+| `get_visual` default (slim) | `verbose:true` reflexively | Default is id/type/pos/title/bindings (~50 tok). Verbose ships the full PBIR JSON (~500-700). |
+| Trust the dedup cache (`_cache:"hit"`) | Re-call `list_visuals` mid-turn | Server returns `_cache:"hit"` — recognise it and stop re-asking. |
+| `list_pages({includeVisuals:true})` once | `list_pages` then N×`list_visuals` | One call replaces N+1. |
+
 ## Why this matters
 
 Power BI report-building can be done in 5–6 well-chosen tool calls per page or in 30+ naive calls per page. The difference is roughly 5× on tokens and 3–4× on cost. This guide shows the low-cost path and what to avoid.
+
+---
+
+## Format-typo catcher (always-on, no opt-out)
+
+`add_visual` and `format_visual` walk every category/property name in `containerFormat` / `visualFormat` against the bundled theme schema before the write. A misspelling returns:
+
+```json
+{ "success": false, "error": "format_typo",
+  "issues": [{ "cat": "labls", "didYouMean": "labels" }] }
+```
+
+Free when clean (the schema index is built once at first call and memoised). No `strictFormat` flag — the catcher is on for everyone. Unknown `visualType` is a no-op (we don't gate writes on schema lag, so PBI can ship new visuals before we update the bundled schema).
+
+Net effect: same "did you mean?" recovery the v0.6.1 schema validator gave you, without the 1.2MB schema walk on every call.
+
+---
+
+## Auto-resolved `pageId`
+
+The 17 single-page tools (add_visual, format_visual, get_visual, list_visuals, layout_grid, bulk_*, etc.) treat `pageId` as optional. If the report has exactly one page, the server picks it. With multiple pages, you get a structured error listing `availableIds` so you can pick without an extra `list_pages`:
+
+```json
+{ "success": false, "error": "ambiguous_pageId",
+  "availableIds": ["abc123", "def456"] }
+```
+
+`delete_page` and `duplicate_page` keep `pageId` required — auto-resolving a destructive page op is a foot-gun.
+
+---
+
+## Read-call dedup cache
+
+A tiny LRU (16 entries / 30s TTL) sits in front of the read tools (`list_pages`, `list_visuals`, `get_visual`, `get_report`, `get_report_theme`, `list_filters`, `list_bookmarks`). Repeating the same call back-to-back returns the cached payload with `_cache:"hit"` injected:
+
+```json
+{ "pages": [...], "_cache": "hit" }
+```
+
+The marker is the LLM's signal: "I just asked this — stop re-asking next turn." The server side is a convenience, not a guarantee — the cache invalidates on any write to the same scope (page write → page-scoped reads dropped). Always *write* expecting fresh reads; don't structure logic around the cache.
+
+---
+
+## Error code legend → `guide("errors")`
+
+Validators ship a stable `code` field plus structured payload (`actual`, `limits`, `suggestion`). The verbose `rule`/`guide`/`rawMessage` prose was dropped — the codes are documented in `skills/errors.md` (call `guide("errors")` once per session, not per error).
+
+Examples: `out_of_bounds_right`, `wrong_horizontal_gap`, `binding_validation_failed`, `format_typo`, `ambiguous_pageId`. ~30-80 tokens saved per error-laden response.
 
 ---
 
@@ -287,6 +347,10 @@ After each page, accumulated tool results grow the context window:
 12. **Trust binding validation** (v0.6.1) — if a field ref is wrong, the validator will say so with a "did you mean" suggestion. Don't pre-read `model_usage` just to spell-check; let the validator do it.
 13. **Never set `strictBindings: false` reflexively** — only when you know the field will exist after a sibling write. The safety net is free.
 14. **Never set `confirmBulk: true` reflexively** — the gate is free when you stay under 5 visuals, and one prevented page-wipe pays for dozens of gate errors.
+15. **Omit `pageId` when there's only one page** — server auto-resolves. With multiple pages the error response lists `availableIds` so you can pick without an extra `list_pages`.
+16. **Trust the format-typo catcher** — `add_visual` / `format_visual` flag misspelled category/property names with a `didYouMean` suggestion. Don't pre-call `lookup_theme_property` to spell-check.
+17. **Watch for `_cache:"hit"`** — the server deduped your read. Recognise the marker and stop re-asking the same thing next turn.
+18. **Read `guide("errors")` once per session** — codes are stable; you don't need to re-derive them from the prose every time a validator fires.
 
 ---
 
