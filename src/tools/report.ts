@@ -272,6 +272,16 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     {"openWorldHint":false},
     async ({ pageOrder }) => {
       const meta = ctx.project.getPagesMetadata();
+      // Validate: supplied order must be a permutation of existing page IDs.
+      // Same length + same set (no duplicates, no extras, no missing).
+      const existing = meta.pageOrder;
+      const sameLength = pageOrder.length === existing.length;
+      const suppliedSet = new Set(pageOrder);
+      const noDuplicates = suppliedSet.size === pageOrder.length;
+      const sameSet = noDuplicates && existing.every((id) => suppliedSet.has(id));
+      if (!sameLength || !sameSet) {
+        return fail("pageOrder must be a permutation of existing page ids", { existing, supplied: pageOrder });
+      }
       meta.pageOrder = pageOrder;
       ctx.project.savePagesMetadata(meta);
       invalidateScope("pages");
@@ -471,6 +481,9 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         ctx.project.saveVisual(pageId, vid, visual);
       });
 
+      invalidateScope(`page:${pageId}`);
+      invalidateScope("pages");
+
       return {
         content: [
           {
@@ -669,6 +682,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       }];
 
       ctx.project.saveReport(report);
+      invalidateScope("report");
       return {
         content: [{
           type: "text",

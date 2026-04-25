@@ -250,6 +250,16 @@ function registerReportTools(server, ctx) {
         pageOrder: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(zod_1.z.string())).describe("Array of page IDs in desired order"),
     }, { "openWorldHint": false }, async ({ pageOrder }) => {
         const meta = ctx.project.getPagesMetadata();
+        // Validate: supplied order must be a permutation of existing page IDs.
+        // Same length + same set (no duplicates, no extras, no missing).
+        const existing = meta.pageOrder;
+        const sameLength = pageOrder.length === existing.length;
+        const suppliedSet = new Set(pageOrder);
+        const noDuplicates = suppliedSet.size === pageOrder.length;
+        const sameSet = noDuplicates && existing.every((id) => suppliedSet.has(id));
+        if (!sameLength || !sameSet) {
+            return (0, mcpResult_js_1.fail)("pageOrder must be a permutation of existing page ids", { existing, supplied: pageOrder });
+        }
         meta.pageOrder = pageOrder;
         ctx.project.savePagesMetadata(meta);
         (0, readCache_js_1.invalidateScope)("pages");
@@ -409,6 +419,8 @@ function registerReportTools(server, ctx) {
             zOrder += 1000;
             ctx.project.saveVisual(pageId, vid, visual);
         });
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
+        (0, readCache_js_1.invalidateScope)("pages");
         return {
             content: [
                 {
@@ -572,6 +584,7 @@ function registerReportTools(server, ctx) {
                 },
             }];
         ctx.project.saveReport(report);
+        (0, readCache_js_1.invalidateScope)("report");
         return {
             content: [{
                     type: "text",
