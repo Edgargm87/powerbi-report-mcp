@@ -1,5 +1,5 @@
 <!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
-<!-- summary: Page/visual/report filter pane — add_page_filter, list/remove/clear filters, set_filter_pane visibility, visual interactions. Read when scoping data by filter. -->
+<!-- summary: Page/visual/report filter pane — pbir_add_page_filter, list/remove/clear filters, pbir_set_filter_pane visibility, visual interactions. Read when scoping data by filter. -->
 # Skill: Filters — Page & Visual Filter Pane
 
 ## When to use
@@ -9,10 +9,10 @@ Use these patterns when the user asks for non-interactive filtering — pre-set 
 
 | Tool | Purpose |
 |---|---|
-| `list_filters` | List filters on a page or visual (slim mode flattens fields to `Table[Column]`) |
-| `add_page_filter` | Add a filter to a page (or visual when `visualId` provided) |
-| `remove_filter` | Remove one filter by `name` |
-| `clear_filters` | Remove ALL filters from a page or visual |
+| `pbir_list_filters` | List filters on a page or visual (slim mode flattens fields to `Table[Column]`) |
+| `pbir_add_page_filter` | Add a filter to a page (or visual when `visualId` provided) |
+| `pbir_remove_filter` | Remove one filter by `name` |
+| `pbir_clear_filters` | Remove ALL filters from a page or visual |
 
 > Filters live in `filterConfig.filters` on `page.json` (page scope) or `visual.json` (visual scope). They are different from slicer **visuals**, which sit on the canvas as interactive controls.
 
@@ -27,11 +27,11 @@ Use these patterns when the user asks for non-interactive filtering — pre-set 
 | `relativeDate` | Rolling date window relative to today | page or visual | "Last 90 days", "Next 2 quarters" |
 | `advanced` | Comparison operators (Contains, GreaterThan, IsBlank…) with optional And/Or compound | page or visual | "Revenue > 1M and Country contains 'United'" |
 
-`topN` is rejected at page scope by `add_page_filter` — always pass `visualId`.
+`topN` is rejected at page scope by `pbir_add_page_filter` — always pass `visualId`.
 
 ---
 
-## `list_filters`
+## `pbir_list_filters`
 
 Page-level:
 ```json
@@ -47,7 +47,7 @@ Returns `{ scope, count, filters: [{ name, type, field }] }`. Slim mode (default
 
 ---
 
-## `add_page_filter`
+## `pbir_add_page_filter`
 
 ### Categorical — specific values
 
@@ -171,9 +171,9 @@ Numbers serialize as `123D`, strings as `'foo'`. Pass `value` as a JS number for
 
 ---
 
-## `remove_filter`
+## `pbir_remove_filter`
 
-Get the filter `name` from `list_filters` first:
+Get the filter `name` from `pbir_list_filters` first:
 
 ```json
 // Page-level
@@ -185,7 +185,7 @@ Get the filter `name` from `list_filters` first:
 
 ---
 
-## `clear_filters`
+## `pbir_clear_filters`
 
 ```json
 // All page filters
@@ -204,11 +204,11 @@ Get the filter `name` from `list_filters` first:
 | User interactively picks values | Slicer visual (`slicer`, `listSlicer`) |
 | User types to search | Slicer visual (`textSlicer`) |
 | User picks a date range | Slicer visual (`advancedSlicerVisual`) |
-| Pre-filter the page to a fixed value set | `add_page_filter` categorical |
-| Always show only last N months | `add_page_filter` relativeDate |
-| Limit a visual to top N by measure | `add_page_filter` topN (visual scope) |
-| Numeric / text condition (>, contains, blank) | `add_page_filter` advanced |
-| Developer-defined non-interactive filter | `add_page_filter` |
+| Pre-filter the page to a fixed value set | `pbir_add_page_filter` categorical |
+| Always show only last N months | `pbir_add_page_filter` relativeDate |
+| Limit a visual to top N by measure | `pbir_add_page_filter` topN (visual scope) |
+| Numeric / text condition (>, contains, blank) | `pbir_add_page_filter` advanced |
+| Developer-defined non-interactive filter | `pbir_add_page_filter` |
 
 ---
 
@@ -216,30 +216,30 @@ Get the filter `name` from `list_filters` first:
 
 ### Pre-filter a dashboard to last 12 months
 ```
-add_page_filter filterType=relativeDate entity=Date property=Date period=months count=12 dateDirection=last
+pbir_add_page_filter filterType=relativeDate entity=Date property=Date period=months count=12 dateDirection=last
 ```
 
 ### Show only top 10 customers on a single visual
 ```
-add_page_filter visualId=<id> filterType=topN entity=Customer property=Name n=10 topNDirection=Top
+pbir_add_page_filter visualId=<id> filterType=topN entity=Customer property=Name n=10 topNDirection=Top
                 orderByEntity=Sales orderByProperty="Total Revenue" orderByIsMeasure=true
 ```
 
 ### Filter to high-value rows
 ```
-add_page_filter filterType=advanced entity=Sales property=Revenue operator=GreaterThan value=1000000
+pbir_add_page_filter filterType=advanced entity=Sales property=Revenue operator=GreaterThan value=1000000
 ```
 
 ### Replace a filter
 ```
-list_filters → find name
-remove_filter filterName=<name>
-add_page_filter (new filter)
+pbir_list_filters → find name
+pbir_remove_filter filterName=<name>
+pbir_add_page_filter (new filter)
 ```
 
 ### Reset everything
 ```
-clear_filters pageId=<id>
+pbir_clear_filters pageId=<id>
 ```
 
 ---

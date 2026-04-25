@@ -49,9 +49,9 @@ const resolvePage_js_1 = require("../helpers/resolvePage.js");
 const readCache_js_1 = require("../helpers/readCache.js");
 function registerReportTools(server, ctx) {
     // ============================================================
-    // TOOL: set_report — switch report at runtime
+    // TOOL: pbir_set_report — switch report at runtime
     // ============================================================
-    server.tool("set_report", "Connect to a different Power BI report (.Report folder or parent .pbip project folder). Use this to switch reports mid-session without restarting the server.", {
+    server.tool("pbir_set_report", "Connect to a different Power BI report (.Report folder or parent .pbip project folder). Use this to switch reports mid-session without restarting the server.", {
         path: zod_1.z.string().describe("Absolute path to the .Report folder or the parent folder containing a .pbip project"),
     }, { "openWorldHint": false }, async ({ path: targetPath }) => {
         const result = ctx.connectReport(targetPath);
@@ -71,15 +71,15 @@ function registerReportTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: get_report — show currently connected report
+    // TOOL: pbir_get_report — show currently connected report
     // ============================================================
-    server.tool("get_report", "Show the currently connected report path.", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => (0, readCache_js_1.cachedRead)("get_report", {}, ["report"], () => ({
+    server.tool("pbir_get_report", "Show the currently connected report path.", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => (0, readCache_js_1.cachedRead)("pbir_get_report", {}, ["report"], () => ({
         reportPath: ctx.getReportPath() || "No report connected",
     })));
     // ============================================================
-    // TOOL: list_pages
+    // TOOL: pbir_list_pages
     // ============================================================
-    server.tool("list_pages", "List all pages in the report. Slim mode (default) returns id, displayName, visualCount, isActive, hidden. Set slim=false for width/height/displayOption. Set includeVisuals=true (or pass pageId) to include a per-visual summary (id, type, x, y, w, h, title) — replaces the old get_page_summary tool.", {
+    server.tool("pbir_list_pages", "List all pages in the report. Slim mode (default) returns id, displayName, visualCount, isActive, hidden. Set slim=false for width/height/displayOption. Set includeVisuals=true (or pass pageId) to include a per-visual summary (id, type, x, y, w, h, title) — replaces the old get_page_summary tool.", {
         slim: zod_1.z.boolean().optional().default(true).describe("Slim mode (default true) — omits width/height/displayOption to reduce token usage"),
         includeVisuals: zod_1.z.boolean().optional().default(false).describe("When true, each page also includes a `visuals` array with slim per-visual entries."),
         pageId: zod_1.z.string().optional().describe("Scope to a single page (implies includeVisuals)."),
@@ -92,7 +92,7 @@ function registerReportTools(server, ctx) {
             scopes.push(`page:${pageId}`);
         else
             scopes.push("pages");
-        return (0, readCache_js_1.cachedRead)("list_pages", { slim, includeVisuals, pageId }, scopes, () => {
+        return (0, readCache_js_1.cachedRead)("pbir_list_pages", { slim, includeVisuals, pageId }, scopes, () => {
             const meta = ctx.project.getPagesMetadata();
             const ids = pageId ? [pageId] : meta.pageOrder;
             const withVisuals = includeVisuals || !!pageId;
@@ -138,9 +138,9 @@ function registerReportTools(server, ctx) {
         });
     });
     // ============================================================
-    // TOOL: create_page
+    // TOOL: pbir_create_page
     // ============================================================
-    server.tool("create_page", "Create a new page in the report. Supports standard, tooltip, and drillthrough page types.", {
+    server.tool("pbir_create_page", "Create a new page in the report. Supports standard, tooltip, and drillthrough page types.", {
         displayName: zod_1.z.string().describe("Display name for the page"),
         type: zod_1.z.enum(["standard", "tooltip"]).optional().default("standard")
             .describe("Page type — tooltip pages are small overlay pages (320x240) hidden from nav"),
@@ -211,9 +211,9 @@ function registerReportTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: rename_page
+    // TOOL: pbir_rename_page
     // ============================================================
-    server.tool("rename_page", "Rename an existing page", {
+    server.tool("pbir_rename_page", "Rename an existing page", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         displayName: zod_1.z.string().describe("New display name"),
     }, { "openWorldHint": false }, async ({ pageId, displayName }) => {
@@ -234,9 +234,9 @@ function registerReportTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: delete_page
+    // TOOL: pbir_delete_page
     // ============================================================
-    server.tool("delete_page", "Delete a page and all its visuals", {
+    server.tool("pbir_delete_page", "Delete a page and all its visuals", {
         pageId: zod_1.z.string().describe("The page ID to delete"),
     }, { "destructiveHint": true, "openWorldHint": false }, async ({ pageId }) => {
         const _g = (0, context_js_1.requireProject)(ctx);
@@ -257,9 +257,9 @@ function registerReportTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: reorder_pages
+    // TOOL: pbir_reorder_pages
     // ============================================================
-    server.tool("reorder_pages", "Set the page order", {
+    server.tool("pbir_reorder_pages", "Set the page order", {
         pageOrder: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(zod_1.z.string())).describe("Array of page IDs in desired order"),
     }, { "openWorldHint": false }, async ({ pageOrder }) => {
         const _g = (0, context_js_1.requireProject)(ctx);
@@ -282,9 +282,9 @@ function registerReportTools(server, ctx) {
         return { content: [{ type: "text", text: JSON.stringify({ success: true, pageOrder }) }] };
     });
     // ============================================================
-    // TOOL: set_active_page
+    // TOOL: pbir_set_active_page
     // ============================================================
-    server.tool("set_active_page", "Set which page is active (shown on open)", {
+    server.tool("pbir_set_active_page", "Set which page is active (shown on open)", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
     }, { "idempotentHint": true, "openWorldHint": false }, async ({ pageId }) => {
         const _g = (0, context_js_1.requireProject)(ctx);
@@ -303,9 +303,9 @@ function registerReportTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: set_page_visibility
+    // TOOL: pbir_set_page_visibility
     // ============================================================
-    server.tool("set_page_visibility", "Show or hide a page in the navigation pane. Hidden pages still work for drillthrough.", {
+    server.tool("pbir_set_page_visibility", "Show or hide a page in the navigation pane. Hidden pages still work for drillthrough.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         hidden: zod_1.z.coerce.boolean(),
     }, { "idempotentHint": true, "openWorldHint": false }, async ({ pageId, hidden }) => {
@@ -333,9 +333,9 @@ function registerReportTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: get_report_settings
+    // TOOL: pbir_get_report_settings
     // ============================================================
-    server.tool("get_report_settings", "Get the report-level settings and theme configuration", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => {
+    server.tool("pbir_get_report_settings", "Get the report-level settings and theme configuration", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => {
         const _g = (0, context_js_1.requireProject)(ctx);
         if (_g)
             return _g;
@@ -343,7 +343,7 @@ function registerReportTools(server, ctx) {
         return { content: [{ type: "text", text: JSON.stringify(report, null, 2) }] };
     });
     // ============================================================
-    // TOOL: update_report_settings
+    // TOOL: pbir_update_report_settings
     // ============================================================
     const VALID_REPORT_SETTINGS = new Set([
         "useStylableVisualContainerHeader",
@@ -359,7 +359,7 @@ function registerReportTools(server, ctx) {
         "persistentFilters",
         "keyboardNavigationEnabled",
     ]);
-    server.tool("update_report_settings", "Merge report-level settings. Keys: useStylableVisualContainerHeader, useEnhancedTooltips, exportDataMode (0|1), persistentFilters, keyboardNavigationEnabled, defaultDrillFilterOtherVisuals, allowChangeFilterTypes, useDefaultAggregateDisplayName.", {
+    server.tool("pbir_update_report_settings", "Merge report-level settings. Keys: useStylableVisualContainerHeader, useEnhancedTooltips, exportDataMode (0|1), persistentFilters, keyboardNavigationEnabled, defaultDrillFilterOtherVisuals, allowChangeFilterTypes, useDefaultAggregateDisplayName.", {
         settings: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()),
     }, { "idempotentHint": true, "openWorldHint": false }, async ({ settings }) => {
         const _g = (0, context_js_1.requireProject)(ctx);
@@ -380,9 +380,9 @@ function registerReportTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: update_page_size
+    // TOOL: pbir_update_page_size
     // ============================================================
-    server.tool("update_page_size", "Update the page dimensions", {
+    server.tool("pbir_update_page_size", "Update the page dimensions", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         width: zod_1.z.number().optional(),
         height: zod_1.z.number().optional(),
@@ -415,9 +415,9 @@ function registerReportTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: auto_layout
+    // TOOL: pbir_auto_layout
     // ============================================================
-    server.tool("auto_layout", "Auto-arrange all visuals on a page in a grid.", {
+    server.tool("pbir_auto_layout", "Auto-arrange all visuals on a page in a grid.", {
         pageId: zod_1.z.string().describe("The page ID"),
         columns: zod_1.z.number().optional().default(3),
         padding: zod_1.z.number().optional().default(10),
@@ -468,9 +468,9 @@ function registerReportTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: duplicate_page
+    // TOOL: pbir_duplicate_page
     // ============================================================
-    server.tool("duplicate_page", "Duplicate an entire page with all its visuals to a new page", {
+    server.tool("pbir_duplicate_page", "Duplicate an entire page with all its visuals to a new page", {
         pageId: zod_1.z.string().describe("The source page ID to duplicate"),
         displayName: zod_1.z
             .string()
@@ -524,9 +524,9 @@ function registerReportTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: reload_report
+    // TOOL: pbir_reload_report
     // ============================================================
-    server.tool("reload_report", "Reload the report in Power BI Desktop by closing and reopening the .pbip file. SAFETY: closes PBIDesktop.exe, so any unsaved work in Desktop (including modeling-MCP measures/relationships not yet flushed by Desktop autosave) is LOST. Requires confirm:true to proceed — otherwise returns a save-first warning for the agent to relay to the user.", {
+    server.tool("pbir_reload_report", "Reload the report in Power BI Desktop by closing and reopening the .pbip file. SAFETY: closes PBIDesktop.exe, so any unsaved work in Desktop (including modeling-MCP measures/relationships not yet flushed by Desktop autosave) is LOST. Requires confirm:true to proceed — otherwise returns a save-first warning for the agent to relay to the user.", {
         confirm: zod_1.z
             .boolean()
             .optional()
@@ -538,7 +538,7 @@ function registerReportTools(server, ctx) {
             return _g;
         const reportPath = ctx.getReportPath();
         if (!reportPath) {
-            return (0, mcpResult_js_1.fail)("No report connected. Use set_report first.");
+            return (0, mcpResult_js_1.fail)("No report connected. Use pbir_set_report first.");
         }
         // Save-first gate. Unsaved modeling work in PBI Desktop is invisible
         // to this MCP — the only safe default is to make the agent ask the
@@ -556,8 +556,8 @@ function registerReportTools(server, ctx) {
                                 "    (they're on disk, but PBI Desktop may have newer in-memory edits on top)\n" +
                                 "  • Any manual edits in PBI Desktop not yet Ctrl+S'd\n\n" +
                                 "Save first: focus PBI Desktop → Ctrl+S → reply \"reload\" to proceed.\n" +
-                                "To skip this prompt, call reload_report with confirm: true.\n\n" +
-                                "After reload, run model_usage to verify modeling changes survived before binding new visuals to them.",
+                                "To skip this prompt, call pbir_reload_report with confirm: true.\n\n" +
+                                "After reload, run pbir_model_usage to verify modeling changes survived before binding new visuals to them.",
                             nextAction: "Retry with confirm: true once the user has saved PBI Desktop.",
                         }),
                     },
@@ -608,9 +608,9 @@ function registerReportTools(server, ctx) {
         }
     });
     // ============================================================
-    // TOOL: set_filter_pane
+    // TOOL: pbir_set_filter_pane
     // ============================================================
-    server.tool("set_filter_pane", "Show or hide the filter pane.", {
+    server.tool("pbir_set_filter_pane", "Show or hide the filter pane.", {
         visible: zod_1.z.boolean(),
         expanded: zod_1.z.boolean().optional().default(true),
     }, { "idempotentHint": true, "openWorldHint": false }, async ({ visible, expanded }) => {
@@ -636,9 +636,9 @@ function registerReportTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: manage_extension_measures
+    // TOOL: pbir_manage_extension_measures
     // ============================================================
-    server.tool("manage_extension_measures", "Manage extension measures (report-level DAX in reportExtensions.json). Empty file crashes PBI Desktop — tool auto-deletes when empty.", {
+    server.tool("pbir_manage_extension_measures", "Manage extension measures (report-level DAX in reportExtensions.json). Empty file crashes PBI Desktop — tool auto-deletes when empty.", {
         operation: zod_1.z.enum(["list", "add", "remove"]),
         tableName: zod_1.z.string().optional().default("_Measures"),
         measureName: zod_1.z.string().optional(),
@@ -712,9 +712,9 @@ function registerReportTools(server, ctx) {
         return (0, mcpResult_js_1.fail)("Unknown operation");
     });
     // ============================================================
-    // TOOL: set_page_background
+    // TOOL: pbir_set_page_background
     // ============================================================
-    server.tool("set_page_background", "Set the page canvas background and/or wallpaper. Hex color (#0D1117). Transparency 0-100.", {
+    server.tool("pbir_set_page_background", "Set the page canvas background and/or wallpaper. Hex color (#0D1117). Transparency 0-100.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         color: zod_1.z.string().optional().describe("Canvas background color (hex)"),
         transparency: zod_1.z.number().min(0).max(100).optional().default(0),
@@ -783,9 +783,9 @@ function registerReportTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: set_visual_interaction
+    // TOOL: pbir_set_visual_interaction
     // ============================================================
-    server.tool("set_visual_interaction", "Set cross-filter interaction (Filter/Highlight/NoFilter) from source visual to target visual.", {
+    server.tool("pbir_set_visual_interaction", "Set cross-filter interaction (Filter/Highlight/NoFilter) from source visual to target visual.", {
         pageId: zod_1.z.string().describe("The page ID"),
         source: zod_1.z.string(),
         target: zod_1.z.string(),

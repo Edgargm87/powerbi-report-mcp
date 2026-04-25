@@ -16,9 +16,9 @@ const CONTAINER_CATEGORIES = new Set([
 ]);
 function registerFormatTools(server, ctx) {
     // ============================================================
-    // TOOL: set_visual_title
+    // TOOL: pbir_set_visual_title
     // ============================================================
-    server.tool("set_visual_title", "Set or update the title of a visual. Can set text, visibility, font, size, alignment.", {
+    server.tool("pbir_set_visual_title", "Set or update the title of a visual. Can set text, visibility, font, size, alignment.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
         title: zod_1.z.string().optional(),
@@ -83,9 +83,9 @@ function registerFormatTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: format_visual
+    // TOOL: pbir_format_visual
     // ============================================================
-    server.tool("format_visual", "Format visual properties. Auto-routes title/background/border/padding/dropShadow/visualHeader to container, others to visual; override with target='visual'|'container'. Call `lookup_theme_property` for valid category/property names per visualType. Gotchas: slicer uses `textSize`, not `fontSize` (items/header); waterfall uses `sentimentColors`, not `dataPoint`.", {
+    server.tool("pbir_format_visual", "Format visual properties. Auto-routes title/background/border/padding/dropShadow/visualHeader to container, others to visual; override with target='visual'|'container'. Call `pbir_lookup_theme_property` for valid category/property names per visualType. Gotchas: slicer uses `textSize`, not `fontSize` (items/header); waterfall uses `sentimentColors`, not `dataPoint`.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
         formatting: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(createVisual_js_1.FormatCategorySchema))
@@ -161,9 +161,9 @@ function registerFormatTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: set_datapoint_colors
+    // TOOL: pbir_set_datapoint_colors
     // ============================================================
-    server.tool("set_datapoint_colors", "Set data point colors. Series-based charts use metadata mode. Category-based (no Series) requires categoryEntity+categoryProperty.", {
+    server.tool("pbir_set_datapoint_colors", "Set data point colors. Series-based charts use metadata mode. Category-based (no Series) requires categoryEntity+categoryProperty.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
         colors: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(createVisual_js_1.DataColorSchema)).describe("[{seriesName, color}]"),
@@ -192,9 +192,9 @@ function registerFormatTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: set_conditional_format
+    // TOOL: pbir_set_conditional_format
     // ============================================================
-    server.tool("set_conditional_format", "Apply conditional formatting to a visual container background or title font. formatType: rules / gradient / clear. ComparisonKind: 0=Eq,1=GT,2=GTE,3=LT,4=LTE,5=NEq.", {
+    server.tool("pbir_set_conditional_format", "Apply conditional formatting to a visual container background or title font. formatType: rules / gradient / clear. ComparisonKind: 0=Eq,1=GT,2=GTE,3=LT,4=LTE,5=NEq.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
         property: zod_1.z.enum(["background", "title"]).default("background"),
@@ -351,9 +351,9 @@ function registerFormatTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: apply_theme
+    // TOOL: pbir_apply_theme
     // ============================================================
-    server.tool("apply_theme", `Apply a named theme preset to all visuals on a page. Themes: ${Object.keys(defaults_js_1.THEME_PRESETS).join(", ")}.`, {
+    server.tool("pbir_apply_theme", `Apply a named theme preset to all visuals on a page. Themes: ${Object.keys(defaults_js_1.THEME_PRESETS).join(", ")}.`, {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         theme: zod_1.z.enum(["dark", "light", "corporate", "blue-purple"]),
         applyDataColors: zod_1.z.boolean().optional().default(true),
@@ -421,9 +421,9 @@ function registerFormatTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: set_visual_sort
+    // TOOL: pbir_set_visual_sort
     // ============================================================
-    server.tool("set_visual_sort", "Set the sort order of a visual. Overrides the auto-sort. Use Table[Column] for field refs.", {
+    server.tool("pbir_set_visual_sort", "Set the sort order of a visual. Overrides the auto-sort. Use Table[Column] for field refs.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
         sort: zod_1.z.array(zod_1.z.object({

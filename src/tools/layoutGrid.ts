@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// layout_grid — grid-primitive layout tool (plan + commit modes)
+// pbir_layout_grid — grid-primitive layout tool (plan + commit modes)
 //
 // Grid-primitive layout tool. The LLM declares `rows × cols` plus a list of
 // cells (each with `row`, `col`, optional `rowSpan`/`colSpan`, and the visual
@@ -16,7 +16,7 @@
 //   planOnly:true  (default) — compute + validate geometry, return the plan,
 //                               write nothing. Safe for iteration.
 //   planOnly:false           — compute + validate, then write each cell via
-//                               the same `createAndSaveVisual` path `add_visual`
+//                               the same `createAndSaveVisual` path `pbir_add_visual`
 //                               uses. Fails atomically before any writes if
 //                               binding or layout validation trips.
 //
@@ -255,7 +255,7 @@ const CellSchema = z
     colSpan: z.number().int().min(1).optional().default(1),
     visualType: z.string().describe("Visual type (e.g. card, columnChart)"),
     title: z.string().optional(),
-    // Pass-through content — validated downstream in Slice 3 by add_visual.
+    // Pass-through content — validated downstream in Slice 3 by pbir_add_visual.
     // We do NOT validate bindings here because plan mode never writes.
     bindings: z.array(z.unknown()).optional(),
   })
@@ -272,8 +272,8 @@ const MarginsSchema = z
 
 export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): void {
   server.tool(
-    "layout_grid",
-    "Compute a deterministic rows×cols grid layout for a page, optionally writing the visuals. Server owns the margin/gap/remainder math — the LLM can't overflow or leave mismatched gaps. planOnly:true (default) returns the computed plan without writing. planOnly:false validates bindings + layout then writes every cell as a visual in one call. Use this INSTEAD of calling add_visual N times when building a page from scratch. See guide('wireframes') for when each grid shape is appropriate.",
+    "pbir_layout_grid",
+    "Compute a deterministic rows×cols grid layout for a page, optionally writing the visuals. Server owns the margin/gap/remainder math — the LLM can't overflow or leave mismatched gaps. planOnly:true (default) returns the computed plan without writing. planOnly:false validates bindings + layout then writes every cell as a visual in one call. Use this INSTEAD of calling pbir_add_visual N times when building a page from scratch. See guide('wireframes') for when each grid shape is appropriate.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       rows: z.number().int().min(1).describe("Grid rows (≥1)"),
@@ -293,7 +293,7 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
         .optional()
         .default(false)
         .describe(
-          `If true, grid starts at y=${CANVAS.firstContentRowY} leaving the top ${CANVAS.bannerHeight}px free for a banner shape (caller adds the banner separately via add_visual).`
+          `If true, grid starts at y=${CANVAS.firstContentRowY} leaving the top ${CANVAS.bannerHeight}px free for a banner shape (caller adds the banner separately via pbir_add_visual).`
         ),
       cells: z
         .array(CellSchema)
@@ -310,7 +310,7 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
         .boolean()
         .optional()
         .describe(
-          "Layout validation: true=strict (default), false=warn. Same semantics as add_visual. Omit for env default (MCP_LAYOUT_VALIDATION)."
+          "Layout validation: true=strict (default), false=warn. Same semantics as pbir_add_visual. Omit for env default (MCP_LAYOUT_VALIDATION)."
         ),
       strictBindings: z
         .boolean()
@@ -517,8 +517,8 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
           layoutErrors: outcome.errors,
           layoutWarnings: outcome.warnings,
           nextStep: outcome.proceed
-            ? "Plan validated. Call layout_grid again with planOnly:false to write the visuals in one call."
-            : "Fix the layoutErrors above and call layout_grid again.",
+            ? "Plan validated. Call pbir_layout_grid again with planOnly:false to write the visuals in one call."
+            : "Fix the layoutErrors above and call pbir_layout_grid again.",
         };
         return {
           content: [{ type: "text" as const, text: JSON.stringify(response, null, 2) }],
@@ -561,7 +561,7 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
         if (!cell.bindings) continue;
         for (const b of cell.bindings) {
           // Cells hold opaque bindings (typed as unknown[] in the schema).
-          // runBindingValidation accepts the same shape add_visual uses;
+          // runBindingValidation accepts the same shape pbir_add_visual uses;
           // we trust-but-verify here and let it emit structured errors.
           const bb = b as { bucket?: string; fields?: FieldSpecInput[] };
           if (bb.bucket && Array.isArray(bb.fields)) {
@@ -595,7 +595,7 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
       }
 
       // Write each cell as a visual. Reuse createAndSaveVisual — same path
-      // add_visual uses, so formatting/bindings/slicer semantics match 1:1.
+      // pbir_add_visual uses, so formatting/bindings/slicer semantics match 1:1.
       // z-order: grow by 1000 per visual starting above the existing max.
       let maxZ = 0;
       for (const vid of existingIds) {

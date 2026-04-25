@@ -125,7 +125,7 @@ function listTopicsWithSummaries() {
 }
 /**
  * Build a compact session-start banner — just the skills index, no inlined
- * file bodies. Every skill file is accessible via `guide(topic)`; the banner
+ * file bodies. Every skill file is accessible via `pbir_guide(topic)`; the banner
  * is only a map, not the territory.
  *
  * Rationale: earlier versions inlined elicitation.md + wireframes.md +
@@ -138,10 +138,10 @@ function listTopicsWithSummaries() {
 function buildSkillsIndexBanner() {
     const topics = listTopicsWithSummaries();
     const lines = [];
-    lines.push("## Skills index — call `guide(topic)` for full content");
+    lines.push("## Skills index — call `pbir_guide(topic)` for full content");
     lines.push("");
-    lines.push("Before placing visuals, read `guide(\"elicitation\")` for what to ask the user, " +
-        "`guide(\"wireframes\")` for layout geometry, and `guide(\"report-design\")` for taste. " +
+    lines.push("Before placing visuals, read `pbir_guide(\"elicitation\")` for what to ask the user, " +
+        "`pbir_guide(\"wireframes\")` for layout geometry, and `pbir_guide(\"report-design\")` for taste. " +
         "Call any other topic below on demand.");
     lines.push("");
     for (const { key, summary } of topics) {
@@ -167,7 +167,7 @@ function registerGuideTool(server, _ctx) {
     // Description no longer hardcodes the topic list — it drifted from disk
     // when files were added (e.g. errors.md). Discovery is live; topic:'list'
     // returns the current set on demand.
-    server.tool("guide", "Domain knowledge for Power BI report development. Topics discovered live from skills/*.md — call with topic:'list' to enumerate.", {
+    server.tool("pbir_guide", "Domain knowledge for Power BI report development. Topics discovered live from skills/*.md — call with topic:'list' to enumerate.", {
         topic: zod_1.z
             .string()
             .describe("Topic to get guidance on. Pass 'list' to enumerate available topics from skills/*.md."),

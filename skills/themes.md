@@ -1,5 +1,5 @@
 <!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
-<!-- summary: Report-level theme JSON — dataColors, background, foreground, tableAccent, structuralColors. set_report_theme / get_report_theme / diff_report_theme / audit_theme_compliance. See themes-per-visual.md for visualStyles block. -->
+<!-- summary: Report-level theme JSON — dataColors, background, foreground, tableAccent, structuralColors. pbir_set_report_theme / pbir_get_report_theme / pbir_diff_report_theme / pbir_audit_theme_compliance. See themes-per-visual.md for visualStyles block. -->
 # Skill: Themes — Report-Level Branding & Global Styling
 
 ## When to use
@@ -9,26 +9,26 @@ Use these patterns to apply a brand-wide theme to a report — data colors, font
 
 | Tool | Purpose |
 |---|---|
-| `set_report_theme` | Write a custom theme JSON and link it from `report.json` |
-| `get_report_theme` | Inspect the currently applied theme — base + custom + full JSON |
-| `diff_report_theme` | Compare a proposed theme JSON against the current one — shows added/removed/changed |
-| `list_report_themes` | List every theme file in `StaticResources/RegisteredResources/` |
-| `remove_report_theme` | Unlink the custom theme (file is kept on disk) |
-| `audit_theme_compliance` | Find visuals on a page that override theme defaults |
-| `apply_theme` | Apply a built-in preset (`dark`/`light`/`corporate`/`blue-purple`) per page — see `skills/formatting.md` |
+| `pbir_set_report_theme` | Write a custom theme JSON and link it from `report.json` |
+| `pbir_get_report_theme` | Inspect the currently applied theme — base + custom + full JSON |
+| `pbir_diff_report_theme` | Compare a proposed theme JSON against the current one — shows added/removed/changed |
+| `pbir_list_report_themes` | List every theme file in `StaticResources/RegisteredResources/` |
+| `pbir_remove_report_theme` | Unlink the custom theme (file is kept on disk) |
+| `pbir_audit_theme_compliance` | Find visuals on a page that override theme defaults |
+| `pbir_apply_theme` | Apply a built-in preset (`dark`/`light`/`corporate`/`blue-purple`) per page — see `skills/formatting.md` |
 
 ## Two layers of theming
 
 | Layer | What it does | Tool |
 |---|---|---|
-| **Report theme** (JSON file) | Global defaults — data colors, fonts, backgrounds, per-visual-type overrides. Affects every visual without touching individual `visual.json` files. | `set_report_theme` |
-| **Per-visual formatting** | Container/visual format overrides written into individual `visual.json` files. | `format_visual`, inline `containerFormat`/`visualFormat`, `apply_theme` |
+| **Report theme** (JSON file) | Global defaults — data colors, fonts, backgrounds, per-visual-type overrides. Affects every visual without touching individual `visual.json` files. | `pbir_set_report_theme` |
+| **Per-visual formatting** | Container/visual format overrides written into individual `visual.json` files. | `pbir_format_visual`, inline `containerFormat`/`visualFormat`, `pbir_apply_theme` |
 
-**Always prefer `set_report_theme` for branding** — it's the canonical Power BI pattern and requires no per-visual edits. Use per-visual formatting only for exceptions on top of the theme.
+**Always prefer `pbir_set_report_theme` for branding** — it's the canonical Power BI pattern and requires no per-visual edits. Use per-visual formatting only for exceptions on top of the theme.
 
 ---
 
-## `set_report_theme`
+## `pbir_set_report_theme`
 
 Writes the theme JSON to `StaticResources/RegisteredResources/<sanitised name><timestamp>.json` and updates `report.json` (`themeCollection.customTheme` + the `RegisteredResources` package). Takes effect when the report is reopened in Power BI Desktop.
 
@@ -108,7 +108,7 @@ Writes the theme JSON to `StaticResources/RegisteredResources/<sanitised name><t
 
 ---
 
-## `get_report_theme`
+## `pbir_get_report_theme`
 
 Inspect what's currently applied:
 
@@ -129,7 +129,7 @@ Returns:
 
 ---
 
-## `diff_report_theme`
+## `pbir_diff_report_theme`
 
 Preview what would change before applying. Returns four buckets — added, removed, changed, unchanged.
 
@@ -158,31 +158,31 @@ Returns:
 }
 ```
 
-Use this before a destructive `set_report_theme` to confirm the delta — especially handy when you're rebuilding a brand JSON and want to confirm only the bits you changed are in flight.
+Use this before a destructive `pbir_set_report_theme` to confirm the delta — especially handy when you're rebuilding a brand JSON and want to confirm only the bits you changed are in flight.
 
 ---
 
-## `list_report_themes`
+## `pbir_list_report_themes`
 
 ```json
 {}
 ```
 
-Returns every `.json` file in `StaticResources/RegisteredResources/` with its filename, declared `name`, and top-level keys. Use this to find the right `customTheme.name` if you want to manually edit `report.json`, or to confirm a theme file actually exists before `remove_report_theme`.
+Returns every `.json` file in `StaticResources/RegisteredResources/` with its filename, declared `name`, and top-level keys. Use this to find the right `customTheme.name` if you want to manually edit `report.json`, or to confirm a theme file actually exists before `pbir_remove_report_theme`.
 
 ---
 
-## `remove_report_theme`
+## `pbir_remove_report_theme`
 
 ```json
 {}
 ```
 
-Removes `themeCollection.customTheme` and the `CustomTheme` entry from `resourcePackages` — reverts the report to the base theme. The `.json` file stays in `StaticResources` so you can re-apply it later by writing the same theme via `set_report_theme`.
+Removes `themeCollection.customTheme` and the `CustomTheme` entry from `resourcePackages` — reverts the report to the base theme. The `.json` file stays in `StaticResources` so you can re-apply it later by writing the same theme via `pbir_set_report_theme`.
 
 ---
 
-## `audit_theme_compliance`
+## `pbir_audit_theme_compliance`
 
 Find visuals that override theme defaults via per-visual formatting. Useful after applying a new theme to spot stale overrides that are masking the new brand.
 
@@ -209,7 +209,7 @@ Detection rules:
 - Ignored as expected (not overrides): `objects.data`, `objects.selection`, `objects.general`, `visualContainerObjects.title`
 - Anything else counts as a per-visual override
 
-`verbose: true` returns the full per-category list under `details` instead of the slim `summary`. Use it when you want to know exactly which categories are overridden so you can clear them with `format_visual` or by deleting the per-visual property.
+`verbose: true` returns the full per-category list under `details` instead of the slim `summary`. Use it when you want to know exactly which categories are overridden so you can clear them with `pbir_format_visual` or by deleting the per-visual property.
 
 ---
 
@@ -251,35 +251,35 @@ Detection rules:
 
 ---
 
-## `set_report_theme` vs `apply_theme`
+## `pbir_set_report_theme` vs `pbir_apply_theme`
 
-|  | `set_report_theme` | `apply_theme` |
+|  | `pbir_set_report_theme` | `pbir_apply_theme` |
 |---|---|---|
 | How it works | Writes a JSON theme file; PBI reads it globally | Edits per-visual `containerFormat` entries |
 | Scope | Whole report, every page | One page at a time |
-| Reversible | `remove_report_theme` | Must reformat each visual manually |
+| Reversible | `pbir_remove_report_theme` | Must reformat each visual manually |
 | PBI canonical pattern | ✅ Yes | ⚠️ Override layer only |
 | Use for | Brand colors, fonts, global style | Page-specific tweaks on top of the theme |
 
-**Recommended workflow:** `set_report_theme` for brand → `apply_theme` per page for stylized cards → inline `containerFormat` for one-off exceptions.
+**Recommended workflow:** `pbir_set_report_theme` for brand → `pbir_apply_theme` per page for stylized cards → inline `containerFormat` for one-off exceptions.
 
 ---
 
 ## Workflow: brand a report from scratch
 
-1. `set_report_theme` with brand colors, background, foreground
-2. `audit_theme_compliance` per page — find existing overrides that would mask the theme
-3. `format_visual target=container` to clear any stale overrides on visuals you want to inherit the theme
-4. `reload_report` to see it in Power BI Desktop
-5. Use `apply_theme` or inline `containerFormat` only for genuine exceptions
+1. `pbir_set_report_theme` with brand colors, background, foreground
+2. `pbir_audit_theme_compliance` per page — find existing overrides that would mask the theme
+3. `pbir_format_visual target=container` to clear any stale overrides on visuals you want to inherit the theme
+4. `pbir_reload_report` to see it in Power BI Desktop
+5. Use `pbir_apply_theme` or inline `containerFormat` only for genuine exceptions
 
 ## Workflow: refresh an existing brand
 
-1. `get_report_theme` — read the current JSON
+1. `pbir_get_report_theme` — read the current JSON
 2. Edit it locally
-3. `diff_report_theme` with the proposed new JSON — sanity-check the delta
-4. `set_report_theme` — write the new file
-5. `audit_theme_compliance` — confirm no surprise overrides remain
+3. `pbir_diff_report_theme` with the proposed new JSON — sanity-check the delta
+4. `pbir_set_report_theme` — write the new file
+5. `pbir_audit_theme_compliance` — confirm no surprise overrides remain
 
 ---
 

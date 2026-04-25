@@ -6,7 +6,7 @@
 //   visual.visualContainerObjects.title[0].properties.text.expr.Literal.Value
 //
 // with PowerQuery-style single-quote wrapping ('My Title'). This helper
-// centralizes the traversal so list_visuals, get_visual, get_page_summary, and
+// centralizes the traversal so pbir_list_visuals, pbir_get_visual, get_page_summary, and
 // any future caller share one source of truth. Returns null when the title is
 // missing, malformed, or empty.
 // ═══════════════════════════════════════════════════════════════════════════════

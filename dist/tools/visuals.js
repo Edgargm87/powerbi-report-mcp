@@ -14,15 +14,15 @@ const resolvePage_js_1 = require("../helpers/resolvePage.js");
 const readCache_js_1 = require("../helpers/readCache.js");
 function registerVisualTools(server, ctx) {
     // ============================================================
-    // TOOL: get_visual_types
+    // TOOL: pbir_get_visual_types
     // ============================================================
-    server.tool("get_visual_types", "Get a list of available visual types and their data role buckets", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => {
+    server.tool("pbir_get_visual_types", "Get a list of available visual types and their data role buckets", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => {
         return { content: [{ type: "text", text: JSON.stringify(pbir_js_1.VISUAL_BUCKETS, null, 2) }] };
     });
     // ============================================================
-    // TOOL: list_visuals
+    // TOOL: pbir_list_visuals
     // ============================================================
-    server.tool("list_visuals", "List all visuals on a page. Default slim returns id/type/x/y/w/h/title. slim:false includes filterCount.", {
+    server.tool("pbir_list_visuals", "List all visuals on a page. Default slim returns id/type/x/y/w/h/title. slim:false includes filterCount.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         slim: zod_1.z.boolean().optional().default(true),
     }, { "readOnlyHint": true, "openWorldHint": false }, async ({ pageId, slim }) => {
@@ -34,7 +34,7 @@ function registerVisualTools(server, ctx) {
             return r.errorResponse;
         pageId = r.pageId;
         const finalPageId = pageId;
-        return (0, readCache_js_1.cachedRead)("list_visuals", { pageId: finalPageId, slim }, [`page:${finalPageId}`], () => {
+        return (0, readCache_js_1.cachedRead)("pbir_list_visuals", { pageId: finalPageId, slim }, [`page:${finalPageId}`], () => {
             const visualIds = ctx.project.listVisualIds(finalPageId);
             const visuals = visualIds.map((id) => {
                 const v = ctx.project.getVisual(finalPageId, id);
@@ -64,9 +64,9 @@ function registerVisualTools(server, ctx) {
         });
     });
     // ============================================================
-    // TOOL: get_visual
+    // TOOL: pbir_get_visual
     // ============================================================
-    server.tool("get_visual", "Get visual details. Default returns id/type/position/title/bindings summary. verbose:true returns full PBIR JSON.", {
+    server.tool("pbir_get_visual", "Get visual details. Default returns id/type/position/title/bindings summary. verbose:true returns full PBIR JSON.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
         verbose: zod_1.z.boolean().optional().describe("Full raw PBIR JSON (heavy)."),
@@ -82,7 +82,7 @@ function registerVisualTools(server, ctx) {
         const finalPageId = pageId;
         // Default = slim. verbose:true OR legacy slim:false → full JSON.
         const wantFull = verbose === true || slim === false;
-        return (0, readCache_js_1.cachedRead)("get_visual", { pageId: finalPageId, visualId, verbose: wantFull }, [`page:${finalPageId}`], () => {
+        return (0, readCache_js_1.cachedRead)("pbir_get_visual", { pageId: finalPageId, visualId, verbose: wantFull }, [`page:${finalPageId}`], () => {
             const visual = ctx.project.getVisual(finalPageId, visualId);
             if (wantFull) {
                 return visual;
@@ -165,9 +165,9 @@ function registerVisualTools(server, ctx) {
         });
     });
     // ============================================================
-    // TOOL: add_visual (single + batch mode)
+    // TOOL: pbir_add_visual (single + batch mode)
     // ============================================================
-    server.tool("add_visual", "Add one or more visuals to a page. Pass `visuals` array. Inline containerFormat/visualFormat/dataColors per entry avoids extra format_visual calls. Call `lookup_theme_property` for valid category/property names per visualType. Stacked charts (columnChart/barChart) need a Series binding. 'KPI card' = `card` with one measure. Scatter uses `Details` bucket.", {
+    server.tool("pbir_add_visual", "Add one or more visuals to a page. Pass `visuals` array. Inline containerFormat/visualFormat/dataColors per entry avoids extra pbir_format_visual calls. Call `pbir_lookup_theme_property` for valid category/property names per visualType. Stacked charts (columnChart/barChart) need a Series binding. 'KPI card' = `card` with one measure. Scatter uses `Details` bucket.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visuals: zod_1.z.array(createVisual_js_1.VisualSpecSchema),
         strictBindings: zod_1.z
@@ -315,7 +315,7 @@ function registerVisualTools(server, ctx) {
         (0, model_usage_js_1.invalidateCache)();
         (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         // Slim by default: ship a flat string[] of ids. The 150-token canvas
-        // object only ships when the LLM asks for it on create_page or when
+        // object only ships when the LLM asks for it on pbir_create_page or when
         // layout validation fails — sending it on every successful add is
         // pure carry-forward bloat.
         const response = {
@@ -339,9 +339,9 @@ function registerVisualTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: delete_visual
+    // TOOL: pbir_delete_visual
     // ============================================================
-    server.tool("delete_visual", "Delete a visual from a page", {
+    server.tool("pbir_delete_visual", "Delete a visual from a page", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID to delete"),
     }, { "destructiveHint": true, "openWorldHint": false }, async ({ pageId, visualId }) => {
@@ -360,9 +360,9 @@ function registerVisualTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: move_visual
+    // TOOL: pbir_move_visual
     // ============================================================
-    server.tool("move_visual", "Move and/or resize a visual on a page", {
+    server.tool("pbir_move_visual", "Move and/or resize a visual on a page", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
         x: zod_1.z.number().optional(),
@@ -398,9 +398,9 @@ function registerVisualTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: duplicate_visual
+    // TOOL: pbir_duplicate_visual
     // ============================================================
-    server.tool("duplicate_visual", "Duplicate an existing visual, optionally to a different page or position", {
+    server.tool("pbir_duplicate_visual", "Duplicate an existing visual, optionally to a different page or position", {
         pageId: zod_1.z.string().describe("Source page ID"),
         visualId: zod_1.z.string().describe("Visual ID to duplicate"),
         targetPageId: zod_1.z.string().optional().describe("Target page ID (defaults to same page)"),
@@ -439,9 +439,9 @@ function registerVisualTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: change_visual_type
+    // TOOL: pbir_change_visual_type
     // ============================================================
-    server.tool("change_visual_type", "Change the visual type of an existing visual (e.g. barChart to columnChart) while keeping data bindings", {
+    server.tool("pbir_change_visual_type", "Change the visual type of an existing visual (e.g. barChart to columnChart) while keeping data bindings", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().describe("The visual ID"),
         visualType: zod_1.z.string().describe("The new visual type"),

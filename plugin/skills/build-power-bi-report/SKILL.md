@@ -16,7 +16,7 @@ Asking questions has a cost: every unnecessary question trains the user to dread
 | Request scope | Questions to ask |
 |---|---|
 | **Atomic change** (1 visual, 1 property) | Zero. Build it. |
-| **Small build** (2-3 visuals on existing page) | Zero. Pick sensible defaults from `model_usage`, build. |
+| **Small build** (2-3 visuals on existing page) | Zero. Pick sensible defaults from `pbir_model_usage`, build. |
 | **Page build** (4-7 visuals, new page) | One question — the single biggest missing signal (usually audience or the 2-3 must-have measures). |
 | **Dashboard build** (8+ visuals, or multi-page) | The 5-signal form, in one batch. |
 | **Blank report, no context** | Offer a menu. Don't auto-build. |
@@ -32,34 +32,34 @@ Dashboard build, five quick questions (reply "defaults" to skip):
 
 1. Audience — executive, analyst, ops, external?         (default: executive)
 2. Purpose — monitor / explore / story / audit?          (default: monitor)
-3. Must-include measures — which 2-4 are non-negotiable? (default: top from model_usage)
+3. Must-include measures — which 2-4 are non-negotiable? (default: top from pbir_model_usage)
 4. Layout — KPI strip / summary-detail / drill / sidebar? (default: KPI strip)
 5. Brand — hex colors, or theme defaults?                (default: theme)
 ```
 
 ## Session memory
 
-Once the user answers in a session, those answers stick for the rest of the session. Don't re-ask. Reset only on a new `set_report` to a different report path.
+Once the user answers in a session, those answers stick for the rest of the session. Don't re-ask. Reset only on a new `pbir_set_report` to a different report path.
 
 ## report-spec.md shortcut
 
-If a `report-spec.md` file sits next to the `.pbip`, read it on `set_report` and skip elicitation entirely. It can pre-populate all 5 signals.
+If a `report-spec.md` file sits next to the `.pbip`, read it on `pbir_set_report` and skip elicitation entirely. It can pre-populate all 5 signals.
 
 ## Workflow once you start building
 
-1. `set_report` to point at the `.pbip` folder.
-2. `model_usage` to discover available tables/columns/measures.
-3. `list_pages` to see what's already there (modifications never trigger elicitation — existing content is the spec).
-4. For new pages with 4+ visuals, prefer `layout_grid` (the server owns the margin/gap math) over hand-computing pixel positions for each `add_visual`.
-5. Set the theme once with `set_report_theme` and let it cascade. Avoid per-visual `format_visual` calls unless the user explicitly asked for a specific look.
-6. Tell the user to refresh in Power BI Desktop when done (or to call `reload_report` if they're using the live-preview workflow).
+1. `pbir_set_report` to point at the `.pbip` folder.
+2. `pbir_model_usage` to discover available tables/columns/measures.
+3. `pbir_list_pages` to see what's already there (modifications never trigger elicitation — existing content is the spec).
+4. For new pages with 4+ visuals, prefer `pbir_layout_grid` (the server owns the margin/gap math) over hand-computing pixel positions for each `pbir_add_visual`.
+5. Set the theme once with `pbir_set_report_theme` and let it cascade. Avoid per-visual `pbir_format_visual` calls unless the user explicitly asked for a specific look.
+6. Tell the user to refresh in Power BI Desktop when done (or to call `pbir_reload_report` if they're using the live-preview workflow).
 
 ## Checkpoints — also scaled by scope
 
 - 1-3 visuals: no checkpoints, just build.
-- 4-7 visuals: one checkpoint — confirm the plan before any `add_visual`.
-- 8+ visuals: three checkpoints — plan, skeleton review (`list_pages({includeVisuals: true})`), and a numbers-look-right check before polish.
+- 4-7 visuals: one checkpoint — confirm the plan before any `pbir_add_visual`.
+- 8+ visuals: three checkpoints — plan, skeleton review (`pbir_list_pages({includeVisuals: true})`), and a numbers-look-right check before polish.
 
 Bypass phrases override optional checkpoints. The required ones still fire but collapse to a single short confirmation.
 
-For full details — including the report-spec.md schema, exact checkpoint scripts, and edge cases — ask the MCP: `guide("elicitation")`.
+For full details — including the report-spec.md schema, exact checkpoint scripts, and edge cases — ask the MCP: `pbir_guide("elicitation")`.

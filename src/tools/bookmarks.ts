@@ -11,15 +11,15 @@ const BOOKMARK_SCHEMA =
 
 export function registerBookmarkTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
-  // TOOL: list_bookmarks
+  // TOOL: pbir_list_bookmarks
   // ============================================================
   server.tool(
-    "list_bookmarks",
+    "pbir_list_bookmarks",
     "List all bookmarks defined in the report.",
     {},
     {"readOnlyHint":true,"openWorldHint":false},
     async () =>
-      cachedRead("list_bookmarks", {}, ["bookmarks"], () => {
+      cachedRead("pbir_list_bookmarks", {}, ["bookmarks"], () => {
         const _g = requireProject(ctx); if (_g) return _g;
         const meta = ctx.project.getBookmarksMetadata();
         const bookmarks = meta.bookmarkOrder.map((id) => {
@@ -35,10 +35,10 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
   );
 
   // ============================================================
-  // TOOL: add_bookmark
+  // TOOL: pbir_add_bookmark
   // ============================================================
   server.tool(
-    "add_bookmark",
+    "pbir_add_bookmark",
     "Create a new bookmark. The bookmark is created with an empty exploration state — open Power BI Desktop to capture the current view state into it.",
     {
       displayName: z.string().describe("Display name for the bookmark (shown in the bookmarks panel)"),
@@ -83,13 +83,13 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
   );
 
   // ============================================================
-  // TOOL: delete_bookmark
+  // TOOL: pbir_delete_bookmark
   // ============================================================
   server.tool(
-    "delete_bookmark",
+    "pbir_delete_bookmark",
     "Delete a bookmark by ID.",
     {
-      bookmarkId: z.string().describe("The bookmark ID to delete (from list_bookmarks)"),
+      bookmarkId: z.string().describe("The bookmark ID to delete (from pbir_list_bookmarks)"),
     },
     {"destructiveHint":true,"openWorldHint":false},
     async ({ bookmarkId }) => {
@@ -113,10 +113,10 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
   );
 
   // ============================================================
-  // TOOL: rename_bookmark
+  // TOOL: pbir_rename_bookmark
   // ============================================================
   server.tool(
-    "rename_bookmark",
+    "pbir_rename_bookmark",
     "Rename an existing bookmark.",
     {
       bookmarkId: z.string().describe("The bookmark ID to rename"),

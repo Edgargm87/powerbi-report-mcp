@@ -1,7 +1,7 @@
 "use strict";
 // Shared visual-binding application logic.
 //
-// Both `update_visual_bindings` (single-visual) and `bulk_bind` (batch) used to
+// Both `pbir_update_visual_bindings` (single-visual) and `pbir_bulk_bind` (batch) used to
 // inline the same ~60-line block: build queryState, handle the "Fields" bucket
 // rewrite for visual types that don't support it, mark the first projection in
 // Category (or slicer Values/Rows) as active, rebuild sortDefinition from the

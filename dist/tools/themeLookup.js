@@ -38,12 +38,12 @@ const zod_1 = require("zod");
 const path = __importStar(require("path"));
 const themeSchema_js_1 = require("../helpers/themeSchema.js");
 // ---------------------------------------------------------------------------
-// lookup_theme_property — discovery surface over the bundled PBI theme schema.
+// pbir_lookup_theme_property — discovery surface over the bundled PBI theme schema.
 // See src/helpers/themeSchema.ts for the shared walker (also used by the
-// format_visual validator).
+// pbir_format_visual validator).
 // ---------------------------------------------------------------------------
 function registerThemeLookupTool(server) {
-    server.tool("lookup_theme_property", "Query the bundled Power BI theme schema for valid visualStyles property names. No args = list visual types; +visualType = list categories; +category = list properties with types/enums.", {
+    server.tool("pbir_lookup_theme_property", "Query the bundled Power BI theme schema for valid visualStyles property names. No args = list visual types; +visualType = list categories; +category = list properties with types/enums.", {
         visualType: zod_1.z
             .string()
             .optional()
@@ -82,7 +82,7 @@ function registerThemeLookupTool(server) {
                         type: "text",
                         text: JSON.stringify({
                             success: false,
-                            error: `Unknown visualType: "${visualType}". Call lookup_theme_property with no arguments to list valid types.`,
+                            error: `Unknown visualType: "${visualType}". Call pbir_lookup_theme_property with no arguments to list valid types.`,
                             schemaFile: schemaFilename,
                         }, null, 2),
                     },
@@ -136,7 +136,7 @@ function registerThemeLookupTool(server) {
                         category,
                         properties: rows,
                         count: rows.length,
-                        note: "Inline formatting (add_visual containerFormat/visualFormat, format_visual) overrides the report theme. Properties are valid both in per-visual formatting and under theme.visualStyles[type][category][0].",
+                        note: "Inline formatting (pbir_add_visual containerFormat/visualFormat, pbir_format_visual) overrides the report theme. Properties are valid both in per-visual formatting and under theme.visualStyles[type][category][0].",
                     }, null, 2),
                 },
             ],

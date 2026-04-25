@@ -134,7 +134,7 @@ class PbirProject {
     }
     /**
      * In-memory visual.json cache keyed by absolute path.
-     * Avoids repeated disk reads when list_visuals / bulk ops touch the same
+     * Avoids repeated disk reads when pbir_list_visuals / bulk ops touch the same
      * visual multiple times. Invalidated on save, delete, and mtime change.
      */
     visualCache = new Map();

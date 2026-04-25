@@ -6,33 +6,33 @@
 
 Read this when you need to theme a **specific visual type** differently from the rest of the report — e.g. "make all `tableEx` visuals use 11pt Segoe UI with alternating row backgrounds" or "all `kpi` visuals should use the brand-green trend color".
 
-The general `set_report_theme` skill lives in `skills/themes.md`. This file zooms in on the `visualStyles` block inside a theme — the structure Power BI uses for per-type property overrides. Nothing here is proprietary: the schema is documented by Microsoft at [learn.microsoft.com/power-bi/create-reports/desktop-report-themes](https://learn.microsoft.com/en-us/power-bi/create-reports/desktop-report-themes). This file just collects the most common property categories in one place so an agent doesn't have to guess.
+The general `pbir_set_report_theme` skill lives in `skills/themes.md`. This file zooms in on the `visualStyles` block inside a theme — the structure Power BI uses for per-type property overrides. Nothing here is proprietary: the schema is documented by Microsoft at [learn.microsoft.com/power-bi/create-reports/desktop-report-themes](https://learn.microsoft.com/en-us/power-bi/create-reports/desktop-report-themes). This file just collects the most common property categories in one place so an agent doesn't have to guess.
 
-## Source of truth: `lookup_theme_property`
+## Source of truth: `pbir_lookup_theme_property`
 
-Before writing any `visualStyles` block, call `lookup_theme_property` to confirm category/property names for the target visual type. The tool reads the bundled `schemas/reportThemeSchema-<version>.json` (refreshed via `node scripts/refresh-theme-schema.js`).
+Before writing any `visualStyles` block, call `pbir_lookup_theme_property` to confirm category/property names for the target visual type. The tool reads the bundled `schemas/reportThemeSchema-<version>.json` (refreshed via `node scripts/refresh-theme-schema.js`).
 
 ```
-lookup_theme_property({})                                        # list all 48 visualTypes
-lookup_theme_property({ visualType: "barChart" })                # list categories on barChart
-lookup_theme_property({ visualType: "slicer", category: "header" })   # list properties + types + enums
-lookup_theme_property({ visualType: "kpi", category: "*", propertyFilter: "color" })
+pbir_lookup_theme_property({})                                        # list all 48 visualTypes
+pbir_lookup_theme_property({ visualType: "barChart" })                # list categories on barChart
+pbir_lookup_theme_property({ visualType: "slicer", category: "header" })   # list properties + types + enums
+pbir_lookup_theme_property({ visualType: "kpi", category: "*", propertyFilter: "color" })
 ```
 
 The same property names apply in three places — this is the unified formatting schema:
 
-1. `set_report_theme({ visualStyles: { barChart: { labels: [{ ... }] } } })` — theme-wide
-2. `add_visual({ visualFormat: [{ category: "labels", properties: { ... } }] })` — inline at creation
-3. `format_visual({ category: "labels", properties: { ... } })` — inline after the fact
+1. `pbir_set_report_theme({ visualStyles: { barChart: { labels: [{ ... }] } } })` — theme-wide
+2. `pbir_add_visual({ visualFormat: [{ category: "labels", properties: { ... } }] })` — inline at creation
+3. `pbir_format_visual({ category: "labels", properties: { ... } })` — inline after the fact
 
 **Precedence** (what wins when two sources set the same property):
 
-1. Inline visual formatting (`visualFormat`, `containerFormat`, `format_visual`) — highest
+1. Inline visual formatting (`visualFormat`, `containerFormat`, `pbir_format_visual`) — highest
 2. `visualStyles.<visualType>.<category>[0]` in the custom theme
 3. `visualStyles.*.*` in the custom theme
 4. PBI built-in defaults — lowest
 
-Any inline `format_visual` / `visualFormat` write silently overrides the theme. If the theme "doesn't seem to apply", run `audit_theme_compliance` — it flags visuals with inline overrides that are hiding theme changes.
+Any inline `pbir_format_visual` / `visualFormat` write silently overrides the theme. If the theme "doesn't seem to apply", run `pbir_audit_theme_compliance` — it flags visuals with inline overrides that are hiding theme changes.
 
 ## Mental model
 
@@ -60,14 +60,14 @@ A Power BI theme JSON has two tiers:
 
 - Outer key `*` = wildcard visual type. Use it for rules that apply to every visual (e.g. title font).
 - Inner key `*` = wildcard category. Use it when you want a rule to apply to every category inside that visual type.
-- Named visual types match the `visualType` IDs used by `add_visual` (see `skills/visuals.md` Visual Type Reference).
+- Named visual types match the `visualType` IDs used by `pbir_add_visual` (see `skills/visuals.md` Visual Type Reference).
 - Each category value is an **array** of property objects, not a single object. Power BI supports multiple rule variants (default, when-condition, etc.) per category — even if you only need one, the array wrapper is required.
 
 ## Property shapes
 
-Theme JSON uses a specific verbose form for colors and fonts that is **different** from the inline `format_visual` shorthand this MCP accepts. The theme writer passes the object through unchanged, so you need to use Microsoft's shapes:
+Theme JSON uses a specific verbose form for colors and fonts that is **different** from the inline `pbir_format_visual` shorthand this MCP accepts. The theme writer passes the object through unchanged, so you need to use Microsoft's shapes:
 
-| Concept | Inline `format_visual` shorthand | Theme JSON shape |
+| Concept | Inline `pbir_format_visual` shorthand | Theme JSON shape |
 |---|---|---|
 | Solid color | `"color": "#3B82F6"` | `"color": { "solid": { "color": "#3B82F6" } }` |
 | Font size | `"fontSize": 9` | `"fontSize": 9` (same — numeric scalar) |
@@ -295,10 +295,10 @@ Note: theme rules target each visual type literally. `columnChart` rules do **no
 
 ## Workflow
 
-1. **Start from an existing theme.** Call `get_report_theme` to dump what's currently applied. If there's no custom theme, `set_report_theme` with the built-in base you want (e.g. `"CY26SU02"`) first, then read it back.
+1. **Start from an existing theme.** Call `pbir_get_report_theme` to dump what's currently applied. If there's no custom theme, `pbir_set_report_theme` with the built-in base you want (e.g. `"CY26SU02"`) first, then read it back.
 2. **Build the `visualStyles` block** using the categories above. Keep report-wide rules in `"*"."*"` and narrow rules in the specific visual type. Don't mix report-level properties (like `dataColors`) inside `visualStyles` — they live at the top level.
-3. **Apply with `set_report_theme`** passing the full theme JSON (not just the diff). The tool round-trips the JSON through PBI Desktop's theme loader on the next `reload_report`.
-4. **Preview changes first** with `diff_report_theme` — it returns added/removed/changed/unchanged buckets so you can catch accidental overwrites before committing.
+3. **Apply with `pbir_set_report_theme`** passing the full theme JSON (not just the diff). The tool round-trips the JSON through PBI Desktop's theme loader on the next `pbir_reload_report`.
+4. **Preview changes first** with `pbir_diff_report_theme` — it returns added/removed/changed/unchanged buckets so you can catch accidental overwrites before committing.
 5. **Verify in PBI Desktop**: save, close, reopen. If a visual doesn't honor a rule, the property name is probably wrong — apply the format manually via the format pane, export the theme, and copy the exact key out of the exported JSON.
 
 ## Gotchas
@@ -309,11 +309,11 @@ Note: theme rules target each visual type literally. `columnChart` rules do **no
 - **Unknown properties are silently dropped** — PBI Desktop won't warn you if you misspell a key. Always verify with a round-trip through the format pane.
 - **Classic card vs new card vs KPI** use different category names for the headline number. Don't assume `labels` works everywhere.
 - **Combo charts** have `valueAxis` AND `secondaryValueAxis` — a theme rule on `valueAxis` alone leaves the right-side axis un-themed.
-- **Themes do not override inline `format_visual` writes.** If a visual has per-visual container formatting set by `format_visual` or inline `containerFormat` on `add_visual`, those win over the theme. Clear inline formatting first if you want the theme to take over.
+- **Themes do not override inline `pbir_format_visual` writes.** If a visual has per-visual container formatting set by `pbir_format_visual` or inline `containerFormat` on `pbir_add_visual`, those win over the theme. Clear inline formatting first if you want the theme to take over.
 
 ## Related files
 
-- `skills/themes.md` — `set_report_theme`, `get_report_theme`, `diff_report_theme`, theme audit
-- `skills/formatting.md` — per-visual inline formatting (`format_visual`, `containerFormat`, `visualFormat`)
+- `skills/themes.md` — `pbir_set_report_theme`, `pbir_get_report_theme`, `pbir_diff_report_theme`, theme audit
+- `skills/formatting.md` — per-visual inline formatting (`pbir_format_visual`, `containerFormat`, `visualFormat`)
 - `skills/visuals.md` — the `visualType` ID reference used as keys in `visualStyles`
 - [Microsoft: Use report themes](https://learn.microsoft.com/en-us/power-bi/create-reports/desktop-report-themes) — the canonical schema reference

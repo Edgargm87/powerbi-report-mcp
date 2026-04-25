@@ -25,7 +25,7 @@ export declare function putCached(key: string, payload: unknown, scopes: Readonl
  */
 export declare function invalidateScope(scope: string): void;
 /**
- * Invalidate everything. Reserved for set_report (project switch).
+ * Invalidate everything. Reserved for pbir_set_report (project switch).
  */
 export declare function invalidateAll(): void;
 /**

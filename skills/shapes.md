@@ -12,7 +12,7 @@ Shapes can carry **text labels** directly — no textbox overlay required. Use t
 time you want a rectangle, pill, or banner to display a short piece of text
 (section titles, card headers, wireframe role labels, status badges, etc.).
 
-## Core tool: `add_visual` with `visualType: "shape"`
+## Core tool: `pbir_add_visual` with `visualType: "shape"`
 
 ### Minimal shape (no text)
 ```json
@@ -277,7 +277,7 @@ used as wireframe placeholders, this doesn't matter — they're the only thing o
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| Shape renders but text is missing in Power BI Desktop | Text was written to `general.paragraphs` instead of `objects.text` | Use `add_visual` from this skill — it emits the correct branch. |
+| Shape renders but text is missing in Power BI Desktop | Text was written to `general.paragraphs` instead of `objects.text` | Use `pbir_add_visual` from this skill — it emits the correct branch. |
 | PBIR file is valid but text shows the wrong string | Single quote in `textContent` wasn't escaped | The writer doubles `'` → `''` automatically. If you're hand-editing JSON, do it manually. |
 | Label is flush against the shape edge | No `textPadding` set | Pass `textPadding: 8` (or higher). |
 | Label defaults to top-left | `verticalAlignment` / `horizontalAlignment` defaults | Always set both `textAlign` and `textVAlign` for predictable positioning. |

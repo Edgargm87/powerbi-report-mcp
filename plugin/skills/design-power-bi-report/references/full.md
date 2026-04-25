@@ -19,7 +19,7 @@ Most "bad" Power BI reports aren't broken because of formatting or colors. They'
 
 **Step 5 — Pre-attentive attributes are a budget.** Position, size, color, and motion are the four things the human eye processes before conscious thought. You have roughly **one** of each to spend per page. If every card is red, nothing is urgent. If every chart is a different color, nothing is emphasized. If five things move, the eye gives up. Spend the color budget on the one thing you want the viewer to notice.
 
-**Step 6 — Stop at the theme. Polish belongs to the developer.** Set the report theme once (`set_report_theme`) and let it cascade. Don't call `format_visual` or pass `containerFormat`/`visualFormat` unless the user explicitly asked for a specific look. Per-visual formatting writes override blocks that fight future theme changes, produces inconsistent results across runs, and costs tokens with no proportional payoff. The only things you should inline at creation time are titles, bindings, and semantic colors (gains green / losses red) — everything else is chrome the theme handles or polish the developer does in PBI Desktop. See `skills/formatting.md` "Three bands" for the decision rule.
+**Step 6 — Stop at the theme. Polish belongs to the developer.** Set the report theme once (`pbir_set_report_theme`) and let it cascade. Don't call `pbir_format_visual` or pass `containerFormat`/`visualFormat` unless the user explicitly asked for a specific look. Per-visual formatting writes override blocks that fight future theme changes, produces inconsistent results across runs, and costs tokens with no proportional payoff. The only things you should inline at creation time are titles, bindings, and semantic colors (gains green / losses red) — everything else is chrome the theme handles or polish the developer does in PBI Desktop. See `skills/formatting.md` "Three bands" for the decision rule.
 
 These are not invented rules — they're the common core of every serious dataviz reference (Stephen Few's *Information Dashboard Design*, Cole Nussbaumer Knaflic's *Storytelling with Data*, Edward Tufte's *The Visual Display of Quantitative Information*, IBCS standards). Read one of those books once and the specific patterns below will make sense as consequences of the mental model rather than arbitrary rules.
 
@@ -29,15 +29,15 @@ Steps 1–6 tell you *how to think about a page*. Checkpoints tell you *when to 
 
 | Page size | C1 — Plan approved | C2 — Skeleton review | C3 — Data review |
 |---|---|---|---|
-| **1–3 visuals** | skip | skip | optional (offer `reload_report`, don't block) |
-| **4–7 visuals** | **yes** — one message, confirm plan before any `add_visual` | skip | optional |
-| **8+ visuals or multi-page** | **yes** | **yes** — `list_pages({includeVisuals: true})` output before binding | **yes** — confirm numbers before theme/polish |
+| **1–3 visuals** | skip | skip | optional (offer `pbir_reload_report`, don't block) |
+| **4–7 visuals** | **yes** — one message, confirm plan before any `pbir_add_visual` | skip | optional |
+| **8+ visuals or multi-page** | **yes** | **yes** — `pbir_list_pages({includeVisuals: true})` output before binding | **yes** — confirm numbers before theme/polish |
 
 What "yes" looks like in practice:
 
 - **C1** — one-sentence page job + layout choice (from `wireframes.md`) + bulleted visual list with bucket assignments. Ask: "Confirm or edit before I build?"
-- **C2** — `list_pages({includeVisuals: true})` output. Ask: "Bones right? Say go to bind data."
-- **C3** — prompt for `reload_report` and a human eyeball. Ask: "Numbers look right? Ready for polish?"
+- **C2** — `pbir_list_pages({includeVisuals: true})` output. Ask: "Bones right? Say go to bind data."
+- **C3** — prompt for `pbir_reload_report` and a human eyeball. Ask: "Numbers look right? Ready for polish?"
 
 Two rules that keep checkpoints honest:
 
@@ -88,7 +88,7 @@ Use one of the five validated layouts in `skills/wireframes.md`:
 | **D — Sidebar Nav** | Detail page with a left-rail nav slicer | 9 |
 | **E — 3×3 Tile Grid** | Equal-weight tiles, no hierarchy | 10 |
 
-Don't invent ad-hoc layouts in prose — read `guide("wireframes")` for the validated coordinates.
+Don't invent ad-hoc layouts in prose — read `pbir_guide("wireframes")` for the validated coordinates.
 
 ## Color Usage
 
@@ -132,7 +132,7 @@ Rule of thumb — pick by shape, not by the word "KPI":
 - Primary value **plus** one or more reference values side-by-side (e.g. current + prior-year) → `cardVisual` (`Data`: 2+ measures).
 - One measure repeated per category as a grid of small-multiple cards → `cardVisual` (`Data`: one measure, `Rows`: one category).
 - Value + prior-period *series* + a *target* (all three, explicitly) → `kpi` (`Indicator` + `TrendLine` + `Goal`).
-- Value + trend arrow / value + target delta (no trend series) → `card` with conditional formatting or an SVG measure — see `guide("svg-visuals")`.
+- Value + trend arrow / value + target delta (no trend series) → `card` with conditional formatting or an SVG measure — see `pbir_guide("svg-visuals")`.
 
 A "KPI card" in Power BI practice typically shows:
 1. **Value** — the primary metric (large, bold) → the single `Values` field
@@ -140,11 +140,11 @@ A "KPI card" in Power BI practice typically shows:
 3. **Trend indicator** — vs prior period (arrow/color) → conditional format or SVG
 
 Use the new `cardVisual` type for richer card formatting.
-For inline trend arrows, use SVG measures — see `guide("svg-visuals")`.
+For inline trend arrows, use SVG measures — see `pbir_guide("svg-visuals")`.
 
 ## Performance Tips
 
 - Avoid background images (use solid colors or theme)
 - Minimize visuals with high cardinality dimensions
-- Use `model_usage` tool to find unused measures/columns for cleanup
+- Use `pbir_model_usage` tool to find unused measures/columns for cleanup
 - Prefer explicit measures over implicit aggregations

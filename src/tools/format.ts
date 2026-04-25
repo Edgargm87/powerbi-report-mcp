@@ -18,10 +18,10 @@ const CONTAINER_CATEGORIES = new Set([
 
 export function registerFormatTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
-  // TOOL: set_visual_title
+  // TOOL: pbir_set_visual_title
   // ============================================================
   server.tool(
-    "set_visual_title",
+    "pbir_set_visual_title",
     "Set or update the title of a visual. Can set text, visibility, font, size, alignment.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -94,11 +94,11 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: format_visual
+  // TOOL: pbir_format_visual
   // ============================================================
   server.tool(
-    "format_visual",
-    "Format visual properties. Auto-routes title/background/border/padding/dropShadow/visualHeader to container, others to visual; override with target='visual'|'container'. Call `lookup_theme_property` for valid category/property names per visualType. Gotchas: slicer uses `textSize`, not `fontSize` (items/header); waterfall uses `sentimentColors`, not `dataPoint`.",
+    "pbir_format_visual",
+    "Format visual properties. Auto-routes title/background/border/padding/dropShadow/visualHeader to container, others to visual; override with target='visual'|'container'. Call `pbir_lookup_theme_property` for valid category/property names per visualType. Gotchas: slicer uses `textSize`, not `fontSize` (items/header); waterfall uses `sentimentColors`, not `dataPoint`.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID"),
@@ -186,10 +186,10 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: set_datapoint_colors
+  // TOOL: pbir_set_datapoint_colors
   // ============================================================
   server.tool(
-    "set_datapoint_colors",
+    "pbir_set_datapoint_colors",
     "Set data point colors. Series-based charts use metadata mode. Category-based (no Series) requires categoryEntity+categoryProperty.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -221,10 +221,10 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: set_conditional_format
+  // TOOL: pbir_set_conditional_format
   // ============================================================
   server.tool(
-    "set_conditional_format",
+    "pbir_set_conditional_format",
     "Apply conditional formatting to a visual container background or title font. formatType: rules / gradient / clear. ComparisonKind: 0=Eq,1=GT,2=GTE,3=LT,4=LTE,5=NEq.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -404,10 +404,10 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: apply_theme
+  // TOOL: pbir_apply_theme
   // ============================================================
   server.tool(
-    "apply_theme",
+    "pbir_apply_theme",
     `Apply a named theme preset to all visuals on a page. Themes: ${Object.keys(THEME_PRESETS).join(", ")}.`,
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -493,10 +493,10 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: set_visual_sort
+  // TOOL: pbir_set_visual_sort
   // ============================================================
   server.tool(
-    "set_visual_sort",
+    "pbir_set_visual_sort",
     "Set the sort order of a visual. Overrides the auto-sort. Use Table[Column] for field refs.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),

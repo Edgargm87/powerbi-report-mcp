@@ -36,7 +36,7 @@ No REST API keys. No Power BI service. Just local files + your AI assistant.
 ```
 You: "Build me a sales dashboard with KPIs, trend charts, and a detail table"
 
-AI:  create_page → add_visual (batch: 12 visuals) → set_report_theme → done.
+AI:  pbir_create_page → pbir_add_visual (batch: 12 visuals) → pbir_set_report_theme → done.
      Open in Power BI Desktop. ✓
 ```
 
@@ -154,7 +154,7 @@ Open the `.pbip` file — or if already open, press `Ctrl+Shift+F5` to refresh.
 
 **As of v0.6.2** all **54 tools load at startup by default** — this is the most compatible configuration, and what you want for Claude Desktop and most other MCP clients whose tool catalog is a snapshot taken at session start.
 
-For token-sensitive setups (e.g. Claude Code with large prompt budgets on dev machines), you can opt into the **minimal** mode — only **11 core tools** load at startup, and the LLM activates more on-demand via `load_tools`:
+For token-sensitive setups (e.g. Claude Code with large prompt budgets on dev machines), you can opt into the **minimal** mode — only **11 core tools** load at startup, and the LLM activates more on-demand via `pbir_load_tools`:
 
 ```json
 "env": { "MCP_TOOLS": "minimal" }
@@ -163,17 +163,17 @@ For token-sensitive setups (e.g. Claude Code with large prompt budgets on dev ma
 ```mermaid
 graph TD
     subgraph DEFAULT["11 Core Tools — always loaded in both modes"]
-        A1[set_report] --- A2[list_pages] --- A3[list_visuals] --- A4[create_page] --- A5[add_visual]
-        B1[get_visual] --- B2[format_visual] --- B3[update_visual_bindings] --- B4[set_report_theme] --- B5[bulk_bind]
-        C1[model_usage]
+        A1[pbir_set_report] --- A2[pbir_list_pages] --- A3[pbir_list_visuals] --- A4[pbir_create_page] --- A5[pbir_add_visual]
+        B1[pbir_get_visual] --- B2[pbir_format_visual] --- B3[pbir_update_visual_bindings] --- B4[pbir_set_report_theme] --- B5[pbir_bulk_bind]
+        C1[pbir_model_usage]
     end
 
-    LT[load_tools -- always available]
+    LT[pbir_load_tools -- always available]
 
     subgraph ONDEMAND["43 On-Demand Tools"]
-        C1[delete_page] --- C2[rename_page] --- C3[duplicate_page] --- C4[move_visual] --- C5[delete_visual]
-        D1[set_datapoint_colors] --- D2[set_conditional_format] --- D3[add_page_filter] --- D4[set_visual_sort] --- D5[guide]
-        E1[list_bookmarks] --- E2[set_page_background] --- E3[...]
+        C1[pbir_delete_page] --- C2[pbir_rename_page] --- C3[pbir_duplicate_page] --- C4[pbir_move_visual] --- C5[pbir_delete_visual]
+        D1[pbir_set_datapoint_colors] --- D2[pbir_set_conditional_format] --- D3[pbir_add_page_filter] --- D4[pbir_set_visual_sort] --- D5[guide]
+        E1[pbir_list_bookmarks] --- E2[pbir_set_page_background] --- E3[...]
     end
 
     DEFAULT --> LT --> ONDEMAND
@@ -185,13 +185,13 @@ graph TD
 
 | Mode | Tools at Startup | Token Overhead | Use Case |
 |------|------------------|----------------|----------|
-| `default` *(v0.6.2+)* | 54 + `load_tools` | ~16,000 tokens | Claude Desktop, most clients, first-time users |
-| `MCP_TOOLS=minimal` | 11 + `load_tools` | **~3,100 tokens** | Claude Code / clients that refresh the tool list mid-session |
-| `MCP_TOOLS=all` *(legacy alias)* | 54 + `load_tools` | ~16,000 tokens | Same as default; kept for backward-compat |
+| `default` *(v0.6.2+)* | 54 + `pbir_load_tools` | ~16,000 tokens | Claude Desktop, most clients, first-time users |
+| `MCP_TOOLS=minimal` | 11 + `pbir_load_tools` | **~3,100 tokens** | Claude Code / clients that refresh the tool list mid-session |
+| `MCP_TOOLS=all` *(legacy alias)* | 54 + `pbir_load_tools` | ~16,000 tokens | Same as default; kept for backward-compat |
 
 ### Why the default flipped in v0.6.2
 
-Before v0.6.2 the default was minimal-with-`load_tools`. The problem: **Claude Desktop snapshots the MCP tool catalog at session start and never refreshes it**, so tools activated mid-session via `load_tools` were invisible to the model even though the server had registered them. New users saw "only 11 tools" and assumed the server was broken. Clients that honour `tools/list_changed` notifications (like Claude Code) can still use `MCP_TOOLS=minimal` to claw back the ~13k tokens.
+Before v0.6.2 the default was minimal-with-`pbir_load_tools`. The problem: **Claude Desktop snapshots the MCP tool catalog at session start and never refreshes it**, so tools activated mid-session via `pbir_load_tools` were invisible to the model even though the server had registered them. New users saw "only 11 tools" and assumed the server was broken. Clients that honour `tools/list_changed` notifications (like Claude Code) can still use `MCP_TOOLS=minimal` to claw back the ~13k tokens.
 
 ---
 
@@ -201,26 +201,26 @@ Before v0.6.2 the default was minimal-with-`load_tools`. The problem: **Claude D
 
 | Tool | Description |
 |------|-------------|
-| `set_report` | Connect to a `.Report` folder at runtime |
-| `list_pages` | List all pages (id, name, visual count) |
-| `list_visuals` | List visuals on a page (id, type, position, title) |
-| `create_page` | Create a new page |
-| `add_visual` | Add one or many visuals with bindings, formatting, colors |
-| `get_visual` | Inspect a visual's config and bindings |
-| `format_visual` | Format axes, legend, labels, borders, background |
-| `update_visual_bindings` | Replace data bindings on a visual |
-| `set_report_theme` | Apply a custom JSON theme to the whole report |
-| `bulk_bind` | Rebind multiple visuals in one call |
-| `model_usage` | Cross-reference semantic model with report — three-tier classification (direct/indirect/unused), DAX lineage, UDF functions, conditional formatting detection |
-| `load_tools` | List and activate on-demand tools |
+| `pbir_set_report` | Connect to a `.Report` folder at runtime |
+| `pbir_list_pages` | List all pages (id, name, visual count) |
+| `pbir_list_visuals` | List visuals on a page (id, type, position, title) |
+| `pbir_create_page` | Create a new page |
+| `pbir_add_visual` | Add one or many visuals with bindings, formatting, colors |
+| `pbir_get_visual` | Inspect a visual's config and bindings |
+| `pbir_format_visual` | Format axes, legend, labels, borders, background |
+| `pbir_update_visual_bindings` | Replace data bindings on a visual |
+| `pbir_set_report_theme` | Apply a custom JSON theme to the whole report |
+| `pbir_bulk_bind` | Rebind multiple visuals in one call |
+| `pbir_model_usage` | Cross-reference semantic model with report — three-tier classification (direct/indirect/unused), DAX lineage, UDF functions, conditional formatting detection |
+| `pbir_load_tools` | List and activate on-demand tools |
 
-#### Why `model_usage` is a default tool — the deletion fail-safe
+#### Why `pbir_model_usage` is a default tool — the deletion fail-safe
 
-`model_usage` ships in the default set (not on-demand) because it is the **safety layer** for any AI-driven cleanup of the semantic model. When a user asks Claude (or any LLM) to *"remove unused measures"* or *"clean up dead columns"*, the model would otherwise guess based on measure names and delete things blindly — and break visuals that depend on indirect references.
+`pbir_model_usage` ships in the default set (not on-demand) because it is the **safety layer** for any AI-driven cleanup of the semantic model. When a user asks Claude (or any LLM) to *"remove unused measures"* or *"clean up dead columns"*, the model would otherwise guess based on measure names and delete things blindly — and break visuals that depend on indirect references.
 
-With `model_usage` always available, the LLM can call it first and see the full dependency picture before touching anything:
+With `pbir_model_usage` always available, the LLM can call it first and see the full dependency picture before touching anything:
 
-| Scenario | Without `model_usage` | With `model_usage` |
+| Scenario | Without `pbir_model_usage` | With `pbir_model_usage` |
 |---|---|---|
 | User: *"delete all unused measures"* | LLM guesses by name, deletes `Margin Delta pp`, `Margin Arrow` breaks the next day | LLM sees `Margin Delta pp` is status `indirect` (referenced by `Margin Arrow`), keeps it, lists only the truly safe ones |
 | User: *"is `Discount Arrow` used anywhere?"* | LLM greps the visual JSON, misses conditional formatting bindings | LLM sees it bound to `cardImage.imageData` / `referenceLabel.value` and reports exactly where |
@@ -237,23 +237,23 @@ The tool returns a slim JSON response (~7K tokens) by default so it's cheap to c
 
 | Tool | Description |
 |------|-------------|
-| `get_report` | Show connected report path |
-| `reload_report` | Reopen report in PBI Desktop |
-| `get_report_settings` | Read report-level settings |
-| `update_report_settings` | Merge new report settings |
+| `pbir_get_report` | Show connected report path |
+| `pbir_reload_report` | Reopen report in PBI Desktop |
+| `pbir_get_report_settings` | Read report-level settings |
+| `pbir_update_report_settings` | Merge new report settings |
 | `get_page_summary` | All pages + visuals in one call |
-| `delete_page` | Delete a page and its visuals |
-| `rename_page` | Rename a page |
-| `duplicate_page` | Clone a page with all visuals |
-| `reorder_pages` | Set page order |
-| `set_active_page` | Set default page on open |
-| `update_page_size` | Change page dimensions |
-| `set_page_visibility` | Show/hide from navigation |
-| `auto_layout` | Auto-arrange visuals in a grid |
-| `set_filter_pane` | Show/hide and expand/collapse the filter pane |
-| `set_page_background` | Set page canvas background color and/or wallpaper |
-| `set_visual_interaction` | Set cross-filter/highlight interaction between visuals |
-| `manage_extension_measures` | Add, list, or remove report-level DAX measures |
+| `pbir_delete_page` | Delete a page and its visuals |
+| `pbir_rename_page` | Rename a page |
+| `pbir_duplicate_page` | Clone a page with all visuals |
+| `pbir_reorder_pages` | Set page order |
+| `pbir_set_active_page` | Set default page on open |
+| `pbir_update_page_size` | Change page dimensions |
+| `pbir_set_page_visibility` | Show/hide from navigation |
+| `pbir_auto_layout` | Auto-arrange visuals in a grid |
+| `pbir_set_filter_pane` | Show/hide and expand/collapse the filter pane |
+| `pbir_set_page_background` | Set page canvas background color and/or wallpaper |
+| `pbir_set_visual_interaction` | Set cross-filter/highlight interaction between visuals |
+| `pbir_manage_extension_measures` | Add, list, or remove report-level DAX measures |
 </details>
 
 <details>
@@ -261,11 +261,11 @@ The tool returns a slim JSON response (~7K tokens) by default so it's cheap to c
 
 | Tool | Description |
 |------|-------------|
-| `delete_visual` | Remove a visual |
-| `duplicate_visual` | Clone a visual |
-| `move_visual` | Reposition and resize |
-| `change_visual_type` | Swap type, keep bindings |
-| `get_visual_types` | List all visual types and buckets |
+| `pbir_delete_visual` | Remove a visual |
+| `pbir_duplicate_visual` | Clone a visual |
+| `pbir_move_visual` | Reposition and resize |
+| `pbir_change_visual_type` | Swap type, keep bindings |
+| `pbir_get_visual_types` | List all visual types and buckets |
 </details>
 
 <details>
@@ -273,12 +273,12 @@ The tool returns a slim JSON response (~7K tokens) by default so it's cheap to c
 
 | Tool | Description |
 |------|-------------|
-| `set_visual_title` | Set title text, font, alignment |
-| `set_datapoint_colors` | Per-series or per-category colors |
-| `set_conditional_format` | Rules-based or gradient formatting |
-| `set_visual_sort` | Set or change sort order (column/measure, ascending/descending) |
-| `apply_theme` | Apply a preset theme to a page |
-| `audit_theme_compliance` | Scan visuals for formatting overrides conflicting with theme |
+| `pbir_set_visual_title` | Set title text, font, alignment |
+| `pbir_set_datapoint_colors` | Per-series or per-category colors |
+| `pbir_set_conditional_format` | Rules-based or gradient formatting |
+| `pbir_set_visual_sort` | Set or change sort order (column/measure, ascending/descending) |
+| `pbir_apply_theme` | Apply a preset theme to a page |
+| `pbir_audit_theme_compliance` | Scan visuals for formatting overrides conflicting with theme |
 </details>
 
 <details>
@@ -286,10 +286,10 @@ The tool returns a slim JSON response (~7K tokens) by default so it's cheap to c
 
 | Tool | Description |
 |------|-------------|
-| `get_report_theme` | Get current theme JSON |
-| `remove_report_theme` | Revert to default theme |
-| `list_report_themes` | List stored theme files |
-| `diff_report_theme` | Compare proposed vs current theme |
+| `pbir_get_report_theme` | Get current theme JSON |
+| `pbir_remove_report_theme` | Revert to default theme |
+| `pbir_list_report_themes` | List stored theme files |
+| `pbir_diff_report_theme` | Compare proposed vs current theme |
 </details>
 
 <details>
@@ -297,10 +297,10 @@ The tool returns a slim JSON response (~7K tokens) by default so it's cheap to c
 
 | Tool | Description |
 |------|-------------|
-| `list_filters` | List page or visual filters |
-| `add_page_filter` | Add categorical, TopN, relative date, or advanced filter |
-| `remove_filter` | Remove a filter by name |
-| `clear_filters` | Remove all filters |
+| `pbir_list_filters` | List page or visual filters |
+| `pbir_add_page_filter` | Add categorical, TopN, relative date, or advanced filter |
+| `pbir_remove_filter` | Remove a filter by name |
+| `pbir_clear_filters` | Remove all filters |
 </details>
 
 <details>
@@ -308,8 +308,8 @@ The tool returns a slim JSON response (~7K tokens) by default so it's cheap to c
 
 | Tool | Description |
 |------|-------------|
-| `bulk_delete_visuals` | Delete multiple visuals |
-| `bulk_update_format` | Format multiple visuals |
+| `pbir_bulk_delete_visuals` | Delete multiple visuals |
+| `pbir_bulk_update_format` | Format multiple visuals |
 </details>
 
 <details>
@@ -317,10 +317,10 @@ The tool returns a slim JSON response (~7K tokens) by default so it's cheap to c
 
 | Tool | Description |
 |------|-------------|
-| `list_bookmarks` | List all bookmarks in the report |
-| `add_bookmark` | Create a new bookmark |
-| `delete_bookmark` | Delete a bookmark |
-| `rename_bookmark` | Rename a bookmark |
+| `pbir_list_bookmarks` | List all bookmarks in the report |
+| `pbir_add_bookmark` | Create a new bookmark |
+| `pbir_delete_bookmark` | Delete a bookmark |
+| `pbir_rename_bookmark` | Rename a bookmark |
 </details>
 
 <details>
@@ -328,16 +328,16 @@ The tool returns a slim JSON response (~7K tokens) by default so it's cheap to c
 
 | Tool | Description |
 |------|-------------|
-| `guide` | Domain knowledge for PBI development — topics: `svg-visuals`, `report-design` |
+| `pbir_guide` | Domain knowledge for PBI development — topics: `svg-visuals`, `report-design` |
 
-The `guide` tool provides focused, actionable knowledge to help AI agents make better decisions. Instead of loading large skill files into every session, agents call `guide("topic")` on demand. The SVG visuals topic includes 4 DAX templates, binding rules, and workflow steps.
+The `pbir_guide` tool provides focused, actionable knowledge to help AI agents make better decisions. Instead of loading large skill files into every session, agents call `pbir_guide("topic")` on demand. The SVG visuals topic includes 4 DAX templates, binding rules, and workflow steps.
 </details>
 
 ---
 
 ## Batch Mode — Build Pages Fast
 
-Create an entire page in a single `add_visual` call:
+Create an entire page in a single `pbir_add_visual` call:
 
 ```json
 {
@@ -412,9 +412,9 @@ Combo charts          = Use "ColumnY" + "LineY", NOT "Y" + "Y2"
 ## Formatting
 
 ```
-format_visual(target="auto")          → auto-routes to container or visual (default)
-format_visual(target="container")     → title, background, border, padding, shadow
-format_visual(target="visual")        → axes, legend, labels, line styles, data points
+pbir_format_visual(target="auto")          → auto-routes to container or visual (default)
+pbir_format_visual(target="container")     → title, background, border, padding, shadow
+pbir_format_visual(target="visual")        → axes, legend, labels, line styles, data points
 ```
 
 <details>
@@ -542,11 +542,11 @@ sequenceDiagram
     User->>AI: "Create a sales dashboard with KPIs and a chart by country"
     AI->>Model: What measures are on the Sales table?
     Model-->>AI: Net Revenue, Net Profit, Margin %, Orders, Units Sold
-    AI->>Report: create_page("Sales Dashboard")
+    AI->>Report: pbir_create_page("Sales Dashboard")
     Report-->>AI: pageId: abc123
-    AI->>Report: add_visual(batch: 6 cards + 2 charts + table)
+    AI->>Report: pbir_add_visual(batch: 6 cards + 2 charts + table)
     Report-->>AI: 9 visuals created
-    AI->>Report: set_report_theme({ dataColors: [...] })
+    AI->>Report: pbir_set_report_theme({ dataColors: [...] })
     Report-->>AI: theme applied
     AI-->>User: Done! Open .pbip in Power BI Desktop
     User->>PBI: Ctrl+Shift+F5
@@ -603,7 +603,7 @@ MyProject.Report/
 | Batch + bulk (recommended) | 22–32 | ~28–32K |
 | Per-visual calls (naive) | 300+ | ~120K |
 
-Use `add_visual` batch mode + inline `title`, `dataColors`, `containerFormat` to build fully styled pages in minimal calls.
+Use `pbir_add_visual` batch mode + inline `title`, `dataColors`, `containerFormat` to build fully styled pages in minimal calls.
 </details>
 
 ---
@@ -653,12 +653,12 @@ Use `add_visual` batch mode + inline `title`, `dataColors`, `containerFormat` to
 - Use `Table[Column]` shorthand in bindings: `"field": "Sales[Revenue]"`
 - `barChart` = stacked bar, `clusteredBarChart` = clustered — there is no `stackedBarChart`
 - Add shapes **before** data visuals for correct z-order layering
-- `format_visual` merges with existing formatting — safe to call incrementally
-- TopN filters are **visual-level only** — pass `visualId` to `add_page_filter`
+- `pbir_format_visual` merges with existing formatting — safe to call incrementally
+- TopN filters are **visual-level only** — pass `visualId` to `pbir_add_page_filter`
 - All tools return `{ success: false, error: "..." }` on failure — the server never crashes
-- Use `model_usage` to see which measures/columns are used in visuals — it classifies fields as **direct** (on a visual), **indirect** (referenced by direct measures/relationships), or **unused** (safe to remove). It detects conditional formatting bindings (images, reference labels, colors) that other tools miss
-- **Always call `model_usage` before any delete / cleanup request** — it's the fail-safe that stops the LLM from removing indirectly-referenced measures. See [Why `model_usage` is a default tool](#why-model_usage-is-a-default-tool--the-deletion-fail-safe) for the full rationale
-- `model_usage` also parses UDF functions from TMDL/BIM, counts measure references per function, and generates an interactive HTML dashboard with DAX lineage tracing
+- Use `pbir_model_usage` to see which measures/columns are used in visuals — it classifies fields as **direct** (on a visual), **indirect** (referenced by direct measures/relationships), or **unused** (safe to remove). It detects conditional formatting bindings (images, reference labels, colors) that other tools miss
+- **Always call `pbir_model_usage` before any delete / cleanup request** — it's the fail-safe that stops the LLM from removing indirectly-referenced measures. See [Why `pbir_model_usage` is a default tool](#why-pbir_model_usage-is-a-default-tool--the-deletion-fail-safe) for the full rationale
+- `pbir_model_usage` also parses UDF functions from TMDL/BIM, counts measure references per function, and generates an interactive HTML dashboard with DAX lineage tracing
 - The dashboard parses **calculation groups** too — each group is shown as a collapsible card with per-item DAX expressions, ordinals, descriptions, and precedence
 - The dashboard ships with both **dark and light themes** — toggle via the `☾` / `☀` button in the header; choice persists across reloads via `localStorage`
 - Run `npm run usage:app` for a standalone dashboard with native folder picker, or `npm run usage:watch <path>` for CLI mode with live file watching

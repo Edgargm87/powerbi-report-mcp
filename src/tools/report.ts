@@ -17,10 +17,10 @@ import { cachedRead, invalidateScope, invalidateAll } from "../helpers/readCache
 
 export function registerReportTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
-  // TOOL: set_report — switch report at runtime
+  // TOOL: pbir_set_report — switch report at runtime
   // ============================================================
   server.tool(
-    "set_report",
+    "pbir_set_report",
     "Connect to a different Power BI report (.Report folder or parent .pbip project folder). Use this to switch reports mid-session without restarting the server.",
     {
       path: z.string().describe("Absolute path to the .Report folder or the parent folder containing a .pbip project"),
@@ -46,24 +46,24 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: get_report — show currently connected report
+  // TOOL: pbir_get_report — show currently connected report
   // ============================================================
   server.tool(
-    "get_report",
+    "pbir_get_report",
     "Show the currently connected report path.",
     {},
     {"readOnlyHint":true,"openWorldHint":false},
     async () =>
-      cachedRead("get_report", {}, ["report"], () => ({
+      cachedRead("pbir_get_report", {}, ["report"], () => ({
         reportPath: ctx.getReportPath() || "No report connected",
       }))
   );
 
   // ============================================================
-  // TOOL: list_pages
+  // TOOL: pbir_list_pages
   // ============================================================
   server.tool(
-    "list_pages",
+    "pbir_list_pages",
     "List all pages in the report. Slim mode (default) returns id, displayName, visualCount, isActive, hidden. Set slim=false for width/height/displayOption. Set includeVisuals=true (or pass pageId) to include a per-visual summary (id, type, x, y, w, h, title) — replaces the old get_page_summary tool.",
     {
       slim: z.boolean().optional().default(true).describe("Slim mode (default true) — omits width/height/displayOption to reduce token usage"),
@@ -76,7 +76,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       const scopes: string[] = ["report"];
       if (pageId) scopes.push(`page:${pageId}`);
       else scopes.push("pages");
-      return cachedRead("list_pages", { slim, includeVisuals, pageId }, scopes, () => {
+      return cachedRead("pbir_list_pages", { slim, includeVisuals, pageId }, scopes, () => {
       const meta = ctx.project.getPagesMetadata();
       const ids = pageId ? [pageId] : meta.pageOrder;
       const withVisuals = includeVisuals || !!pageId;
@@ -124,10 +124,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: create_page
+  // TOOL: pbir_create_page
   // ============================================================
   server.tool(
-    "create_page",
+    "pbir_create_page",
     "Create a new page in the report. Supports standard, tooltip, and drillthrough page types.",
     {
       displayName: z.string().describe("Display name for the page"),
@@ -211,10 +211,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: rename_page
+  // TOOL: pbir_rename_page
   // ============================================================
   server.tool(
-    "rename_page",
+    "pbir_rename_page",
     "Rename an existing page",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -238,10 +238,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: delete_page
+  // TOOL: pbir_delete_page
   // ============================================================
   server.tool(
-    "delete_page",
+    "pbir_delete_page",
     "Delete a page and all its visuals",
     {
       pageId: z.string().describe("The page ID to delete"),
@@ -266,10 +266,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: reorder_pages
+  // TOOL: pbir_reorder_pages
   // ============================================================
   server.tool(
-    "reorder_pages",
+    "pbir_reorder_pages",
     "Set the page order",
     {
       pageOrder: z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, z.array(z.string())).describe("Array of page IDs in desired order"),
@@ -296,10 +296,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: set_active_page
+  // TOOL: pbir_set_active_page
   // ============================================================
   server.tool(
-    "set_active_page",
+    "pbir_set_active_page",
     "Set which page is active (shown on open)",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -321,10 +321,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: set_page_visibility
+  // TOOL: pbir_set_page_visibility
   // ============================================================
   server.tool(
-    "set_page_visibility",
+    "pbir_set_page_visibility",
     "Show or hide a page in the navigation pane. Hidden pages still work for drillthrough.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -354,10 +354,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: get_report_settings
+  // TOOL: pbir_get_report_settings
   // ============================================================
   server.tool(
-    "get_report_settings",
+    "pbir_get_report_settings",
     "Get the report-level settings and theme configuration",
     {},
     {"readOnlyHint":true,"openWorldHint":false},
@@ -369,7 +369,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: update_report_settings
+  // TOOL: pbir_update_report_settings
   // ============================================================
   const VALID_REPORT_SETTINGS = new Set([
     "useStylableVisualContainerHeader",
@@ -387,7 +387,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   ]);
 
   server.tool(
-    "update_report_settings",
+    "pbir_update_report_settings",
     "Merge report-level settings. Keys: useStylableVisualContainerHeader, useEnhancedTooltips, exportDataMode (0|1), persistentFilters, keyboardNavigationEnabled, defaultDrillFilterOtherVisuals, allowChangeFilterTypes, useDefaultAggregateDisplayName.",
     {
       settings: z.record(z.string(), z.unknown()),
@@ -412,10 +412,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: update_page_size
+  // TOOL: pbir_update_page_size
   // ============================================================
   server.tool(
-    "update_page_size",
+    "pbir_update_page_size",
     "Update the page dimensions",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -448,10 +448,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: auto_layout
+  // TOOL: pbir_auto_layout
   // ============================================================
   server.tool(
-    "auto_layout",
+    "pbir_auto_layout",
     "Auto-arrange all visuals on a page in a grid.",
     {
       pageId: z.string().describe("The page ID"),
@@ -511,10 +511,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: duplicate_page
+  // TOOL: pbir_duplicate_page
   // ============================================================
   server.tool(
-    "duplicate_page",
+    "pbir_duplicate_page",
     "Duplicate an entire page with all its visuals to a new page",
     {
       pageId: z.string().describe("The source page ID to duplicate"),
@@ -576,10 +576,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: reload_report
+  // TOOL: pbir_reload_report
   // ============================================================
   server.tool(
-    "reload_report",
+    "pbir_reload_report",
     "Reload the report in Power BI Desktop by closing and reopening the .pbip file. SAFETY: closes PBIDesktop.exe, so any unsaved work in Desktop (including modeling-MCP measures/relationships not yet flushed by Desktop autosave) is LOST. Requires confirm:true to proceed — otherwise returns a save-first warning for the agent to relay to the user.",
     {
       confirm: z
@@ -595,7 +595,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       const _g = requireProject(ctx); if (_g) return _g;
       const reportPath = ctx.getReportPath();
       if (!reportPath) {
-        return fail("No report connected. Use set_report first.");
+        return fail("No report connected. Use pbir_set_report first.");
       }
 
       // Save-first gate. Unsaved modeling work in PBI Desktop is invisible
@@ -615,8 +615,8 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
                   "    (they're on disk, but PBI Desktop may have newer in-memory edits on top)\n" +
                   "  • Any manual edits in PBI Desktop not yet Ctrl+S'd\n\n" +
                   "Save first: focus PBI Desktop → Ctrl+S → reply \"reload\" to proceed.\n" +
-                  "To skip this prompt, call reload_report with confirm: true.\n\n" +
-                  "After reload, run model_usage to verify modeling changes survived before binding new visuals to them.",
+                  "To skip this prompt, call pbir_reload_report with confirm: true.\n\n" +
+                  "After reload, run pbir_model_usage to verify modeling changes survived before binding new visuals to them.",
                 nextAction: "Retry with confirm: true once the user has saved PBI Desktop.",
               }),
             },
@@ -674,10 +674,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: set_filter_pane
+  // TOOL: pbir_set_filter_pane
   // ============================================================
   server.tool(
-    "set_filter_pane",
+    "pbir_set_filter_pane",
     "Show or hide the filter pane.",
     {
       visible: z.boolean(),
@@ -708,10 +708,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: manage_extension_measures
+  // TOOL: pbir_manage_extension_measures
   // ============================================================
   server.tool(
-    "manage_extension_measures",
+    "pbir_manage_extension_measures",
     "Manage extension measures (report-level DAX in reportExtensions.json). Empty file crashes PBI Desktop — tool auto-deletes when empty.",
     {
       operation: z.enum(["list", "add", "remove"]),
@@ -801,10 +801,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: set_page_background
+  // TOOL: pbir_set_page_background
   // ============================================================
   server.tool(
-    "set_page_background",
+    "pbir_set_page_background",
     "Set the page canvas background and/or wallpaper. Hex color (#0D1117). Transparency 0-100.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -879,10 +879,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: set_visual_interaction
+  // TOOL: pbir_set_visual_interaction
   // ============================================================
   server.tool(
-    "set_visual_interaction",
+    "pbir_set_visual_interaction",
     "Set cross-filter interaction (Filter/Highlight/NoFilter) from source visual to target visual.",
     {
       pageId: z.string().describe("The page ID"),

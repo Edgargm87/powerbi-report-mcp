@@ -221,9 +221,9 @@ function buildAdvancedFilter(entity, property, operator, value, logicalOperator,
 }
 function registerFilterTools(server, ctx) {
     // ============================================================
-    // TOOL: list_filters
+    // TOOL: pbir_list_filters
     // ============================================================
-    server.tool("list_filters", "List filters on a page or visual. Slim mode (default) returns Table[Column] strings.", {
+    server.tool("pbir_list_filters", "List filters on a page or visual. Slim mode (default) returns Table[Column] strings.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().optional().describe("Visual ID — omit for page-level"),
         slim: zod_1.z.boolean().optional().default(true),
@@ -236,7 +236,7 @@ function registerFilterTools(server, ctx) {
             return r.errorResponse;
         pageId = r.pageId;
         const finalPageId = pageId;
-        return (0, readCache_js_1.cachedRead)("list_filters", { pageId: finalPageId, visualId, slim }, [`page:${finalPageId}`], () => {
+        return (0, readCache_js_1.cachedRead)("pbir_list_filters", { pageId: finalPageId, visualId, slim }, [`page:${finalPageId}`], () => {
             let filters = [];
             let scope;
             if (visualId) {
@@ -258,9 +258,9 @@ function registerFilterTools(server, ctx) {
         });
     });
     // ============================================================
-    // TOOL: add_page_filter
+    // TOOL: pbir_add_page_filter
     // ============================================================
-    server.tool("add_page_filter", "Add a filter to a page or visual. Omit visualId for page-level. topN requires visualId. Types: categorical / topN / relativeDate / advanced (Equals, GreaterThan, Contains, IsBlank, etc; supports And/Or compounds).", {
+    server.tool("pbir_add_page_filter", "Add a filter to a page or visual. Omit visualId for page-level. topN requires visualId. Types: categorical / topN / relativeDate / advanced (Equals, GreaterThan, Contains, IsBlank, etc; supports And/Or compounds).", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().optional().describe("Visual ID — omit for page-level, required for topN"),
         filterType: zod_1.z.enum(["categorical", "topN", "relativeDate", "advanced"]),
@@ -345,11 +345,11 @@ function registerFilterTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: remove_filter
+    // TOOL: pbir_remove_filter
     // ============================================================
-    server.tool("remove_filter", "Remove a specific filter by name from a page or visual.", {
+    server.tool("pbir_remove_filter", "Remove a specific filter by name from a page or visual.", {
         pageId: zod_1.z.string().describe("The page ID"),
-        filterName: zod_1.z.string().describe("The filter name/ID to remove (from list_filters)"),
+        filterName: zod_1.z.string().describe("The filter name/ID to remove (from pbir_list_filters)"),
         visualId: zod_1.z.string().optional().describe("Visual ID — omit to remove from page-level filters"),
     }, { "destructiveHint": true, "openWorldHint": false }, async ({ pageId, filterName, visualId }) => {
         const _g = (0, context_js_1.requireProject)(ctx);
@@ -386,9 +386,9 @@ function registerFilterTools(server, ctx) {
         }
     });
     // ============================================================
-    // TOOL: clear_filters
+    // TOOL: pbir_clear_filters
     // ============================================================
-    server.tool("clear_filters", "Remove ALL filters from a page or a specific visual.", {
+    server.tool("pbir_clear_filters", "Remove ALL filters from a page or a specific visual.", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().optional().describe("Visual ID — omit to clear all page-level filters"),
     }, { "destructiveHint": true, "openWorldHint": false }, async ({ pageId, visualId }) => {

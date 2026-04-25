@@ -74,7 +74,7 @@ function collectTools() {
   };
 
   // Files to scan: every src/tools/*.ts plus a handful of root-level files
-  // that also register tools (model-usage.ts, index.ts itself for load_tools).
+  // that also register tools (model-usage.ts, index.ts itself for pbir_load_tools).
   const targetFiles = [];
   for (const f of fs.readdirSync(TOOLS_DIR)) {
     if (f.endsWith(".ts")) {
@@ -96,7 +96,7 @@ function collectTools() {
     if (regFn && !isRegistered(regFn[1])) continue;
 
     // Match: server.tool("name", ...) OR _tool("name", ...) (used in index.ts
-    // for the inline load_tools registration). Only the name needs to be a
+    // for the inline pbir_load_tools registration). Only the name needs to be a
     // string literal; the description may be a string, backtick template, or
     // a constant identifier.
     const re = /(?:server\.tool|_tool)\(\s*["']([a-zA-Z0-9_]+)["']/g;
@@ -147,7 +147,7 @@ function findCoverage(tools, skills, defaultSet) {
   const coverage = []; // { tool, skills: [skillName, ...], tier }
   for (const tool of tools) {
     // Require backtick-wrapped mention of the tool name.
-    // Matches: `add_visual`, `add_visual(`, `add_visual({`, `add_visual:`
+    // Matches: `pbir_add_visual`, `pbir_add_visual(`, `pbir_add_visual({`, `pbir_add_visual:`
     const needle = new RegExp("`" + tool.name + "[`(:{ ]");
     const matched = skills
       .filter((s) => needle.test(s.content))

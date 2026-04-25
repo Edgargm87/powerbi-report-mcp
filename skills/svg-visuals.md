@@ -21,7 +21,7 @@ The measure metadata must be set to:
 | Path | Tool | Stored in |
 |------|------|-----------|
 | **Model measure** | modeling MCP → `measure_operations(Create)` | Semantic model (shared across reports) |
-| **Extension measure** | report MCP → `manage_extension_measures(add)` | reportExtensions.json (report-scoped) |
+| **Extension measure** | report MCP → `pbir_manage_extension_measures(add)` | reportExtensions.json (report-scoped) |
 
 For model measures, set `dataCategory: "ImageUrl"` in the Create call.
 For extension measures, set `dataType: "Text"` — bind the visual, then PBI renders it as an image.
@@ -159,12 +159,12 @@ IF(HASONEVALUE('Table'[Segment]),
 
 ## Workflow
 
-1. Call `guide("svg-visuals")` — you're reading this now
+1. Call `pbir_guide("svg-visuals")` — you're reading this now
 2. Create the SVG DAX measure:
    - Model measure: `measure_operations({ operation: "Create", definitions: [{ name, expression, dataType: "String", dataCategory: "ImageUrl", tableName }] })`
-   - Extension measure: `manage_extension_measures({ operation: "add", measureName, expression, dataType: "Text" })`
-3. Add visual: `add_visual({ visuals: [{ visualType: "tableEx", bindings: [{ bucket: "Values", fields: [..., { type: "measure", field: "Table[SVG Measure]" }] }] }] })`
-4. Format image height: `format_visual({ target: "visual", categories: [{ category: "grid", properties: { imageHeight: 20 } }] })`
+   - Extension measure: `pbir_manage_extension_measures({ operation: "add", measureName, expression, dataType: "Text" })`
+3. Add visual: `pbir_add_visual({ visuals: [{ visualType: "tableEx", bindings: [{ bucket: "Values", fields: [..., { type: "measure", field: "Table[SVG Measure]" }] }] }] })`
+4. Format image height: `pbir_format_visual({ target: "visual", categories: [{ category: "grid", properties: { imageHeight: 20 } }] })`
 
 ## Community UDF Libraries
 
@@ -179,9 +179,9 @@ Before writing custom DAX, check these pre-built SVG libraries:
 SVG measures are **model-level DAX**, not report-layer JSON. This MCP (`powerbi-report-mcp`) doesn't author DAX — it only binds existing measures into visuals. When you need a new SVG measure:
 
 - **Primary path** — use the sibling `powerbi-modeling-mcp` (Microsoft's official modeling MCP) via `measure_operations(Create)` with `dataType: "String"` and `dataCategory: "ImageUrl"`. That MCP ships its own skill documentation; it is the authority for anything that lives in the semantic model.
-- **Fallback** — if the measure must be report-scoped (no write access to the model, or the DAX shouldn't leak into other reports), use `manage_extension_measures(add)` with `dataType: "Text"`. Extension measures are stored in `reportExtensions.json` inside the `.Report` folder and behave like model measures for binding purposes.
+- **Fallback** — if the measure must be report-scoped (no write access to the model, or the DAX shouldn't leak into other reports), use `pbir_manage_extension_measures(add)` with `dataType: "Text"`. Extension measures are stored in `reportExtensions.json` inside the `.Report` folder and behave like model measures for binding purposes.
 
-Once the measure exists (in either location), come back to this MCP for the `add_visual` / `format_visual` steps listed in the Workflow section above.
+Once the measure exists (in either location), come back to this MCP for the `pbir_add_visual` / `pbir_format_visual` steps listed in the Workflow section above.
 
 ### Canonical DAX references
 

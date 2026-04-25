@@ -3,7 +3,7 @@
 //
 // Spawns dist/index.js over stdio, sends `tools/list`, and asserts the
 // response matches the canonical ALL_TOOLS list parsed from src/index.ts
-// (plus the `load_tools` meta-tool, which is registered separately).
+// (plus the `pbir_load_tools` meta-tool, which is registered separately).
 //
 // Catches the build-drift class of bug — where source and dist diverge,
 // or a tool was added to ALL_TOOLS but not registered, or vice versa.
@@ -94,8 +94,8 @@ function listTools() {
 // ---------------------------------------------------------------------------
 (async () => {
   const expected = new Set(parseAllTools());
-  // load_tools is registered separately as a meta-tool, always active.
-  expected.add("load_tools");
+  // pbir_load_tools is registered separately as a meta-tool, always active.
+  expected.add("pbir_load_tools");
 
   let result;
   try {

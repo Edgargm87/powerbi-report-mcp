@@ -1,5 +1,5 @@
 <!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
-<!-- summary: Visual-type picker, bucket reference per type, binding shorthand, batch add_visual, change_visual_type, bulk delete. Read before any add_visual call. -->
+<!-- summary: Visual-type picker, bucket reference per type, binding shorthand, batch pbir_add_visual, pbir_change_visual_type, bulk delete. Read before any pbir_add_visual call. -->
 # Skill: Visuals — Adding & Managing Chart/Data Visuals
 
 ## When to use
@@ -9,19 +9,19 @@ Use these patterns when asked to add charts, tables, cards, KPIs, shapes, button
 
 | Tool | Purpose |
 |---|---|
-| `add_visual` | Create one or more visuals via the `visuals` array. Inline format = 0 extra calls. |
-| `get_visual` | Inspect one visual (slim by default — bindings as `Table[Field]` strings) |
-| `list_visuals` | List all visuals on a page (slim mode = id, type, x, y, w, h, title) |
-| `get_visual_types` | Dump the full visual-type → bucket map (use when you forget bucket names) |
-| `move_visual` | Reposition / resize / re-layer one visual |
-| `duplicate_visual` | Clone a visual, optionally to a different page, with x/y offset |
-| `change_visual_type` | Swap a visual's type while keeping its bindings (e.g. barChart → columnChart) |
-| `delete_visual` | Remove one visual from a page |
-| `bulk_delete_visuals` | Remove many visuals in one call |
+| `pbir_add_visual` | Create one or more visuals via the `visuals` array. Inline format = 0 extra calls. |
+| `pbir_get_visual` | Inspect one visual (slim by default — bindings as `Table[Field]` strings) |
+| `pbir_list_visuals` | List all visuals on a page (slim mode = id, type, x, y, w, h, title) |
+| `pbir_get_visual_types` | Dump the full visual-type → bucket map (use when you forget bucket names) |
+| `pbir_move_visual` | Reposition / resize / re-layer one visual |
+| `pbir_duplicate_visual` | Clone a visual, optionally to a different page, with x/y offset |
+| `pbir_change_visual_type` | Swap a visual's type while keeping its bindings (e.g. barChart → columnChart) |
+| `pbir_delete_visual` | Remove one visual from a page |
+| `pbir_bulk_delete_visuals` | Remove many visuals in one call |
 
-For batch reformat / rebind see `skills/formatting.md` and `bulk_bind`.
+For batch reformat / rebind see `skills/formatting.md` and `pbir_bulk_bind`.
 
-## `add_visual`
+## `pbir_add_visual`
 
 All calls pass the `visuals` array — one entry or many. One call, one round-trip, one set of side-effects (auto-z-order, cache invalidation).
 
@@ -104,7 +104,7 @@ Inline `containerFormat`, `visualFormat`, `dataColors`, `title`, `multiSelect`, 
 | Text slicer | `textSlicer` |
 | Advanced slicer | `advancedSlicerVisual` |
 
-When in doubt, call `get_visual_types` — it dumps the live bucket map straight from `pbir.ts`.
+When in doubt, call `pbir_get_visual_types` — it dumps the live bucket map straight from `pbir.ts`.
 
 ### Chart naming gotcha
 - `columnChart` is **stacked** column (Series bucket = stack)
@@ -200,14 +200,14 @@ Aggregation functions: `Sum`, `Avg`, `Count`, `Min`, `Max`, `CountNonNull`, `Med
 { "visualType": "pageNavigator", "x": 0, "y": 0, "width": 1280, "height": 40 }
 ```
 
-Auto-renders one button per visible page. Hide pages with `set_page_visibility` to keep them out of the navigator.
+Auto-renders one button per visible page. Hide pages with `pbir_set_page_visibility` to keep them out of the navigator.
 
 ### `shape` and `textbox`
 See `skills/shapes.md` for the full shape API (rounded rectangles, lines, tab cuts, embedded text labels via `objects.text`).
 
 ## Inline Formatting
 
-`add_visual` accepts three inline formatting branches that save extra `format_visual` round-trips:
+`pbir_add_visual` accepts three inline formatting branches that save extra `pbir_format_visual` round-trips:
 
 ```json
 {
@@ -224,7 +224,7 @@ See `skills/shapes.md` for the full shape API (rounded rectangles, lines, tab cu
 
 `containerFormat` writes to `visualContainerObjects` (title/background/border/padding/dropShadow/visualHeader). `visualFormat` writes to `objects` (axes/legend/labels/dataPoint). `dataColors` is a shortcut for the first dataPoint series colors. See `skills/formatting.md` for the full category catalog.
 
-## `change_visual_type`
+## `pbir_change_visual_type`
 
 Swap a visual's type without losing bindings. Useful when the user says "actually make that a clustered bar":
 
@@ -237,10 +237,10 @@ Swap a visual's type without losing bindings. Useful when the user says "actuall
 ```
 
 Caveats:
-- Only works when the new type accepts the existing buckets. Going from `columnChart` (Category, Y, Series) → `clusteredBarChart` (same buckets) is safe. Going to `pivotTable` (Rows, Columns, Values) is not — you'll need `update_visual_bindings` (see `skills/formatting.md`) afterwards.
-- Visual-level formatting (axes, legend) may carry over awkwardly. Re-`format_visual` if it looks wrong.
+- Only works when the new type accepts the existing buckets. Going from `columnChart` (Category, Y, Series) → `clusteredBarChart` (same buckets) is safe. Going to `pivotTable` (Rows, Columns, Values) is not — you'll need `pbir_update_visual_bindings` (see `skills/formatting.md`) afterwards.
+- Visual-level formatting (axes, legend) may carry over awkwardly. Re-`pbir_format_visual` if it looks wrong.
 
-## `delete_visual` and `bulk_delete_visuals`
+## `pbir_delete_visual` and `pbir_bulk_delete_visuals`
 
 ```json
 // Single
@@ -253,22 +253,22 @@ Caveats:
 { "pageId": "<id>", "visualIds": ["<id1>", ..., "<id9>"], "confirmBulk": true }
 ```
 
-Both invalidate the model_usage cache.
+Both invalidate the pbir_model_usage cache.
 
 ### Bulk safety gate
 
-`bulk_delete_visuals`, `bulk_update_format`, and `bulk_bind` all enforce a safety threshold: **if the operation would affect more than 5 visuals and `confirmBulk` is not set to `true`, the call errors out** with a structured message naming the count and the threshold. This prevents the common failure mode of "agent lists every visual on a page, pipes the id array straight into a bulk tool, and wipes the page."
+`pbir_bulk_delete_visuals`, `pbir_bulk_update_format`, and `pbir_bulk_bind` all enforce a safety threshold: **if the operation would affect more than 5 visuals and `confirmBulk` is not set to `true`, the call errors out** with a structured message naming the count and the threshold. This prevents the common failure mode of "agent lists every visual on a page, pipes the id array straight into a bulk tool, and wipes the page."
 
 When you get a safety-gate error:
 - If you meant to operate on that many visuals, re-issue the call with `confirmBulk: true`.
-- If you didn't, narrow the id list (e.g. filter by type or name prefix using `list_visuals` results).
+- If you didn't, narrow the id list (e.g. filter by type or name prefix using `pbir_list_visuals` results).
 - Never set `confirmBulk: true` reflexively — the gate exists to force a second thought.
 
 ### Binding validation
 
-`add_visual`, `update_visual_bindings`, and `bulk_bind` all validate every field reference against the semantic model **before any write**. A typo like `Sales[FooBar]` used to silently produce a broken visual that only surfaced when the user opened PBI Desktop — now it fails the call upfront with a structured error and "did you mean" suggestions.
+`pbir_add_visual`, `pbir_update_visual_bindings`, and `pbir_bulk_bind` all validate every field reference against the semantic model **before any write**. A typo like `Sales[FooBar]` used to silently produce a broken visual that only surfaced when the user opened PBI Desktop — now it fails the call upfront with a structured error and "did you mean" suggestions.
 
-**How it works.** The validator reads the sibling `.SemanticModel` folder (same source as `model_usage`), builds a per-table inventory of columns and measures, and checks each `FieldSpecInput` in the `bindings` array. Extension measures from `reportExtensions.json` are merged in. Calc-group items are exposed as measures. When the model can't be located (live-connect, missing sibling folder, parse error) validation **silently skips** — it never blocks a legitimate workflow just because the model is unreadable.
+**How it works.** The validator reads the sibling `.SemanticModel` folder (same source as `pbir_model_usage`), builds a per-table inventory of columns and measures, and checks each `FieldSpecInput` in the `bindings` array. Extension measures from `reportExtensions.json` are merged in. Calc-group items are exposed as measures. When the model can't be located (live-connect, missing sibling folder, parse error) validation **silently skips** — it never blocks a legitimate workflow just because the model is unreadable.
 
 **Three modes**, controlled per-call via `strictBindings` or globally via the `MCP_BINDING_VALIDATION` env var:
 
@@ -301,27 +301,27 @@ Precedence: per-call param > env var > default (strict).
 1. Read the error list — every unknown field is named with its suggested replacement.
 2. If the suggestion is right, fix the spec and re-issue. Most errors are one-character typos or wrong casing.
 3. If the field genuinely doesn't exist yet (e.g. you're binding against a measure that a sibling MCP is about to add), set `strictBindings: false` on that single call to let it through as a warning. Don't set `MCP_BINDING_VALIDATION=off` globally — you'd lose the safety net for every other call.
-4. If the field exists but the validator can't see it, the sibling `.SemanticModel` folder may be missing or stale. Run `model_usage` first to confirm; if that also can't find the field, the model is the source of truth and the binding really is broken.
+4. If the field exists but the validator can't see it, the sibling `.SemanticModel` folder may be missing or stale. Run `pbir_model_usage` first to confirm; if that also can't find the field, the model is the source of truth and the binding really is broken.
 
 Case-sensitivity: field names are matched exactly — `sales[quantity]` is treated as a missing table. PBI Desktop is case-sensitive here too. The "did you mean" suggestions use case-insensitive Levenshtein, so a casing mistake will surface the correctly-cased name as the top suggestion.
 
 ## Common workflows
 
 ### Create a page then populate it
-1. `create_page` → get `pageId`
-2. `add_visual` (batch mode) — all shapes for the wireframe layer
-3. `add_visual` (batch mode) — all data visuals with inline `title`, `containerFormat`, `dataColors`
-4. `set_report_theme` for global brand
-5. `reload_report`
+1. `pbir_create_page` → get `pageId`
+2. `pbir_add_visual` (batch mode) — all shapes for the wireframe layer
+3. `pbir_add_visual` (batch mode) — all data visuals with inline `title`, `containerFormat`, `dataColors`
+4. `pbir_set_report_theme` for global brand
+5. `pbir_reload_report`
 
 ### Inspect what's on a page
-- `list_visuals` (slim) — id, type, x, y, w, h, title
-- `get_visual` (slim) — bindings as `Table[Field]` strings, position, filterCount, plus `slicerMode`/`multiSelect` for slicers
-- `list_pages({includeVisuals: true})` — replaces `list_pages` + N×`list_visuals` in one call
+- `pbir_list_visuals` (slim) — id, type, x, y, w, h, title
+- `pbir_get_visual` (slim) — bindings as `Table[Field]` strings, position, filterCount, plus `slicerMode`/`multiSelect` for slicers
+- `pbir_list_pages({includeVisuals: true})` — replaces `pbir_list_pages` + N×`pbir_list_visuals` in one call
 
 ### Rearrange visuals
-- `move_visual` to reposition/resize/re-layer one visual
-- `auto_layout` to reflow all visuals into a grid (mostly useful as a starting point)
+- `pbir_move_visual` to reposition/resize/re-layer one visual
+- `pbir_auto_layout` to reflow all visuals into a grid (mostly useful as a starting point)
 
 ### Clone a visual
-- `duplicate_visual` with optional `targetPageId` and `offsetX`/`offsetY` (filter IDs are regenerated)
+- `pbir_duplicate_visual` with optional `targetPageId` and `offsetX`/`offsetY` (filter IDs are regenerated)

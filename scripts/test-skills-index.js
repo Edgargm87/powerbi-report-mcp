@@ -4,7 +4,7 @@
  *
  * Smoke-test for the session-start skills index banner produced by
  * src/tools/guide.ts :: buildSkillsIndexBanner(). This is what agents see
- * when they connect via set_report, so a regression here silently starves
+ * when they connect via pbir_set_report, so a regression here silently starves
  * every new session of its knowledge-base pointer.
  *
  * Asserts:

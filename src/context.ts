@@ -31,7 +31,7 @@ export interface ServerContext {
  */
 export function requireProject(ctx: ServerContext): MCPResult | null {
   if (!ctx.getReportPath()) {
-    return fail("No report connected. Use set_report first.");
+    return fail("No report connected. Use pbir_set_report first.");
   }
   return null;
 }

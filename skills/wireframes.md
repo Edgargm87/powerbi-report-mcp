@@ -1,5 +1,5 @@
 <!-- doc-version: 2.1 | Last updated: 2026-04-15 -->
-<!-- summary: Canvas math (1280×720, 20px margins, 5px gaps, max bottom y=714), the 5 validated layouts, layout_grid patterns. Read before placing any visual. -->
+<!-- summary: Canvas math (1280×720, 20px margins, 5px gaps, max bottom y=714), the 5 validated layouts, pbir_layout_grid patterns. Read before placing any visual. -->
 # Skill: Wireframes — Report Layout Patterns
 
 All layouts use canvas **1280 x 720** (16:9), `displayOption: "FitToPage"`.
@@ -24,11 +24,11 @@ All layouts use canvas **1280 x 720** (16:9), `displayOption: "FitToPage"`.
 
 ---
 
-## Preferred path: `layout_grid`
+## Preferred path: `pbir_layout_grid`
 
 When you're building a **fresh page from scratch** with multiple visuals,
-call `layout_grid` instead of hand-computing pixel coordinates for each
-`add_visual`. The server owns the margin/gap/remainder math — the LLM just
+call `pbir_layout_grid` instead of hand-computing pixel coordinates for each
+`pbir_add_visual`. The server owns the margin/gap/remainder math — the LLM just
 declares the grid shape and which cell each visual goes in.
 
 ```jsonc
@@ -56,18 +56,18 @@ Every returned rectangle is guaranteed to pass strict wireframe validation.
 
 **Three worked examples:**
 
-1. **Banner + 2×2 content grid** — banner at `(0,0,1280,52)` via `add_visual`,
-   then `layout_grid` with `rows:2, cols:2, reserveBannerRow:true` for the
+1. **Banner + 2×2 content grid** — banner at `(0,0,1280,52)` via `pbir_add_visual`,
+   then `pbir_layout_grid` with `rows:2, cols:2, reserveBannerRow:true` for the
    four content visuals (grid starts at y=57, heights sum to 657).
 2. **Hero + sidebar** — `rows:1, cols:3` with one cell at `(0,0,colSpan:2)`
    for the wide hero and another at `(0,2)` for the sidebar card.
 3. **5-KPI strip + chart row** — `rows:2, cols:5`. Five cards in row 0, then
    one cell at `(1,0,colSpan:5)` for a full-width chart below. The five
    "KPIs" are `visualType: "card"` with one measure each, **not** the
-   `kpi` visual — see `guide("report-design")` §"KPI Card Pattern".
+   `kpi` visual — see `pbir_guide("report-design")` §"KPI Card Pattern".
 
 `rowSpan`/`colSpan` are supported; `reserveBannerRow:true` starts the grid
-at `y:57` so the banner shape (added separately via `add_visual`) sits
+at `y:57` so the banner shape (added separately via `pbir_add_visual`) sits
 above it.
 
 Two modes:
@@ -75,7 +75,7 @@ Two modes:
   first when you're unsure of the grid shape; the response echoes the
   computed numbers so you can sanity-check the column widths and spans.
 - **`planOnly:false`** — validates bindings + layout, then writes every cell
-  as a visual in one call. Same path `add_visual` uses, so formatting,
+  as a visual in one call. Same path `pbir_add_visual` uses, so formatting,
   bindings, slicers all behave identically. Fails fast with structured
   errors if anything's off — no partial writes.
 

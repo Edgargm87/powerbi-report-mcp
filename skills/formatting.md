@@ -1,5 +1,5 @@
 <!-- doc-version: 2.1 | Last updated: 2026-04-15 -->
-<!-- summary: Chrome/content/polish split, format_visual auto-routing, inline containerFormat/visualFormat, conditional format rules & gradients, measure-driven titles/axes/colors, apply_theme presets. -->
+<!-- summary: Chrome/content/polish split, pbir_format_visual auto-routing, inline containerFormat/visualFormat, conditional format rules & gradients, measure-driven titles/axes/colors, pbir_apply_theme presets. -->
 # Skill: Formatting — Visual Styling, Titles, Colors, Conditional Format, Sort
 
 ## Three bands: chrome / content / polish
@@ -8,32 +8,32 @@ Before reaching for any formatting tool, decide which band the work falls in.
 
 | Band | Who owns it | What belongs here | MCP action |
 |---|---|---|---|
-| **Chrome** | Theme — one `set_report_theme` call | Typography, default colors, chart defaults, table styles, background, borders, tooltips | Agent sets once per report. Cascades to every visual automatically. Changing the theme later updates everything. |
-| **Content & semantics** | Agent — inline in `add_visual` | `title`, `bindings`, `dataColors` *only when they encode meaning* (gains=green, losses=red), shape `fillColor`/`textContent`, conditional formatting *rules* | Agent bakes in at creation time — the visual is wrong without it. |
+| **Chrome** | Theme — one `pbir_set_report_theme` call | Typography, default colors, chart defaults, table styles, background, borders, tooltips | Agent sets once per report. Cascades to every visual automatically. Changing the theme later updates everything. |
+| **Content & semantics** | Agent — inline in `pbir_add_visual` | `title`, `bindings`, `dataColors` *only when they encode meaning* (gains=green, losses=red), shape `fillColor`/`textContent`, conditional formatting *rules* | Agent bakes in at creation time — the visual is wrong without it. |
 | **Polish** | Developer in PBI Desktop | Per-visual drop-shadows, border radii, padding tweaks, axis tick counts, label rotation, font overrides, visual-type-specific cosmetic properties | Agent does NOT do this. These require aesthetic judgment, produce inconsistent results across runs, and write override blocks that fight future theme changes. |
 
 **Why this split matters.** Inline formatting (`containerFormat`, `visualFormat`) writes override property blocks into the PBIR that the theme can't reach through. When the developer later changes the theme, those overrides silently win — requiring a manual cleanup pass to remove them before the theme takes effect. The right default is: **theme handles chrome, agent handles content, developer handles polish.**
 
 ### Precedence — what wins when two sources set the same property
 
-1. **Inline visual formatting** (`visualFormat` / `containerFormat` on `add_visual`, `format_visual`) — highest
+1. **Inline visual formatting** (`visualFormat` / `containerFormat` on `pbir_add_visual`, `pbir_format_visual`) — highest
 2. `visualStyles.<visualType>.<category>[0]` in the custom theme
 3. `visualStyles.*.*` (theme-wide wildcard)
 4. PBI built-in defaults — lowest
 
-If a theme change "doesn't seem to take effect," run `audit_theme_compliance` — it flags visuals whose inline overrides are masking theme values. Then decide: accept the override (keep it), or clear it (re-run `set_report_theme` after stripping the override block).
+If a theme change "doesn't seem to take effect," run `pbir_audit_theme_compliance` — it flags visuals whose inline overrides are masking theme values. Then decide: accept the override (keep it), or clear it (re-run `pbir_set_report_theme` after stripping the override block).
 
 ### Discovering valid property names
 
-`format_visual` does not pre-validate property names — PBI Desktop silently ignores unknown property keys at render time. Call `lookup_theme_property({ visualType, category })` *before* writing to confirm the exact names for the target visual type (e.g. slicer uses `textSize`, not `fontSize`; waterfall uses `sentimentColors`, not `dataPoint`).
+`pbir_format_visual` does not pre-validate property names — PBI Desktop silently ignores unknown property keys at render time. Call `pbir_lookup_theme_property({ visualType, category })` *before* writing to confirm the exact names for the target visual type (e.g. slicer uses `textSize`, not `fontSize`; waterfall uses `sentimentColors`, not `dataPoint`).
 
 ### Decision rule
 
-1. Is it a `title`, `binding`, or semantic color? → **Inline in `add_visual`.**
+1. Is it a `title`, `binding`, or semantic color? → **Inline in `pbir_add_visual`.**
 2. Is it a shape, text box, or button? → **Inline** (these *are* their formatting).
-3. Is it a conditional format rule? → **`set_conditional_format`** (this is logic, not decoration).
-4. Is it global brand (fonts, palette, chart defaults)? → **`set_report_theme`** once.
-5. Everything else? → **Leave it for the developer.** Don't call `format_visual` or pass `containerFormat`/`visualFormat` unless the user explicitly asked for a specific look.
+3. Is it a conditional format rule? → **`pbir_set_conditional_format`** (this is logic, not decoration).
+4. Is it global brand (fonts, palette, chart defaults)? → **`pbir_set_report_theme`** once.
+5. Everything else? → **Leave it for the developer.** Don't call `pbir_format_visual` or pass `containerFormat`/`visualFormat` unless the user explicitly asked for a specific look.
 
 The tools below exist for cases where the user explicitly requests formatting. Use them when asked — but the default action is to leave visuals theme-defaulted.
 
@@ -46,15 +46,15 @@ Use these patterns to style visuals — backgrounds, borders, titles, axes, lege
 
 | Tool | Purpose |
 |---|---|
-| `format_visual` | Apply formatting to one visual. Auto-routes container vs visual categories. |
-| `set_visual_title` | Quick-set title text/show/font/size/alignment without touching other formatting |
-| `set_datapoint_colors` | Override series or category colors |
-| `set_conditional_format` | Rules-based or gradient conditional background/title color |
-| `set_visual_sort` | Override the auto-sort with explicit sort fields and directions |
-| `apply_theme` | Apply a preset theme (`dark`/`light`/`corporate`/`blue-purple`) to all visuals on a page |
-| `bulk_update_format` | Same formatting payload across many visuals — see `skills/visuals.md` |
+| `pbir_format_visual` | Apply formatting to one visual. Auto-routes container vs visual categories. |
+| `pbir_set_visual_title` | Quick-set title text/show/font/size/alignment without touching other formatting |
+| `pbir_set_datapoint_colors` | Override series or category colors |
+| `pbir_set_conditional_format` | Rules-based or gradient conditional background/title color |
+| `pbir_set_visual_sort` | Override the auto-sort with explicit sort fields and directions |
+| `pbir_apply_theme` | Apply a preset theme (`dark`/`light`/`corporate`/`blue-purple`) to all visuals on a page |
+| `pbir_bulk_update_format` | Same formatting payload across many visuals — see `skills/visuals.md` |
 
-For batch reformat across many visuals see `bulk_update_format`. For inline formatting at creation time see `add_visual` in `skills/visuals.md`.
+For batch reformat across many visuals see `pbir_bulk_update_format`. For inline formatting at creation time see `pbir_add_visual` in `skills/visuals.md`.
 
 ## The two formatting layers
 
@@ -65,9 +65,9 @@ PBIR splits per-visual formatting into two trees:
 | `visualContainerObjects` | The container chrome (the box around the visual) | `title`, `subTitle`, `background`, `border`, `padding`, `dropShadow`, `visualHeader`, `visualHeaderTooltip` |
 | `objects` | The visual's internal rendering | `categoryAxis`, `valueAxis`, `legend`, `labels`, `dataPoint`, `lineStyles`, `items`, `header`, `values` |
 
-`format_visual` routes between them automatically based on the category name — you don't need to know which tree a category lives in.
+`pbir_format_visual` routes between them automatically based on the category name — you don't need to know which tree a category lives in.
 
-## `format_visual` — auto-routing (default)
+## `pbir_format_visual` — auto-routing (default)
 
 ```json
 {
@@ -104,7 +104,7 @@ Pass `target: "container"` or `target: "visual"` to skip auto-routing — useful
 
 ## Inline formatting at create time
 
-`add_visual` accepts `containerFormat`, `visualFormat`, and `dataColors` so you can style a visual in the same call that creates it. **Always prefer this** over a separate `format_visual` round-trip.
+`pbir_add_visual` accepts `containerFormat`, `visualFormat`, and `dataColors` so you can style a visual in the same call that creates it. **Always prefer this** over a separate `pbir_format_visual` round-trip.
 
 ```json
 {
@@ -164,12 +164,12 @@ Numbers always get a `D` suffix (PBIR doubles). Strings and hex colors get wrapp
 | `legend` | `show`, `position` (`Top`/`Bottom`/`Left`/`Right`), `fontSize` |
 | `labels` | `show`, `fontSize`, `color` |
 | `lineStyles` | `strokeWidth`, `lineStyle` |
-| `dataPoint` | Use `set_datapoint_colors` or `dataColors` array — manual edits get tricky |
+| `dataPoint` | Use `pbir_set_datapoint_colors` or `dataColors` array — manual edits get tricky |
 | `items` | `fontSize`, `fontFamily` (slicers) |
 | `header` | `fontSize`, `fontFamily` (slicers) |
-| `values` | Used for conditional gradient — set via `set_conditional_format` |
+| `values` | Used for conditional gradient — set via `pbir_set_conditional_format` |
 
-## `set_visual_title`
+## `pbir_set_visual_title`
 
 Quick-set the title without touching anything else:
 
@@ -187,7 +187,7 @@ Quick-set the title without touching anything else:
 
 Merges into the existing `title` properties — only the fields you pass are overwritten.
 
-## `set_datapoint_colors`
+## `pbir_set_datapoint_colors`
 
 Two modes depending on whether the chart has a Series bucket:
 
@@ -224,7 +224,7 @@ Use for charts with a `Series` bucket — bar/column with breakdown, line with m
 
 Without `categoryEntity`/`categoryProperty`, the colors land in metadata mode and PBI ignores them on category-based charts.
 
-## `set_conditional_format`
+## `pbir_set_conditional_format`
 
 Apply rules-based or gradient conditional formatting to a visual's container background or title font color.
 
@@ -281,7 +281,7 @@ Two-point gradient: omit `midColor`. Three-point: include it. Writes a `FillRule
 
 Removes the conditional definition from `visualContainerObjects`.
 
-## `set_visual_sort`
+## `pbir_set_visual_sort`
 
 Override the auto-sort with explicit sort fields and directions. Field uses `Table[Column]` shorthand.
 
@@ -304,7 +304,7 @@ Override the auto-sort with explicit sort fields and directions. Field uses `Tab
 
 The visual must already have a `query` (it must have data bindings) — sort can't be set on container-only visuals like shapes or buttons.
 
-## `apply_theme`
+## `pbir_apply_theme`
 
 Apply a named preset theme to every data visual on a page in one call.
 
@@ -317,7 +317,7 @@ Available presets: `dark`, `light`, `corporate`, `blue-purple`.
 - Skips `textbox`, `shape`, `image`, `actionButton`, `pageNavigator` (they have their own styling)
 - Slicers use a separate `slicerContainerFormat` if the preset defines one
 - `applyDataColors: true` (default) repaints chart datapoint colors with the preset palette
-- For full report-level theming use `set_report_theme` — see `skills/themes.md`
+- For full report-level theming use `pbir_set_report_theme` — see `skills/themes.md`
 
 ## Default fonts applied automatically
 
@@ -327,7 +327,7 @@ Available presets: `dark`, `light`, `corporate`, `blue-purple`.
 - Chart axes / legend / labels: `fontSize: 8`, Segoe UI
 - Slicer items / header: `fontSize: 8`, Segoe UI
 
-Override via `containerFormat` / `visualFormat` in the same `add_visual` call, or with `format_visual` afterwards.
+Override via `containerFormat` / `visualFormat` in the same `pbir_add_visual` call, or with `pbir_format_visual` afterwards.
 
 ## Measure-driven formatting (dynamic properties)
 
@@ -361,7 +361,7 @@ Single-measure color field — simpler than a `fillRule`:
 ```json
 "dataPoint": [{ "fill": { "solid": { "color": { "expr": { "Measure": { ... "Property": "Bar Color" } } } } } }]
 ```
-The measure must return a hex string (e.g. `"#22C55E"`). For multi-stop gradients or thresholds, use `set_conditional_format` (which writes a `FillRule`).
+The measure must return a hex string (e.g. `"#22C55E"`). For multi-stop gradients or thresholds, use `pbir_set_conditional_format` (which writes a `FillRule`).
 
 ### Error-bar measure bounds — bullet, lollipop, progress, band
 `error.errorRange` drives bullet charts, progress bars, threshold bands, and similar composite shapes:
@@ -401,16 +401,16 @@ This is the preferred way to draw threshold lines — don't fake them with error
 ## Common workflows
 
 ### Polish a freshly-created visual
-1. `add_visual` with inline `title`, `containerFormat`, `visualFormat`, `dataColors` — done in one call
-2. Only fall back to `format_visual` if you decide later to tweak
+1. `pbir_add_visual` with inline `title`, `containerFormat`, `visualFormat`, `dataColors` — done in one call
+2. Only fall back to `pbir_format_visual` if you decide later to tweak
 
 ### Apply consistent styling across the page
-- `apply_theme` for one of the four presets
-- `set_report_theme` for a full custom theme (see `skills/themes.md`)
-- `bulk_update_format` to push the same `containerFormat` payload onto a list of visual IDs (see `skills/visuals.md`)
+- `pbir_apply_theme` for one of the four presets
+- `pbir_set_report_theme` for a full custom theme (see `skills/themes.md`)
+- `pbir_bulk_update_format` to push the same `containerFormat` payload onto a list of visual IDs (see `skills/visuals.md`)
 
 ### Color-code a KPI card by its status measure
-- `set_conditional_format` with `formatType: "rules"`, `property: "background"`, three rules on a `KPI Status` measure → green/amber/red
+- `pbir_set_conditional_format` with `formatType: "rules"`, `property: "background"`, three rules on a `KPI Status` measure → green/amber/red
 
 ### Highlight a table row by margin
-- `set_conditional_format` with `formatType: "gradient"`, `property: "background"` and `entity`/`property2` pointing to your margin measure
+- `pbir_set_conditional_format` with `formatType: "gradient"`, `property: "background"` and `entity`/`property2` pointing to your margin measure

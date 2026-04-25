@@ -14,7 +14,7 @@ Most "bad" Power BI reports aren't broken because of formatting or colors. They'
 3. **Context before detail.** Headline first; then trend/variance row; then breakdown by segment; then detail tables at the bottom. This is the 3-30-300 rule expressed as layout.
 4. **Delete rather than add.** Every visual competes for attention. A 5-visual page where all 5 matter reads better than an 8-visual page where 5 matter.
 5. **Pre-attentive attributes are a budget.** Position, size, color, motion — you have roughly one of each to spend per page. If every card is red, nothing is urgent. Spend the color budget on the one thing the viewer should notice.
-6. **Stop at the theme. Polish belongs to the developer.** Set `set_report_theme` once and let it cascade. Avoid per-visual `format_visual` unless the user explicitly asked. Inline only titles, bindings, and semantic colors (gains green / losses red).
+6. **Stop at the theme. Polish belongs to the developer.** Set `pbir_set_report_theme` once and let it cascade. Avoid per-visual `pbir_format_visual` unless the user explicitly asked. Inline only titles, bindings, and semantic colors (gains green / losses red).
 
 ## Typography (Segoe UI defaults)
 
@@ -48,9 +48,9 @@ A "KPI" in design conversation usually means a single big number with a small la
 ## Checkpoint discipline (scaled by scope)
 
 - 1-3 visuals: no checkpoints.
-- 4-7 visuals: one checkpoint before any `add_visual` — confirm the plan.
+- 4-7 visuals: one checkpoint before any `pbir_add_visual` — confirm the plan.
 - 8+ visuals: three — plan, skeleton review, numbers-look-right.
 
 Honour bypass phrases ("just build it", "go", "fast mode") — required checkpoints still fire but collapse to one short confirmation.
 
-For the full design rationale (Stephen Few / Cole Knaflic / Tufte references), the 5 page layout patterns, full slicer placement matrix, and theme-vs-inline-formatting decision rules, ask the MCP: `guide("report-design")`.
+For the full design rationale (Stephen Few / Cole Knaflic / Tufte references), the 5 page layout patterns, full slicer placement matrix, and theme-vs-inline-formatting decision rules, ask the MCP: `pbir_guide("report-design")`.

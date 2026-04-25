@@ -163,7 +163,7 @@ export interface ReportDefinition {
 }
 
 // --- Report extensions (reportExtensions.json) — user-defined measures attached
-// to the report rather than the semantic model. Used by manage_extension_measures.
+// to the report rather than the semantic model. Used by pbir_manage_extension_measures.
 export interface ExtensionMeasure {
   name: string;
   expression: string;
@@ -269,7 +269,7 @@ export class PbirProject {
 
   /**
    * In-memory visual.json cache keyed by absolute path.
-   * Avoids repeated disk reads when list_visuals / bulk ops touch the same
+   * Avoids repeated disk reads when pbir_list_visuals / bulk ops touch the same
    * visual multiple times. Invalidated on save, delete, and mtime change.
    */
   private visualCache = new Map<string, { mtimeMs: number; data: VisualDefinition }>();

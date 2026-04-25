@@ -26,10 +26,10 @@ import { DEFAULT_TOOLS } from "./default-tools.js";
 // Default: load ALL tools at startup (~7,500 tokens of schemas). This matches
 // reality — most MCP clients (notably Claude Desktop) snapshot the tool catalog
 // at session start and don't handle `tools/list_changed`, so lazy activation via
-// `load_tools` is effectively dead weight there.
+// `pbir_load_tools` is effectively dead weight there.
 //
 // Set MCP_TOOLS=minimal to opt into the tiered mode (12 default tools + 42
-// on-demand via load_tools). Worth it only for long Claude Code sessions where
+// on-demand via pbir_load_tools). Worth it only for long Claude Code sessions where
 // the ~7,500 token savings compounds against a tight context budget.
 //
 // The DEFAULT_TOOLS set lives in src/default-tools.ts (single source of truth
@@ -37,74 +37,74 @@ import { DEFAULT_TOOLS } from "./default-tools.js";
 
 // Names only — descriptions are set at registration sites and shipped to the LLM from there.
 // Keeping a separate description map here just drifts; this list exists solely to filter
-// which tools are active vs deferred via load_tools.
+// which tools are active vs deferred via pbir_load_tools.
 const ALL_TOOLS: readonly string[] = [
   // Report management
-  "set_report",
-  "get_report",
-  "list_pages",
-  "create_page",
-  "rename_page",
-  "delete_page",
-  "reorder_pages",
-  "set_active_page",
-  "set_page_visibility",
-  "get_report_settings",
-  "update_report_settings",
-  "update_page_size",
-  "auto_layout",
-  "duplicate_page",
-  "reload_report",
-  "set_filter_pane",
-  "set_page_background",
-  "set_visual_interaction",
-  "manage_extension_measures",
+  "pbir_set_report",
+  "pbir_get_report",
+  "pbir_list_pages",
+  "pbir_create_page",
+  "pbir_rename_page",
+  "pbir_delete_page",
+  "pbir_reorder_pages",
+  "pbir_set_active_page",
+  "pbir_set_page_visibility",
+  "pbir_get_report_settings",
+  "pbir_update_report_settings",
+  "pbir_update_page_size",
+  "pbir_auto_layout",
+  "pbir_duplicate_page",
+  "pbir_reload_report",
+  "pbir_set_filter_pane",
+  "pbir_set_page_background",
+  "pbir_set_visual_interaction",
+  "pbir_manage_extension_measures",
   // Visuals
-  "list_visuals",
-  "get_visual",
-  "get_visual_types",
-  "add_visual",
-  "delete_visual",
-  "move_visual",
-  "duplicate_visual",
-  "change_visual_type",
+  "pbir_list_visuals",
+  "pbir_get_visual",
+  "pbir_get_visual_types",
+  "pbir_add_visual",
+  "pbir_delete_visual",
+  "pbir_move_visual",
+  "pbir_duplicate_visual",
+  "pbir_change_visual_type",
   // Formatting
-  "format_visual",
-  "set_visual_title",
-  "set_datapoint_colors",
-  "set_conditional_format",
-  "set_visual_sort",
-  "apply_theme",
+  "pbir_format_visual",
+  "pbir_set_visual_title",
+  "pbir_set_datapoint_colors",
+  "pbir_set_conditional_format",
+  "pbir_set_visual_sort",
+  "pbir_apply_theme",
   // Themes
-  "set_report_theme",
-  "get_report_theme",
-  "remove_report_theme",
-  "diff_report_theme",
-  "list_report_themes",
-  "audit_theme_compliance",
-  "lookup_theme_property",
+  "pbir_set_report_theme",
+  "pbir_get_report_theme",
+  "pbir_remove_report_theme",
+  "pbir_diff_report_theme",
+  "pbir_list_report_themes",
+  "pbir_audit_theme_compliance",
+  "pbir_lookup_theme_property",
   // Bindings
-  "update_visual_bindings",
+  "pbir_update_visual_bindings",
   // Bulk
-  "bulk_bind",
-  "bulk_delete_visuals",
-  "bulk_update_format",
+  "pbir_bulk_bind",
+  "pbir_bulk_delete_visuals",
+  "pbir_bulk_update_format",
   // Filters
-  "list_filters",
-  "add_page_filter",
-  "remove_filter",
-  "clear_filters",
+  "pbir_list_filters",
+  "pbir_add_page_filter",
+  "pbir_remove_filter",
+  "pbir_clear_filters",
   // Model usage
-  "model_usage",
+  "pbir_model_usage",
   // Bookmarks
-  "list_bookmarks",
-  "add_bookmark",
-  "delete_bookmark",
-  "rename_bookmark",
+  "pbir_list_bookmarks",
+  "pbir_add_bookmark",
+  "pbir_delete_bookmark",
+  "pbir_rename_bookmark",
   // Guide (knowledge layer)
-  "guide",
+  "pbir_guide",
   // Layout
-  "layout_grid",
+  "pbir_layout_grid",
   // Calculations — PARKED: visual calculations don't render when written programmatically
 ];
 
@@ -165,7 +165,7 @@ function safe<T extends Record<string, unknown>>(
  * Back-fill `structuredContent` from `content[0].text` when the underlying
  * handler returned a JSON-stringified text envelope but not the modern
  * structured form. Leaves raw-text payloads (non-JSON) alone — those are
- * intentional (model_usage HTML, get_visual full PBIR dump).
+ * intentional (pbir_model_usage HTML, pbir_get_visual full PBIR dump).
  */
 function ensureStructured(result: CallToolResult): CallToolResult {
   if (!result || typeof result !== "object") return result;
@@ -197,7 +197,7 @@ async function main() {
     get(_target, prop) {
       if (!_project) {
         throw new Error(
-          "No report connected. Use the set_report tool to connect to a .Report folder first."
+          "No report connected. Use the pbir_set_report tool to connect to a .Report folder first."
         );
       }
       const val = (_project as unknown as Record<string | symbol, unknown>)[prop];
@@ -214,7 +214,7 @@ async function main() {
     _project = new PbirProject(reportPath);
     console.error(`Connected to report: ${reportPath}`);
 
-    // Start model_usage watchers + initial dashboard generation (non-blocking)
+    // Start pbir_model_usage watchers + initial dashboard generation (non-blocking)
     try {
       const modelPath = findSemanticModelPath(reportPath);
       startWatchers(reportPath, modelPath);
@@ -235,10 +235,10 @@ async function main() {
     const result = connectReport(reportArg);
     if (!result.success) {
       console.error(result.error);
-      console.error("Starting without a report. Use set_report tool to connect.");
+      console.error("Starting without a report. Use pbir_set_report tool to connect.");
     }
   } else {
-    console.error("No report path provided. Use set_report tool to connect to a report.");
+    console.error("No report path provided. Use pbir_set_report tool to connect to a report.");
   }
 
   const server = new McpServer({
@@ -248,14 +248,14 @@ async function main() {
 
   // Determine tool loading mode
   // Default: all tools (matches most clients that don't refresh tool catalog).
-  // Opt-in minimal mode: MCP_TOOLS=minimal (12 default tools, rest via load_tools).
+  // Opt-in minimal mode: MCP_TOOLS=minimal (12 default tools, rest via pbir_load_tools).
   // Legacy: MCP_TOOLS=all is still accepted and behaves as default.
   const mode = (process.env.MCP_TOOLS || "").toLowerCase();
   const loadMinimal = mode === "minimal";
   const loadAll = !loadMinimal;
   const activeTools = new Set<string>(loadAll ? ALL_TOOLS : DEFAULT_TOOLS);
 
-  // Store deferred tool registrations so load_tools can activate them later
+  // Store deferred tool registrations so pbir_load_tools can activate them later
   type ToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult>;
   const deferredTools: Map<string, { desc: string; schema: unknown; handler: ToolHandler; annotations?: Record<string, unknown> }> = new Map();
 
@@ -292,7 +292,7 @@ async function main() {
       }
     } else {
       // Store for on-demand activation. Annotations are passed when the
-      // deferred tool is later activated via load_tools.
+      // deferred tool is later activated via pbir_load_tools.
       deferredTools.set(name, { desc, schema, handler: safeHandler, annotations });
     }
   };
@@ -319,9 +319,9 @@ async function main() {
   registerModelUsageTool(server, ctx);
   // registerCalculationTools(server, ctx); // PARKED
 
-  // Meta tool: load_tools — lists available on-demand tools and activates them
+  // Meta tool: pbir_load_tools — lists available on-demand tools and activates them
   _tool(
-    "load_tools",
+    "pbir_load_tools",
     "List on-demand tools (no args) or activate by name (pass `tools` array).",
     {
       tools: z
@@ -346,7 +346,7 @@ async function main() {
                 activeCount: activeTools.size,
                 availableCount: available.length,
                 available,
-                hint: "Call load_tools with tool names to activate them.",
+                hint: "Call pbir_load_tools with tool names to activate them.",
               }),
             },
           ],
@@ -366,14 +366,14 @@ async function main() {
           activeTools.add(name);
           deferredTools.delete(name);
           activated.push(name);
-          console.error(`[load_tools] Activated: ${name}`);
+          console.error(`[pbir_load_tools] Activated: ${name}`);
         } else if (activeTools.has(name)) {
           activated.push(`${name} (already active)`);
         } else {
           notFound.push(name);
         }
       }
-      console.error(`[load_tools] ${activated.length} activated, ${deferredTools.size} remaining on-demand`);
+      console.error(`[pbir_load_tools] ${activated.length} activated, ${deferredTools.size} remaining on-demand`);
       return {
         content: [
           {
@@ -418,10 +418,10 @@ async function main() {
 
   const transport = new StdioServerTransport();
   console.error("Power BI Report MCP Server starting...");
-  console.error(`Report path: ${reportPath || "none (use set_report to connect)"}`);
+  console.error(`Report path: ${reportPath || "none (use pbir_set_report to connect)"}`);
   console.error(`Version: 0.6.2`);
   console.error(`Tools mode: ${loadAll ? "all" : "minimal"} (${activeTools.size} active, ${deferredTools.size} on-demand)`);
-  console.error(loadAll ? "Tip: Set MCP_TOOLS=minimal to load only the 12 core tools (saves ~7,500 tokens; use load_tools to activate the rest on demand)." : "Tip: unset MCP_TOOLS or set it to 'all' to load every tool at startup.");
+  console.error(loadAll ? "Tip: Set MCP_TOOLS=minimal to load only the 12 core tools (saves ~7,500 tokens; use pbir_load_tools to activate the rest on demand)." : "Tip: unset MCP_TOOLS or set it to 'all' to load every tool at startup.");
   await server.connect(transport);
 }
 

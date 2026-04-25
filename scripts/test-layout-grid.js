@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// layout_grid — Grid-math unit tests
+// pbir_layout_grid — Grid-math unit tests
 //
 // Tests the pure functions exported from src/tools/layoutGrid.ts:
 //   - computeGridGeometry   — widths/heights sum exactly, remainder distribution

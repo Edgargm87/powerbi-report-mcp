@@ -3,7 +3,7 @@
 //
 // The 12 tools loaded at MCP server startup when MCP_TOOLS=all is NOT set.
 // All other tools live in the on-demand catalog and are activated via the
-// load_tools meta-tool. The default set is tuned for low schema overhead
+// pbir_load_tools meta-tool. The default set is tuned for low schema overhead
 // (~3,500 tokens) while still covering the happy-path workflow:
 //   connect → orient → create page → add visuals → format → bind → theme → reload
 //
@@ -14,25 +14,25 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export const DEFAULT_TOOLS: ReadonlySet<string> = new Set([
-  "set_report",
-  "list_pages",
-  "list_visuals",
-  "create_page",
-  "add_visual",
-  "get_visual",
-  "format_visual",
-  "update_visual_bindings",
-  "set_report_theme",
-  "bulk_bind",
-  "model_usage",
-  // reload_report must be in the default set: load_tools can activate
+  "pbir_set_report",
+  "pbir_list_pages",
+  "pbir_list_visuals",
+  "pbir_create_page",
+  "pbir_add_visual",
+  "pbir_get_visual",
+  "pbir_format_visual",
+  "pbir_update_visual_bindings",
+  "pbir_set_report_theme",
+  "pbir_bulk_bind",
+  "pbir_model_usage",
+  // pbir_reload_report must be in the default set: pbir_load_tools can activate
   // server-side tools mid-session, but most LLM harnesses snapshot the MCP
-  // tool catalog at startup, so a lazy-loaded reload_report can be activated
+  // tool catalog at startup, so a lazy-loaded pbir_reload_report can be activated
   // but not invoked. Defaulting it avoids that trap.
-  "reload_report",
-  // lookup_theme_property is lightweight (3 optional string params) and is the
-  // source of truth for valid format_visual / set_report_theme property names.
+  "pbir_reload_report",
+  // pbir_lookup_theme_property is lightweight (3 optional string params) and is the
+  // source of truth for valid pbir_format_visual / pbir_set_report_theme property names.
   // Keeping it in the default set avoids the "agent guesses property name,
   // PBI silently ignores it" failure mode.
-  "lookup_theme_property",
+  "pbir_lookup_theme_property",
 ]);

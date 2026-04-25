@@ -6,7 +6,7 @@ export declare function listTopicsWithSummaries(): Array<{
 }>;
 /**
  * Build a compact session-start banner — just the skills index, no inlined
- * file bodies. Every skill file is accessible via `guide(topic)`; the banner
+ * file bodies. Every skill file is accessible via `pbir_guide(topic)`; the banner
  * is only a map, not the territory.
  *
  * Rationale: earlier versions inlined elicitation.md + wireframes.md +

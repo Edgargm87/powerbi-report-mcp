@@ -8,14 +8,14 @@ import {
 } from "../helpers/themeSchema.js";
 
 // ---------------------------------------------------------------------------
-// lookup_theme_property — discovery surface over the bundled PBI theme schema.
+// pbir_lookup_theme_property — discovery surface over the bundled PBI theme schema.
 // See src/helpers/themeSchema.ts for the shared walker (also used by the
-// format_visual validator).
+// pbir_format_visual validator).
 // ---------------------------------------------------------------------------
 
 export function registerThemeLookupTool(server: McpServer): void {
   server.tool(
-    "lookup_theme_property",
+    "pbir_lookup_theme_property",
     "Query the bundled Power BI theme schema for valid visualStyles property names. No args = list visual types; +visualType = list categories; +category = list properties with types/enums.",
     {
       visualType: z
@@ -65,7 +65,7 @@ export function registerThemeLookupTool(server: McpServer): void {
               text: JSON.stringify(
                 {
                   success: false,
-                  error: `Unknown visualType: "${visualType}". Call lookup_theme_property with no arguments to list valid types.`,
+                  error: `Unknown visualType: "${visualType}". Call pbir_lookup_theme_property with no arguments to list valid types.`,
                   schemaFile: schemaFilename,
                 },
                 null,
@@ -136,7 +136,7 @@ export function registerThemeLookupTool(server: McpServer): void {
                 properties: rows,
                 count: rows.length,
                 note:
-                  "Inline formatting (add_visual containerFormat/visualFormat, format_visual) overrides the report theme. Properties are valid both in per-visual formatting and under theme.visualStyles[type][category][0].",
+                  "Inline formatting (pbir_add_visual containerFormat/visualFormat, pbir_format_visual) overrides the report theme. Properties are valid both in per-visual formatting and under theme.visualStyles[type][category][0].",
               },
               null,
               2

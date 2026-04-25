@@ -201,7 +201,7 @@ function warnParseOnce(filePath: string, err: unknown): void {
   if (warnedParsePaths.has(filePath)) return;
   warnedParsePaths.add(filePath);
   const msg = err instanceof Error ? err.message : String(err);
-  console.error(`[model_usage] Failed to parse ${path.basename(filePath)}: ${msg.slice(0, 200)}`);
+  console.error(`[pbir_model_usage] Failed to parse ${path.basename(filePath)}: ${msg.slice(0, 200)}`);
 }
 /** Parse warnings collected during the most recent parseModel() call. */
 let lastParseWarnings: string[] = [];
@@ -2456,7 +2456,7 @@ export async function regenerate(): Promise<void> {
       timestamp: Date.now(),
     });
   } catch (e) {
-    console.error("model_usage regenerate failed:", e);
+    console.error("pbir_model_usage regenerate failed:", e);
   }
 }
 
@@ -2490,13 +2490,13 @@ export function startWatchers(reportPath: string, modelPath: string): void {
   try {
     watchers.push(fs.watch(reportPath, { recursive: true }, (_event, f) => onFileChange(f as string)));
   } catch (e) {
-    console.error("model_usage: failed to watch report folder:", e);
+    console.error("pbir_model_usage: failed to watch report folder:", e);
   }
 
   try {
     watchers.push(fs.watch(modelPath, { recursive: true }, (_event, f) => onFileChange(f as string)));
   } catch (e) {
-    console.error("model_usage: failed to watch model folder:", e);
+    console.error("pbir_model_usage: failed to watch model folder:", e);
   }
 }
 
@@ -2510,7 +2510,7 @@ process.on("SIGTERM", stopWatchers);
 
 export function registerModelUsageTool(server: McpServer, ctx: ServerContext): void {
   server.tool(
-    "model_usage",
+    "pbir_model_usage",
     "Cross-reference the semantic model with the report — shows where every measure and column is used, DAX dependencies, unused fields, and per-page coverage. Also generates an HTML dashboard for visual inspection.",
     {
       reportPath: z.string().optional().describe("Path to the .Report folder. Uses current connected report if omitted."),
@@ -2520,7 +2520,7 @@ export function registerModelUsageTool(server: McpServer, ctx: ServerContext): v
     async ({ reportPath: rp, slim }: { reportPath?: string; slim: boolean }) => {
       const effectivePath = rp || ctx.getReportPath();
       if (!effectivePath) {
-        return { content: [{ type: "text" as const, text: JSON.stringify({ success: false, error: "No report connected. Use set_report first." }) }], isError: true };
+        return { content: [{ type: "text" as const, text: JSON.stringify({ success: false, error: "No report connected. Use pbir_set_report first." }) }], isError: true };
       }
 
       let data: FullData;

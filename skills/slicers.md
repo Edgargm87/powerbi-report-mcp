@@ -34,7 +34,7 @@ The only slicer type that has a **mode** (Dropdown vs Basic). Set via `slicerMod
 }
 ```
 
-PBI default: Dropdown mode is single-select (radio). The `add_visual` builder writes `objects.data[0].properties.mode = 'Dropdown'` and `objects.selection[0].properties.strictSingleSelect = true`.
+PBI default: Dropdown mode is single-select (radio). The `pbir_add_visual` builder writes `objects.data[0].properties.mode = 'Dropdown'` and `objects.selection[0].properties.strictSingleSelect = true`.
 
 ### Dropdown — multi-select
 ```json
@@ -131,10 +131,10 @@ Use when: the user wants a "between" / slider-style filter on a measure or date 
 
 ## Inspecting a slicer's mode and selection state
 
-`get_visual` slim mode (default) surfaces both fields for any slicer type:
+`pbir_get_visual` slim mode (default) surfaces both fields for any slicer type:
 
 ```json
-// get_visual({ pageId, visualId })
+// pbir_get_visual({ pageId, visualId })
 {
   "id": "...",
   "type": "slicer",
@@ -163,7 +163,7 @@ Detection rules:
 - Bucket is always **`Values`** (never `Category` or `Fields`)
 - Slicer items default to `textSize: 8`, Segoe UI (set by `createAndSaveVisual`)
 
-### House defaults (applied automatically by `add_visual` for all 4 slicer types)
+### House defaults (applied automatically by `pbir_add_visual` for all 4 slicer types)
 
 | Property | Default | Rationale |
 |---|---|---|
@@ -175,7 +175,7 @@ Detection rules:
 | `items.textSize` | **8** | Matches house typography |
 
 Override rules:
-- If the user passes `title: "..."` on `add_visual`, **title.show stays on** (explicit title wins over the slicer-off default).
+- If the user passes `title: "..."` on `pbir_add_visual`, **title.show stays on** (explicit title wins over the slicer-off default).
 - Any `containerFormat`/`visualFormat` entries override the house defaults — inline formatting always wins over the bundled defaults, which in turn win over the theme.
 - For Basic/listSlicer with a long list, pass `height: 120–200` explicitly — 60 is only right for single-row Dropdowns.
 
@@ -227,7 +227,7 @@ Override rules:
 
 ## Updating bindings on an existing slicer
 
-`update_visual_bindings` works the same for any slicer type — bucket is always `Values`:
+`pbir_update_visual_bindings` works the same for any slicer type — bucket is always `Values`:
 
 ```json
 {
@@ -259,6 +259,6 @@ Override rules:
 
 - ❌ Don't set `slicerMode` on `listSlicer`, `textSlicer`, or `advancedSlicerVisual` — only `slicer` has a mode
 - ❌ Don't set `bucket: "Category"` on a slicer — always `Values`
-- ❌ Don't try to write `singleSelect` literally as a boolean in `format_visual` — use `add_visual`'s `multiSelect` parameter (it handles the inversion and the PBIR wrapping)
+- ❌ Don't try to write `singleSelect` literally as a boolean in `pbir_format_visual` — use `pbir_add_visual`'s `multiSelect` parameter (it handles the inversion and the PBIR wrapping)
 - ❌ Don't forget that `singleSelect` in PBIR is the **inverse** of the user-facing "multi-select" toggle — `multiSelect: true` becomes `singleSelect: "false"` in the JSON
-- ✅ Use `get_visual` slim mode to confirm both `slicerMode` and `multiSelect` after creating — both are surfaced for any slicer type
+- ✅ Use `pbir_get_visual` slim mode to confirm both `slicerMode` and `multiSelect` after creating — both are surfaced for any slicer type

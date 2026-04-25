@@ -16,7 +16,7 @@ const mcpResult_js_1 = require("./helpers/mcpResult.js");
  */
 function requireProject(ctx) {
     if (!ctx.getReportPath()) {
-        return (0, mcpResult_js_1.fail)("No report connected. Use set_report first.");
+        return (0, mcpResult_js_1.fail)("No report connected. Use pbir_set_report first.");
     }
     return null;
 }

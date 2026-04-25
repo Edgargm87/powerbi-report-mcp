@@ -50,10 +50,10 @@ function applyThemeToReport(
 
 export function registerThemeTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
-  // TOOL: set_report_theme
+  // TOOL: pbir_set_report_theme
   // ============================================================
   server.tool(
-    "set_report_theme",
+    "pbir_set_report_theme",
     "Apply a custom JSON theme. Hex colors. dataColors 6-12 values. visualStyles keyed by visualType or '*'.",
     {
       name: z.string(),
@@ -109,15 +109,15 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
   );
 
   // ============================================================
-  // TOOL: get_report_theme
+  // TOOL: pbir_get_report_theme
   // ============================================================
   server.tool(
-    "get_report_theme",
+    "pbir_get_report_theme",
     "Get the currently applied theme. Returns base theme name + custom theme JSON if any.",
     {},
     {"readOnlyHint":true,"openWorldHint":false},
     async () =>
-      cachedRead("get_report_theme", {}, ["theme"], () => {
+      cachedRead("pbir_get_report_theme", {}, ["theme"], () => {
         const _g = requireProject(ctx); if (_g) return _g;
         const report = ctx.project.getReport();
         const tc = report.themeCollection;
@@ -132,10 +132,10 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
   );
 
   // ============================================================
-  // TOOL: remove_report_theme
+  // TOOL: pbir_remove_report_theme
   // ============================================================
   server.tool(
-    "remove_report_theme",
+    "pbir_remove_report_theme",
     "Remove the custom theme from the report, reverting to the default base theme. The theme file is kept in StaticResources but unlinked from report.json.",
     {},
     {"destructiveHint":true,"openWorldHint":false},
@@ -177,10 +177,10 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
   );
 
   // ============================================================
-  // TOOL: diff_report_theme
+  // TOOL: pbir_diff_report_theme
   // ============================================================
   server.tool(
-    "diff_report_theme",
+    "pbir_diff_report_theme",
     "Compare a proposed theme JSON against the currently applied theme and return what would be added, removed, or changed. Useful for previewing theme changes before applying.",
     {
       theme: z
@@ -252,10 +252,10 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
   );
 
   // ============================================================
-  // TOOL: list_report_themes
+  // TOOL: pbir_list_report_themes
   // ============================================================
   server.tool(
-    "list_report_themes",
+    "pbir_list_report_themes",
     "List all theme files stored in the report's StaticResources/RegisteredResources/ folder.",
     {},
     {"readOnlyHint":true,"openWorldHint":false},
@@ -276,10 +276,10 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
   );
 
   // ============================================================
-  // TOOL: audit_theme_compliance
+  // TOOL: pbir_audit_theme_compliance
   // ============================================================
   server.tool(
-    "audit_theme_compliance",
+    "pbir_audit_theme_compliance",
     "Audit visuals on a page for theme overrides. Returns summary header + topN findings (default 20). topN:0 = all.",
     {
       pageId: z.string().describe("The page ID to audit"),

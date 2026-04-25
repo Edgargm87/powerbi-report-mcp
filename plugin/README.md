@@ -12,13 +12,13 @@ Build Power BI reports from natural language. This plugin bundles the `powerbi-r
    - "Make this report look more professional."
    - "Wireframe a layout for a customer churn report."
 
-The first time you ask, the agent will request the path to your `.pbip` folder and call `set_report` to connect.
+The first time you ask, the agent will request the path to your `.pbip` folder and call `pbir_set_report` to connect.
 
 ## What you can build
 
 - **Pages**: create, rename, duplicate, reorder, set visibility, set page-level filters and backgrounds.
 - **Visuals**: cards, KPIs, line/column/bar/pie charts, tables, matrices, slicers, gauges, custom shapes, SVG visuals — 20+ types.
-- **Layouts**: validated 1280x720 / 1920x1080 page geometry, the `layout_grid` tool for grid-based placement, 5 pre-validated layout patterns.
+- **Layouts**: validated 1280x720 / 1920x1080 page geometry, the `pbir_layout_grid` tool for grid-based placement, 5 pre-validated layout patterns.
 - **Themes**: full report theme JSON, per-visual theme overrides, conditional formatting, datapoint colors.
 - **Bookmarks, filters, sort orders, visual interactions** — everything the PBIR format supports.
 
@@ -26,7 +26,7 @@ The first time you ask, the agent will request the path to your `.pbip` folder a
 
 - The full Power BI Report MCP server, bundled and ready to run offline (no `npm install` required).
 - 3 native Cowork skills that auto-trigger when you ask to build, wireframe, or design a report.
-- 13 additional knowledge skills accessible inside the MCP via the `guide(topic)` tool — covering visuals, formatting, themes, calculations, slicers, filters, errors, token usage, and more.
+- 13 additional knowledge skills accessible inside the MCP via the `pbir_guide(topic)` tool — covering visuals, formatting, themes, calculations, slicers, filters, errors, token usage, and more.
 
 ## Requirements
 
@@ -36,7 +36,7 @@ The first time you ask, the agent will request the path to your `.pbip` folder a
 
 ## How it works
 
-The plugin runs the MCP server as a subprocess in the background. The 3 native skills (build / wireframe / design) auto-load when you mention relevant phrases and route you to the right MCP tools. For deeper knowledge on any topic — visuals, formatting, themes, calculations — call `guide("topic-name")` inside the MCP.
+The plugin runs the MCP server as a subprocess in the background. The 3 native skills (build / wireframe / design) auto-load when you mention relevant phrases and route you to the right MCP tools. For deeper knowledge on any topic — visuals, formatting, themes, calculations — call `pbir_guide("topic-name")` inside the MCP.
 
 ## Source
 

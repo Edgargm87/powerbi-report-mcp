@@ -102,7 +102,7 @@ export declare function isNoteworthySkip(reason: SkippedReason | null): boolean;
  * Attach binding-validation metadata (`bindingWarnings`, `bindingWarningMessage`,
  * and the conditional `bindingValidation.skipped` notice) to a response body.
  *
- * Three tool handlers — `add_visual`, `update_visual_bindings`, `bulk_bind` —
+ * Three tool handlers — `pbir_add_visual`, `pbir_update_visual_bindings`, `pbir_bulk_bind` —
  * all need to surface the same information in the same shape. Before this
  * helper existed, each inlined the same 10-line block, which meant every
  * tweak (e.g. wording of the "typo loads silently" note) had to be made three

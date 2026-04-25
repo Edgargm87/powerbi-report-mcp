@@ -73,7 +73,7 @@ execSync(
   { cwd: ROOT, stdio: "inherit" }
 );
 
-// 5. Copy schema (1.2MB) — required by lookup_theme_property + audit_theme_compliance
+// 5. Copy schema (1.2MB) — required by pbir_lookup_theme_property + pbir_audit_theme_compliance
 step("Copying theme schema");
 const schemaDst = path.join(MCP_DIR, "schemas");
 fs.mkdirSync(schemaDst, { recursive: true });

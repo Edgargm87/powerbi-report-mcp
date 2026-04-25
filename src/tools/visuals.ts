@@ -20,10 +20,10 @@ import type { WireframeVisual } from "../wireframe-validator.js";
 
 export function registerVisualTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
-  // TOOL: get_visual_types
+  // TOOL: pbir_get_visual_types
   // ============================================================
   server.tool(
-    "get_visual_types",
+    "pbir_get_visual_types",
     "Get a list of available visual types and their data role buckets",
     {},
     {"readOnlyHint":true,"openWorldHint":false},
@@ -33,10 +33,10 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: list_visuals
+  // TOOL: pbir_list_visuals
   // ============================================================
   server.tool(
-    "list_visuals",
+    "pbir_list_visuals",
     "List all visuals on a page. Default slim returns id/type/x/y/w/h/title. slim:false includes filterCount.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -49,7 +49,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
       const finalPageId = pageId;
-      return cachedRead("list_visuals", { pageId: finalPageId, slim }, [`page:${finalPageId}`], () => {
+      return cachedRead("pbir_list_visuals", { pageId: finalPageId, slim }, [`page:${finalPageId}`], () => {
       const visualIds = ctx.project.listVisualIds(finalPageId);
       const visuals = visualIds.map((id) => {
         const v = ctx.project.getVisual(finalPageId, id);
@@ -82,10 +82,10 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: get_visual
+  // TOOL: pbir_get_visual
   // ============================================================
   server.tool(
-    "get_visual",
+    "pbir_get_visual",
     "Get visual details. Default returns id/type/position/title/bindings summary. verbose:true returns full PBIR JSON.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -103,7 +103,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       // Default = slim. verbose:true OR legacy slim:false → full JSON.
       const wantFull = verbose === true || slim === false;
       return cachedRead(
-        "get_visual",
+        "pbir_get_visual",
         { pageId: finalPageId, visualId, verbose: wantFull },
         [`page:${finalPageId}`],
         () => {
@@ -190,11 +190,11 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: add_visual (single + batch mode)
+  // TOOL: pbir_add_visual (single + batch mode)
   // ============================================================
   server.tool(
-    "add_visual",
-    "Add one or more visuals to a page. Pass `visuals` array. Inline containerFormat/visualFormat/dataColors per entry avoids extra format_visual calls. Call `lookup_theme_property` for valid category/property names per visualType. Stacked charts (columnChart/barChart) need a Series binding. 'KPI card' = `card` with one measure. Scatter uses `Details` bucket.",
+    "pbir_add_visual",
+    "Add one or more visuals to a page. Pass `visuals` array. Inline containerFormat/visualFormat/dataColors per entry avoids extra pbir_format_visual calls. Call `pbir_lookup_theme_property` for valid category/property names per visualType. Stacked charts (columnChart/barChart) need a Series binding. 'KPI card' = `card` with one measure. Scatter uses `Details` bucket.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visuals: z.array(VisualSpecSchema),
@@ -361,7 +361,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       invalidateCache();
       invalidateScope(`page:${pageId}`);
       // Slim by default: ship a flat string[] of ids. The 150-token canvas
-      // object only ships when the LLM asks for it on create_page or when
+      // object only ships when the LLM asks for it on pbir_create_page or when
       // layout validation fails — sending it on every successful add is
       // pure carry-forward bloat.
       const response: Record<string, unknown> = {
@@ -387,10 +387,10 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: delete_visual
+  // TOOL: pbir_delete_visual
   // ============================================================
   server.tool(
-    "delete_visual",
+    "pbir_delete_visual",
     "Delete a visual from a page",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -412,10 +412,10 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: move_visual
+  // TOOL: pbir_move_visual
   // ============================================================
   server.tool(
-    "move_visual",
+    "pbir_move_visual",
     "Move and/or resize a visual on a page",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -450,10 +450,10 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: duplicate_visual
+  // TOOL: pbir_duplicate_visual
   // ============================================================
   server.tool(
-    "duplicate_visual",
+    "pbir_duplicate_visual",
     "Duplicate an existing visual, optionally to a different page or position",
     {
       pageId: z.string().describe("Source page ID"),
@@ -498,10 +498,10 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: change_visual_type
+  // TOOL: pbir_change_visual_type
   // ============================================================
   server.tool(
-    "change_visual_type",
+    "pbir_change_visual_type",
     "Change the visual type of an existing visual (e.g. barChart to columnChart) while keeping data bindings",
     {
       pageId: z.string().describe("The page ID"),

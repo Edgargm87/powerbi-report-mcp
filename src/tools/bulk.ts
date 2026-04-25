@@ -30,8 +30,8 @@ function parseArray<T>(schema: z.ZodType<T>): z.ZodType<T[]> {
 // Safety gates for bulk operations — two layers, different jobs.
 //
 // 1. BULK_CONFIRM_THRESHOLD (soft gate, UX-focused)
-//    An agent that calls `list_visuals` and then pipes every id straight
-//    into `bulk_delete_visuals` can wipe an entire page in one call with no
+//    An agent that calls `pbir_list_visuals` and then pipes every id straight
+//    into `pbir_bulk_delete_visuals` can wipe an entire page in one call with no
 //    second thought. The gate forces the agent to explicitly acknowledge the
 //    size of the operation when it crosses a threshold — matching the pattern
 //    in MinaSaad1/pbi-cli where every bulk command requires an explicit
@@ -76,17 +76,17 @@ function bulkSizeLimitError(verb: string, count: number) {
   return fail(
     `Bulk size limit: this call would ${verb} ${count} visuals, exceeding the hard cap of ${BULK_MAX_ITEMS}. ` +
       `Split into batches of ≤${BULK_MAX_ITEMS}. A page with that many visuals is almost always a misconfiguration — ` +
-      `consider using list_visuals + filter logic before calling a bulk tool.`,
+      `consider using pbir_list_visuals + filter logic before calling a bulk tool.`,
     { count, limit: BULK_MAX_ITEMS, reason: "bulk_size_limit_exceeded" }
   );
 }
 
 export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
-  // TOOL: bulk_delete_visuals
+  // TOOL: pbir_bulk_delete_visuals
   // ============================================================
   server.tool(
-    "bulk_delete_visuals",
+    "pbir_bulk_delete_visuals",
     "Delete multiple visuals from a page. Set confirmBulk:true when >5.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -133,10 +133,10 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
   );
 
   // ============================================================
-  // TOOL: bulk_update_format
+  // TOOL: pbir_bulk_update_format
   // ============================================================
   server.tool(
-    "bulk_update_format",
+    "pbir_bulk_update_format",
     "Apply the same formatting to multiple visuals. target='container' (title/background/border) or 'visual' (axes/legend/labels). Set confirmBulk:true when >5.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -190,10 +190,10 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
   );
 
   // ============================================================
-  // TOOL: bulk_bind
+  // TOOL: pbir_bulk_bind
   // ============================================================
   server.tool(
-    "bulk_bind",
+    "pbir_bulk_bind",
     "Rebind multiple visuals in one call. Replaces existing bindings. Set confirmBulk:true when >5. continueOnError:true validates per-entry — bad bindings don't abort the batch.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),

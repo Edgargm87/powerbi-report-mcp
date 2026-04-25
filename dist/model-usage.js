@@ -87,7 +87,7 @@ function warnParseOnce(filePath, err) {
         return;
     warnedParsePaths.add(filePath);
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[model_usage] Failed to parse ${path.basename(filePath)}: ${msg.slice(0, 200)}`);
+    console.error(`[pbir_model_usage] Failed to parse ${path.basename(filePath)}: ${msg.slice(0, 200)}`);
 }
 /** Parse warnings collected during the most recent parseModel() call. */
 let lastParseWarnings = [];
@@ -2219,7 +2219,7 @@ async function regenerate() {
         });
     }
     catch (e) {
-        console.error("model_usage regenerate failed:", e);
+        console.error("pbir_model_usage regenerate failed:", e);
     }
 }
 function invalidateCache(reportPath) {
@@ -2255,13 +2255,13 @@ function startWatchers(reportPath, modelPath) {
         watchers.push(fs.watch(reportPath, { recursive: true }, (_event, f) => onFileChange(f)));
     }
     catch (e) {
-        console.error("model_usage: failed to watch report folder:", e);
+        console.error("pbir_model_usage: failed to watch report folder:", e);
     }
     try {
         watchers.push(fs.watch(modelPath, { recursive: true }, (_event, f) => onFileChange(f)));
     }
     catch (e) {
-        console.error("model_usage: failed to watch model folder:", e);
+        console.error("pbir_model_usage: failed to watch model folder:", e);
     }
 }
 process.on("exit", stopWatchers);
@@ -2271,13 +2271,13 @@ process.on("SIGTERM", stopWatchers);
 // MCP Tool Registration
 // ═══════════════════════════════════════════════════════════════════════════════
 function registerModelUsageTool(server, ctx) {
-    server.tool("model_usage", "Cross-reference the semantic model with the report — shows where every measure and column is used, DAX dependencies, unused fields, and per-page coverage. Also generates an HTML dashboard for visual inspection.", {
+    server.tool("pbir_model_usage", "Cross-reference the semantic model with the report — shows where every measure and column is used, DAX dependencies, unused fields, and per-page coverage. Also generates an HTML dashboard for visual inspection.", {
         reportPath: zod_1.z.string().optional().describe("Path to the .Report folder. Uses current connected report if omitted."),
         slim: zod_1.z.boolean().optional().default(true).describe("Slim mode returns usage counts only. Set false for full visual-level detail."),
     }, { "readOnlyHint": true, "openWorldHint": false }, async ({ reportPath: rp, slim }) => {
         const effectivePath = rp || ctx.getReportPath();
         if (!effectivePath) {
-            return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "No report connected. Use set_report first." }) }], isError: true };
+            return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "No report connected. Use pbir_set_report first." }) }], isError: true };
         }
         let data;
         let cached = false;

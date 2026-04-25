@@ -8,7 +8,7 @@
 // happily loads the file and renders nothing, and the mistake isn't noticed
 // until someone opens the report.
 //
-// The three bind paths (`add_visual`, `update_visual_bindings`, `bulk_bind`)
+// The three bind paths (`pbir_add_visual`, `pbir_update_visual_bindings`, `pbir_bulk_bind`)
 // all run their input through `validateBindings` BEFORE any write happens.
 // When the model can't be located (live-connect, missing sibling folder,
 // parse error), validation silently skips — it must never block a legitimate
@@ -411,7 +411,7 @@ export function isNoteworthySkip(reason: SkippedReason | null): boolean {
  * Attach binding-validation metadata (`bindingWarnings`, `bindingWarningMessage`,
  * and the conditional `bindingValidation.skipped` notice) to a response body.
  *
- * Three tool handlers — `add_visual`, `update_visual_bindings`, `bulk_bind` —
+ * Three tool handlers — `pbir_add_visual`, `pbir_update_visual_bindings`, `pbir_bulk_bind` —
  * all need to surface the same information in the same shape. Before this
  * helper existed, each inlined the same 10-line block, which meant every
  * tweak (e.g. wording of the "typo loads silently" note) had to be made three

@@ -2,8 +2,8 @@
 /**
  * audit-skills-against-schema.js
  *
- * Sanity-check: scan skills/*.md for JSON snippets that claim format_visual /
- * add_visual / theme patterns, extract their {category, properties} pairs,
+ * Sanity-check: scan skills/*.md for JSON snippets that claim pbir_format_visual /
+ * pbir_add_visual / theme patterns, extract their {category, properties} pairs,
  * and flag any category or property that isn't present anywhere in the
  * bundled theme schema. Hand-written docs drift; this is the CI gate.
  *

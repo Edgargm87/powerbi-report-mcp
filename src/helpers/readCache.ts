@@ -2,9 +2,9 @@
 // Read-call dedup cache
 //
 // Tiny in-memory LRU keyed by `toolName + JSON.stringify(args)` for the
-// frequently-repeated read tools (`list_pages`, `list_visuals`, `get_visual`,
-// `get_report`, `get_report_theme`, `list_filters`, `list_bookmarks`,
-// `model_usage`).
+// frequently-repeated read tools (`pbir_list_pages`, `pbir_list_visuals`, `pbir_get_visual`,
+// `pbir_get_report`, `pbir_get_report_theme`, `pbir_list_filters`, `pbir_list_bookmarks`,
+// `pbir_model_usage`).
 //
 // On hit: return the cached payload with `_cache:"hit"` injected so the LLM
 // can pattern-match "I just asked this" and cut a redundant read in the next
@@ -89,7 +89,7 @@ export function invalidateScope(scope: string): void {
 }
 
 /**
- * Invalidate everything. Reserved for set_report (project switch).
+ * Invalidate everything. Reserved for pbir_set_report (project switch).
  */
 export function invalidateAll(): void {
   lru = [];

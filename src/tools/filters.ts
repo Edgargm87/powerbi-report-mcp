@@ -266,10 +266,10 @@ function buildAdvancedFilter(
 
 export function registerFilterTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
-  // TOOL: list_filters
+  // TOOL: pbir_list_filters
   // ============================================================
   server.tool(
-    "list_filters",
+    "pbir_list_filters",
     "List filters on a page or visual. Slim mode (default) returns Table[Column] strings.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -284,7 +284,7 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
       pageId = r.pageId;
       const finalPageId = pageId;
       return cachedRead(
-        "list_filters",
+        "pbir_list_filters",
         { pageId: finalPageId, visualId, slim },
         [`page:${finalPageId}`],
         () => {
@@ -311,10 +311,10 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: add_page_filter
+  // TOOL: pbir_add_page_filter
   // ============================================================
   server.tool(
-    "add_page_filter",
+    "pbir_add_page_filter",
     "Add a filter to a page or visual. Omit visualId for page-level. topN requires visualId. Types: categorical / topN / relativeDate / advanced (Equals, GreaterThan, Contains, IsBlank, etc; supports And/Or compounds).",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
@@ -405,14 +405,14 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: remove_filter
+  // TOOL: pbir_remove_filter
   // ============================================================
   server.tool(
-    "remove_filter",
+    "pbir_remove_filter",
     "Remove a specific filter by name from a page or visual.",
     {
       pageId: z.string().describe("The page ID"),
-      filterName: z.string().describe("The filter name/ID to remove (from list_filters)"),
+      filterName: z.string().describe("The filter name/ID to remove (from pbir_list_filters)"),
       visualId: z.string().optional().describe("Visual ID — omit to remove from page-level filters"),
     },
     {"destructiveHint":true,"openWorldHint":false},
@@ -449,10 +449,10 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
   );
 
   // ============================================================
-  // TOOL: clear_filters
+  // TOOL: pbir_clear_filters
   // ============================================================
   server.tool(
-    "clear_filters",
+    "pbir_clear_filters",
     "Remove ALL filters from a page or a specific visual.",
     {
       pageId: z.string().describe("The page ID"),

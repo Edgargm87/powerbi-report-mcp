@@ -39,9 +39,9 @@ function applyThemeToReport(report, filename) {
 }
 function registerThemeTools(server, ctx) {
     // ============================================================
-    // TOOL: set_report_theme
+    // TOOL: pbir_set_report_theme
     // ============================================================
-    server.tool("set_report_theme", "Apply a custom JSON theme. Hex colors. dataColors 6-12 values. visualStyles keyed by visualType or '*'.", {
+    server.tool("pbir_set_report_theme", "Apply a custom JSON theme. Hex colors. dataColors 6-12 values. visualStyles keyed by visualType or '*'.", {
         name: zod_1.z.string(),
         dataColors: zod_1.z.array(zod_1.z.string()).optional(),
         background: zod_1.z.string().optional(),
@@ -96,9 +96,9 @@ function registerThemeTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: get_report_theme
+    // TOOL: pbir_get_report_theme
     // ============================================================
-    server.tool("get_report_theme", "Get the currently applied theme. Returns base theme name + custom theme JSON if any.", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => (0, readCache_js_1.cachedRead)("get_report_theme", {}, ["theme"], () => {
+    server.tool("pbir_get_report_theme", "Get the currently applied theme. Returns base theme name + custom theme JSON if any.", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => (0, readCache_js_1.cachedRead)("pbir_get_report_theme", {}, ["theme"], () => {
         const _g = (0, context_js_1.requireProject)(ctx);
         if (_g)
             return _g;
@@ -113,9 +113,9 @@ function registerThemeTools(server, ctx) {
         return { baseTheme, customTheme: customThemeName, customThemeContent };
     }));
     // ============================================================
-    // TOOL: remove_report_theme
+    // TOOL: pbir_remove_report_theme
     // ============================================================
-    server.tool("remove_report_theme", "Remove the custom theme from the report, reverting to the default base theme. The theme file is kept in StaticResources but unlinked from report.json.", {}, { "destructiveHint": true, "openWorldHint": false }, async () => {
+    server.tool("pbir_remove_report_theme", "Remove the custom theme from the report, reverting to the default base theme. The theme file is kept in StaticResources but unlinked from report.json.", {}, { "destructiveHint": true, "openWorldHint": false }, async () => {
         const _g = (0, context_js_1.requireProject)(ctx);
         if (_g)
             return _g;
@@ -148,9 +148,9 @@ function registerThemeTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: diff_report_theme
+    // TOOL: pbir_diff_report_theme
     // ============================================================
-    server.tool("diff_report_theme", "Compare a proposed theme JSON against the currently applied theme and return what would be added, removed, or changed. Useful for previewing theme changes before applying.", {
+    server.tool("pbir_diff_report_theme", "Compare a proposed theme JSON against the currently applied theme and return what would be added, removed, or changed. Useful for previewing theme changes before applying.", {
         theme: zod_1.z
             .record(zod_1.z.string(), zod_1.z.unknown())
             .describe("Proposed theme JSON object to compare against the current theme"),
@@ -211,9 +211,9 @@ function registerThemeTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: list_report_themes
+    // TOOL: pbir_list_report_themes
     // ============================================================
-    server.tool("list_report_themes", "List all theme files stored in the report's StaticResources/RegisteredResources/ folder.", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => {
+    server.tool("pbir_list_report_themes", "List all theme files stored in the report's StaticResources/RegisteredResources/ folder.", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => {
         const _g = (0, context_js_1.requireProject)(ctx);
         if (_g)
             return _g;
@@ -228,9 +228,9 @@ function registerThemeTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: audit_theme_compliance
+    // TOOL: pbir_audit_theme_compliance
     // ============================================================
-    server.tool("audit_theme_compliance", "Audit visuals on a page for theme overrides. Returns summary header + topN findings (default 20). topN:0 = all.", {
+    server.tool("pbir_audit_theme_compliance", "Audit visuals on a page for theme overrides. Returns summary header + topN findings (default 20). topN:0 = all.", {
         pageId: zod_1.z.string().describe("The page ID to audit"),
         verbose: zod_1.z.boolean().optional().default(false).describe("Include override category names per visual"),
         topN: zod_1.z.number().int().min(0).optional().default(20).describe("Max findings (0 = all)"),

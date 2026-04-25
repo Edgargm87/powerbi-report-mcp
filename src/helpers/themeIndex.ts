@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════════════════════════
-// Theme Index — cheap typo catcher for format_visual / add_visual
+// Theme Index — cheap typo catcher for pbir_format_visual / pbir_add_visual
 //
 // Walks the bundled PBI theme schema ONCE at first call and produces a
 // per-visual-type index of valid category names → valid property name sets.

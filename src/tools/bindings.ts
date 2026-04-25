@@ -12,10 +12,10 @@ import { invalidateScope } from "../helpers/readCache.js";
 
 export function registerBindingTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
-  // TOOL: update_visual_bindings
+  // TOOL: pbir_update_visual_bindings
   // ============================================================
   server.tool(
-    "update_visual_bindings",
+    "pbir_update_visual_bindings",
     `Update the data bindings of an existing visual. Replaces the query state entirely. Supports Table[Column] shorthand: use { "field": "Sales[Net Price]", "type": "measure" } as an alternative to separate entity/property fields.`,
     {
       pageId: z.string().describe("The page ID"),

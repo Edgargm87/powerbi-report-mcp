@@ -2,11 +2,11 @@
 // Shared theme-schema helpers
 //
 // Centralises the logic that walks the bundled PBI theme JSON Schema so both
-// `lookup_theme_property` (discovery) and `format_visual` (validation) see the
+// `pbir_lookup_theme_property` (discovery) and `pbir_format_visual` (validation) see the
 // same view of valid visualType → category → property combinations.
 //
 // The schema is the source of truth for every `visualStyles[type][category]`
-// property name. Inline `format_visual` writes the same property names into
+// property name. Inline `pbir_format_visual` writes the same property names into
 // `visual.objects[category][0].properties` / `visualContainerObjects[...]`,
 // so the same valid set applies.
 // ---------------------------------------------------------------------------
@@ -69,7 +69,7 @@ export function getCategoriesForVisualType(
   schema: Record<string, unknown>,
   visualType: string
 ): CategoryMap {
-  // Memoise per visualType — the lookup is called every format_visual write
+  // Memoise per visualType — the lookup is called every pbir_format_visual write
   if (!cachedCategoryMaps) cachedCategoryMaps = new Map();
   const hit = cachedCategoryMaps.get(visualType);
   if (hit) return hit;

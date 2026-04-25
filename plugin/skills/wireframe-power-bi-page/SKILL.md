@@ -1,11 +1,11 @@
 ---
 name: wireframe-power-bi-page
-description: Use when planning the layout of a Power BI report page. Triggers on phrases like "wireframe a page", "layout for a dashboard", "where should I put the visuals", "design the page layout", "how should I arrange these visuals". Covers canvas geometry (1280x720), 5 validated layouts, the layout_grid tool, spacing math.
+description: Use when planning the layout of a Power BI report page. Triggers on phrases like "wireframe a page", "layout for a dashboard", "where should I put the visuals", "design the page layout", "how should I arrange these visuals". Covers canvas geometry (1280x720), 5 validated layouts, the pbir_layout_grid tool, spacing math.
 ---
 
 # Wireframe a Power BI Page
 
-Power BI report pages have hard geometric constraints. Get the math wrong and the wireframe-validator rejects every visual. Get it right once via `layout_grid` and the server handles the math for you.
+Power BI report pages have hard geometric constraints. Get the math wrong and the wireframe-validator rejects every visual. Get it right once via `pbir_layout_grid` and the server handles the math for you.
 
 ## Canvas constants (1280 x 720, 16:9, FitToPage)
 
@@ -19,9 +19,9 @@ Power BI report pages have hard geometric constraints. Get the math wrong and th
 
 The validator refuses any non-banner visual at `x<15`, `right>1265`, or `bottom>714`. If you hand-compute coordinates and get one margin wrong, every visual on the page fails.
 
-## Preferred path: `layout_grid`
+## Preferred path: `pbir_layout_grid`
 
-For any new page with multiple visuals, call `layout_grid` instead of computing pixels. You declare the grid shape; the server returns x/y/w/h per cell, guaranteed valid.
+For any new page with multiple visuals, call `pbir_layout_grid` instead of computing pixels. You declare the grid shape; the server returns x/y/w/h per cell, guaranteed valid.
 
 ```jsonc
 {
@@ -59,7 +59,7 @@ Two modes:
 
 1. Count the visuals. If >12-15, you have too many for one page — split it.
 2. Pick a layout from the 5 above. Don't invent a new one.
-3. Use `layout_grid` planOnly first. Read back the column widths. Then `planOnly:false` to write.
-4. If you're adding to an existing page (not building from scratch), inspect via `list_pages({includeVisuals:true})` and use `move_visual` for tweaks rather than recomputing the grid.
+3. Use `pbir_layout_grid` planOnly first. Read back the column widths. Then `planOnly:false` to write.
+4. If you're adding to an existing page (not building from scratch), inspect via `pbir_list_pages({includeVisuals:true})` and use `pbir_move_visual` for tweaks rather than recomputing the grid.
 
-For full layout patterns, the spacing formula derivation, batch-creation templates, and the wireframe-validator's exact rules, ask the MCP: `guide("wireframes")`.
+For full layout patterns, the spacing formula derivation, batch-creation templates, and the wireframe-validator's exact rules, ask the MCP: `pbir_guide("wireframes")`.

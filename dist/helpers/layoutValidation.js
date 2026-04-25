@@ -11,7 +11,7 @@
 // documented in docs/design-layout-accuracy.md: every issue carries a
 // machine-readable `code`, the actual numbers the caller sent, the limits
 // it tripped, a plain-English `suggestion`, the underlying `rule`, and a
-// `guide` pointer. Same design principle as the binding-validation errors
+// `pbir_guide` pointer. Same design principle as the binding-validation errors
 // — errors must teach the LLM how to fix itself.
 //
 // Three modes, resolved from (per-call param → env var → default strict):

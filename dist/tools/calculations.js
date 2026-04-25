@@ -28,9 +28,9 @@ function findValuesBucket(query) {
 }
 function registerCalculationTools(server, ctx) {
     // ============================================================
-    // TOOL: list_visual_calculations
+    // TOOL: pbir_list_visual_calculations
     // ============================================================
-    server.tool("list_visual_calculations", "List all visual calculations on a visual. Visual calculations are DAX expressions scoped to the visual context (e.g. running totals, ranks).", {
+    server.tool("pbir_list_visual_calculations", "List all visual calculations on a visual. Visual calculations are DAX expressions scoped to the visual context (e.g. running totals, ranks).", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().describe("The visual ID"),
     }, async ({ pageId, visualId }) => {
@@ -53,9 +53,9 @@ function registerCalculationTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: add_visual_calculation
+    // TOOL: pbir_add_visual_calculation
     // ============================================================
-    server.tool("add_visual_calculation", "Add a DAX visual calculation to a matrix or table visual. Examples: RUNNINGSUM([Sales]), RANK(), MOVINGAVERAGE([Value],3), PERCENTOFGRANDTOTAL([Value]), [Value]-PREVIOUS([Value]).", {
+    server.tool("pbir_add_visual_calculation", "Add a DAX visual calculation to a matrix or table visual. Examples: RUNNINGSUM([Sales]), RANK(), MOVINGAVERAGE([Value],3), PERCENTOFGRANDTOTAL([Value]), [Value]-PREVIOUS([Value]).", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().describe("The visual ID"),
         expression: zod_1.z
@@ -104,12 +104,12 @@ function registerCalculationTools(server, ctx) {
         };
     });
     // ============================================================
-    // TOOL: delete_visual_calculation
+    // TOOL: pbir_delete_visual_calculation
     // ============================================================
-    server.tool("delete_visual_calculation", "Delete a visual calculation by name (get name from list_visual_calculations).", {
+    server.tool("pbir_delete_visual_calculation", "Delete a visual calculation by name (get name from pbir_list_visual_calculations).", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().describe("The visual ID"),
-        name: zod_1.z.string().describe("Calculation name (from list_visual_calculations)"),
+        name: zod_1.z.string().describe("Calculation name (from pbir_list_visual_calculations)"),
     }, async ({ pageId, visualId, name }) => {
         const visual = ctx.project.getVisual(pageId, visualId);
         const projections = findValuesBucket(visual.visual.query);

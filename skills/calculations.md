@@ -1,10 +1,10 @@
 <!-- doc-version: 1.0 | Last updated: 2026-04-15 -->
-<!-- summary: Visual-scope DAX calcs (running totals, period-over-period, ranking), authoring status, manage_extension_measures for report-level measures. -->
+<!-- summary: Visual-scope DAX calcs (running totals, period-over-period, ranking), authoring status, pbir_manage_extension_measures for report-level measures. -->
 # Skill: Visual Calculations — Status and DAX Authoring
 
 ## TL;DR
 
-**Visual calculations are parked in this MCP.** The code path exists in `src/tools/calculations.ts` but is not registered in `index.ts`, so `add_visual_calculation`, `list_visual_calculations`, and `delete_visual_calculation` are **not callable tools**. Read the rest of this file to understand why, and where DAX authoring actually belongs.
+**Visual calculations are parked in this MCP.** The code path exists in `src/tools/calculations.ts` but is not registered in `index.ts`, so `pbir_add_visual_calculation`, `pbir_list_visual_calculations`, and `pbir_delete_visual_calculation` are **not callable tools**. Read the rest of this file to understand why, and where DAX authoring actually belongs.
 
 ## What are visual calculations?
 
@@ -57,7 +57,7 @@ DAX authoring is **not** a responsibility of `powerbi-report-mcp`. This server w
 - `dax_query_operations` — DAX queries for testing
 - `table_operations`, `relationship_operations`, `perspective_operations`, etc.
 
-When both MCPs are connected to the same Claude session, the agent can author a measure in the model MCP and then reference it by `Table[MeasureName]` in an `add_visual` call on the report MCP. You don't need to copy the DAX into this repo — the modeling MCP is the authority for model-level DAX.
+When both MCPs are connected to the same Claude session, the agent can author a measure in the model MCP and then reference it by `Table[MeasureName]` in an `pbir_add_visual` call on the report MCP. You don't need to copy the DAX into this repo — the modeling MCP is the authority for model-level DAX.
 
 ### External DAX references (canonical)
 
@@ -74,7 +74,7 @@ These are the same references Microsoft Learn links to. Nothing in this skill fi
 
 1. **Stop** — do not attempt to add a visual calculation.
 2. Confirm whether they want it model-wide (almost always yes) or truly visual-scoped (rare).
-3. If model-wide: hand the DAX request off to `powerbi-modeling-mcp` (`measure_operations` → create), then bind the new measure to the visual via `add_visual` or `update_visual_bindings`.
+3. If model-wide: hand the DAX request off to `powerbi-modeling-mcp` (`measure_operations` → create), then bind the new measure to the visual via `pbir_add_visual` or `pbir_update_visual_bindings`.
 4. If visual-scoped: explain that this MCP does not currently support visual calculations and that the user will need to add the calculation manually in PBI Desktop's formula bar. Point them at the visual calculation documentation on Microsoft Learn.
 
 ## Related files

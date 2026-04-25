@@ -1,14 +1,14 @@
 <!-- doc-version: 1.0 | Last updated: 2026-04-25 -->
-<!-- summary: Stable error code legend — codes returned by add_visual / format_visual / bulk / layout / binding validators with one-line meaning + recovery hint. Read once, the codes recur. -->
+<!-- summary: Stable error code legend — codes returned by pbir_add_visual / pbir_format_visual / bulk / layout / binding validators with one-line meaning + recovery hint. Read once, the codes recur. -->
 # Skill: Error Code Legend
 
-Validators ship a stable `code` field plus a structured payload (`actual`, `limits`, `suggestion`). The verbose prose (`rule`, `guide`, `rawMessage`) was dropped to save ~30-80 tokens per error — the LLM learns the codes from this skill instead.
+Validators ship a stable `code` field plus a structured payload (`actual`, `limits`, `suggestion`). The verbose prose (`rule`, `pbir_guide`, `rawMessage`) was dropped to save ~30-80 tokens per error — the LLM learns the codes from this skill instead.
 
 Read this once. The codes don't change between calls. When you see one, look it up here, fix per the recovery hint, retry.
 
 ---
 
-## Layout codes (`wireframe-validator` via `add_visual` / `layout_grid`)
+## Layout codes (`wireframe-validator` via `pbir_add_visual` / `pbir_layout_grid`)
 
 | Code | Meaning | Recovery |
 |---|---|---|
@@ -22,7 +22,7 @@ Read this once. The codes don't change between calls. When you see one, look it 
 | `wrong_horizontal_gap` | Gap between adjacent visuals in a row ≠ 5px | Space them so right-edge of A → left-edge of B = 5px. |
 | `wrong_vertical_gap` | Gap between rows ≠ 5px | Same rule, vertical. |
 | `silent_default_position` | Non-banner visual at (0,0) — likely a missing x/y | Set explicit x/y. Banner is the only thing allowed at (0,0). |
-| `rounding_overflow` | Sum of widths + gaps ≠ canvas usable width | Distribute the 1-2px remainder to the first cells (or use `layout_grid` and let the server do it). |
+| `rounding_overflow` | Sum of widths + gaps ≠ canvas usable width | Distribute the 1-2px remainder to the first cells (or use `pbir_layout_grid` and let the server do it). |
 | `banner_position` | Banner shape not at (0, 0, w=1280) | Pin banner to x=0, y=0, height=52. |
 | `banner_width` | Banner width ≠ canvas width | Set width=1280. |
 | `negative_dimension` | width or height ≤ 0 | Use positive integers. Min ~80×60 for readability. |
@@ -31,13 +31,13 @@ Read this once. The codes don't change between calls. When you see one, look it 
 
 ---
 
-## Binding codes (`bindingValidation` via `add_visual` / `update_visual_bindings` / `bulk_bind`)
+## Binding codes (`bindingValidation` via `pbir_add_visual` / `pbir_update_visual_bindings` / `pbir_bulk_bind`)
 
 Each binding error carries `reason`, `entity`, `property`, `kind`, and up to 3 `suggestions` (already formatted as `Table[Field]`).
 
 | `reason` | Meaning | Recovery |
 |---|---|---|
-| `table_not_found` | Table name doesn't exist in the model | Use a name from `suggestions[0]` or call `model_usage`. |
+| `table_not_found` | Table name doesn't exist in the model | Use a name from `suggestions[0]` or call `pbir_model_usage`. |
 | `column_not_found` | Column missing in the named table | Use `suggestions[0]` or check casing. |
 | `measure_not_found` | Measure missing in the named table | Likely a typo or stored in a different `_Measures` table. |
 | `type_mismatch_column_is_measure` | Spec said `column`, the field is a DAX measure | Change `type` to `measure`. |
@@ -46,7 +46,7 @@ Each binding error carries `reason`, `entity`, `property`, `kind`, and up to 3 `
 
 ---
 
-## Format-typo codes (`themeIndex` via `add_visual` / `format_visual`)
+## Format-typo codes (`themeIndex` via `pbir_add_visual` / `pbir_format_visual`)
 
 Single error type — `error: "format_typo"`, `issues: [{cat, prop?, didYouMean}]`.
 
@@ -69,5 +69,5 @@ Single error type — `error: "format_typo"`, `issues: [{cat, prop?, didYouMean}
 
 | Code | Meaning | Recovery |
 |---|---|---|
-| `no_pages` | Tool needed a pageId but the report has no pages | Call `create_page` first. |
+| `no_pages` | Tool needed a pageId but the report has no pages | Call `pbir_create_page` first. |
 | `ambiguous_pageId` | Multiple pages, pageId omitted — `availableIds` lists the candidates | Pass `pageId` explicitly from the list. |
