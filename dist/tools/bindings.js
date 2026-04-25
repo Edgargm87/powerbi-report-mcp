@@ -6,6 +6,7 @@ const createVisual_js_1 = require("../helpers/createVisual.js");
 const model_usage_js_1 = require("../model-usage.js");
 const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
 const bindingApply_js_1 = require("../helpers/bindingApply.js");
+const readCache_js_1 = require("../helpers/readCache.js");
 function registerBindingTools(server, ctx) {
     // ============================================================
     // TOOL: update_visual_bindings
@@ -45,6 +46,7 @@ function registerBindingTools(server, ctx) {
         (0, bindingApply_js_1.applyBindingsToVisual)(visual, bindings.map((b) => ({ bucket: b.bucket, fields: b.fields })), { autoFilters: autoFilters ?? true });
         ctx.project.saveVisual(pageId, visualId, visual);
         (0, model_usage_js_1.invalidateCache)();
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         const response = { success: true, visualId };
         (0, bindingValidation_js_1.attachBindingValidationMetadata)(response, validation);
         return {

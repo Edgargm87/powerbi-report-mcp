@@ -45,6 +45,7 @@ const mcpResult_js_1 = require("../helpers/mcpResult.js");
 const layoutValidation_js_1 = require("../helpers/layoutValidation.js");
 const guide_js_1 = require("./guide.js");
 const resolvePage_js_1 = require("../helpers/resolvePage.js");
+const readCache_js_1 = require("../helpers/readCache.js");
 function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: set_report — switch report at runtime
@@ -53,6 +54,7 @@ function registerReportTools(server, ctx) {
         path: zod_1.z.string().describe("Absolute path to the .Report folder or the parent folder containing a .pbip project"),
     }, async ({ path: targetPath }) => {
         const result = ctx.connectReport(targetPath);
+        (0, readCache_js_1.invalidateAll)();
         // Append the skills-index banner so every new session gets the index +
         // the always-inline wireframes + report-design content at connect time.
         // Clients that ignore the pbir-instructions MCP resource still see it
@@ -67,13 +69,9 @@ function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: get_report — show currently connected report
     // ============================================================
-    server.tool("get_report", "Show the currently connected report path.", {}, async () => {
-        return {
-            content: [
-                { type: "text", text: JSON.stringify({ reportPath: ctx.getReportPath() || "No report connected" }) },
-            ],
-        };
-    });
+    server.tool("get_report", "Show the currently connected report path.", {}, async () => (0, readCache_js_1.cachedRead)("get_report", {}, ["report"], () => ({
+        reportPath: ctx.getReportPath() || "No report connected",
+    })));
     // ============================================================
     // TOOL: list_pages
     // ============================================================
@@ -82,53 +80,55 @@ function registerReportTools(server, ctx) {
         includeVisuals: zod_1.z.boolean().optional().default(false).describe("When true, each page also includes a `visuals` array with slim per-visual entries."),
         pageId: zod_1.z.string().optional().describe("Scope to a single page (implies includeVisuals)."),
     }, async ({ slim, includeVisuals, pageId }) => {
-        const meta = ctx.project.getPagesMetadata();
-        const ids = pageId ? [pageId] : meta.pageOrder;
-        const withVisuals = includeVisuals || !!pageId;
-        const pages = ids.map((id) => {
-            const page = ctx.project.getPage(id);
-            const visualIds = ctx.project.listVisualIds(id);
-            const base = {
-                id,
-                displayName: page.displayName,
-                visualCount: visualIds.length,
-                isActive: id === meta.activePageName,
-                hidden: page.visibility === "HiddenInViewMode",
-            };
-            if (!slim) {
-                base.width = page.width;
-                base.height = page.height;
-                base.displayOption = page.displayOption;
-            }
-            if (withVisuals) {
-                base.visuals = visualIds.map((vid) => {
-                    const v = ctx.project.getVisual(id, vid);
-                    const titleValue = (0, extractTitle_js_1.extractVisualTitle)(v.visual.visualContainerObjects);
-                    const entry = {
-                        id: vid,
-                        type: v.visual.visualType,
-                        x: v.position.x,
-                        y: v.position.y,
-                        w: v.position.width,
-                        h: v.position.height,
-                    };
-                    if (titleValue)
-                        entry.title = titleValue;
-                    return entry;
-                });
-            }
-            return base;
+        const scopes = ["report"];
+        if (pageId)
+            scopes.push(`page:${pageId}`);
+        else
+            scopes.push("pages");
+        return (0, readCache_js_1.cachedRead)("list_pages", { slim, includeVisuals, pageId }, scopes, () => {
+            const meta = ctx.project.getPagesMetadata();
+            const ids = pageId ? [pageId] : meta.pageOrder;
+            const withVisuals = includeVisuals || !!pageId;
+            const pages = ids.map((id) => {
+                const page = ctx.project.getPage(id);
+                const visualIds = ctx.project.listVisualIds(id);
+                const base = {
+                    id,
+                    displayName: page.displayName,
+                    visualCount: visualIds.length,
+                    isActive: id === meta.activePageName,
+                    hidden: page.visibility === "HiddenInViewMode",
+                };
+                if (!slim) {
+                    base.width = page.width;
+                    base.height = page.height;
+                    base.displayOption = page.displayOption;
+                }
+                if (withVisuals) {
+                    base.visuals = visualIds.map((vid) => {
+                        const v = ctx.project.getVisual(id, vid);
+                        const titleValue = (0, extractTitle_js_1.extractVisualTitle)(v.visual.visualContainerObjects);
+                        const entry = {
+                            id: vid,
+                            type: v.visual.visualType,
+                            x: v.position.x,
+                            y: v.position.y,
+                            w: v.position.width,
+                            h: v.position.height,
+                        };
+                        if (titleValue)
+                            entry.title = titleValue;
+                        return entry;
+                    });
+                }
+                return base;
+            });
+            // Canvas constants help the LLM place visuals without guessing —
+            // cheap to include, enormous payoff on layout accuracy.
+            return pageId
+                ? { pageCount: pages.length, pages, canvas: (0, layoutValidation_js_1.getCanvasSummary)() }
+                : { pages, canvas: (0, layoutValidation_js_1.getCanvasSummary)() };
         });
-        // Canvas constants help the LLM place visuals without guessing —
-        // cheap to include, enormous payoff on layout accuracy.
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify(pageId ? { pageCount: pages.length, pages, canvas: (0, layoutValidation_js_1.getCanvasSummary)() } : { pages, canvas: (0, layoutValidation_js_1.getCanvasSummary)() }, null, 2),
-                },
-            ],
-        };
     });
     // ============================================================
     // TOOL: create_page
@@ -183,6 +183,8 @@ function registerReportTools(server, ctx) {
         const meta = ctx.project.getPagesMetadata();
         meta.pageOrder.push(pageId);
         ctx.project.savePagesMetadata(meta);
+        (0, readCache_js_1.invalidateScope)("pages");
+        (0, readCache_js_1.invalidateScope)("report");
         return {
             content: [
                 { type: "text", text: JSON.stringify({
@@ -212,6 +214,8 @@ function registerReportTools(server, ctx) {
         const page = ctx.project.getPage(pageId);
         page.displayName = displayName;
         ctx.project.savePage(pageId, page);
+        (0, readCache_js_1.invalidateScope)("pages");
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [{ type: "text", text: JSON.stringify({ success: true, pageId, displayName }) }],
         };
@@ -230,6 +234,8 @@ function registerReportTools(server, ctx) {
         ctx.project.savePagesMetadata(meta);
         ctx.project.deletePage(pageId);
         (0, model_usage_js_1.invalidateCache)();
+        (0, readCache_js_1.invalidateScope)("pages");
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [{ type: "text", text: JSON.stringify({ success: true, deletedPageId: pageId }) }],
         };
@@ -243,6 +249,7 @@ function registerReportTools(server, ctx) {
         const meta = ctx.project.getPagesMetadata();
         meta.pageOrder = pageOrder;
         ctx.project.savePagesMetadata(meta);
+        (0, readCache_js_1.invalidateScope)("pages");
         return { content: [{ type: "text", text: JSON.stringify({ success: true, pageOrder }) }] };
     });
     // ============================================================
@@ -258,6 +265,7 @@ function registerReportTools(server, ctx) {
         const meta = ctx.project.getPagesMetadata();
         meta.activePageName = pageId;
         ctx.project.savePagesMetadata(meta);
+        (0, readCache_js_1.invalidateScope)("pages");
         return {
             content: [{ type: "text", text: JSON.stringify({ success: true, activePageName: pageId }) }],
         };
@@ -281,6 +289,8 @@ function registerReportTools(server, ctx) {
             delete page.visibility;
         }
         ctx.project.savePage(pageId, page);
+        (0, readCache_js_1.invalidateScope)("pages");
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [
                 { type: "text", text: JSON.stringify({ success: true, pageId, hidden }) },
@@ -325,6 +335,7 @@ function registerReportTools(server, ctx) {
         const report = ctx.project.getReport();
         report.settings = { ...report.settings, ...settings };
         ctx.project.saveReport(report);
+        (0, readCache_js_1.invalidateScope)("report");
         return {
             content: [
                 { type: "text", text: JSON.stringify({ success: true, settings: report.settings }) },
@@ -352,6 +363,8 @@ function registerReportTools(server, ctx) {
         if (displayOption !== undefined)
             page.displayOption = displayOption;
         ctx.project.savePage(pageId, page);
+        (0, readCache_js_1.invalidateScope)("pages");
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [
                 {
@@ -446,6 +459,8 @@ function registerReportTools(server, ctx) {
             newVisualIds.push(newVid);
         }
         (0, model_usage_js_1.invalidateCache)();
+        (0, readCache_js_1.invalidateScope)("pages");
+        (0, readCache_js_1.invalidateScope)(`page:${newPageId}`);
         return {
             content: [
                 {
@@ -664,6 +679,7 @@ function registerReportTools(server, ctx) {
             if (Object.keys(page.objects).length === 0)
                 delete page.objects;
             ctx.project.savePage(pageId, page);
+            (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
             return { content: [{ type: "text", text: JSON.stringify({ success: true, pageId, cleared: true }) }] };
         }
         // Helper to build a color property in PBIR format
@@ -694,6 +710,7 @@ function registerReportTools(server, ctx) {
                 }];
         }
         ctx.project.savePage(pageId, page);
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [{
                     type: "text",
@@ -732,6 +749,7 @@ function registerReportTools(server, ctx) {
             page.visualInteractions.push(interaction);
         }
         ctx.project.savePage(pageId, page);
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [{
                     type: "text",

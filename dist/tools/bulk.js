@@ -9,6 +9,7 @@ const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
 const bindingApply_js_1 = require("../helpers/bindingApply.js");
 const mcpResult_js_1 = require("../helpers/mcpResult.js");
 const resolvePage_js_1 = require("../helpers/resolvePage.js");
+const readCache_js_1 = require("../helpers/readCache.js");
 // Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk).
 // The explicit `z.ZodType<T[]>` return cast is required because `z.preprocess` widens
 // the output to `unknown` under strict mode — which breaks downstream `z.infer` chains
@@ -97,6 +98,7 @@ function registerBulkTools(server, ctx) {
             }
         }
         (0, model_usage_js_1.invalidateCache)();
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [
                 {
@@ -147,6 +149,7 @@ function registerBulkTools(server, ctx) {
                 errors.push(`${vid}: ${err instanceof Error ? err.message : String(err)}`);
             }
         }
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [
                 {
@@ -254,6 +257,7 @@ function registerBulkTools(server, ctx) {
             }
         }
         (0, model_usage_js_1.invalidateCache)();
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         const bulkResponse = {
             success: true,
             updated: updated.length,

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { applyFormattingToTarget, applyDataColors } from "../helpers/formatting.js";
 import { validateFormatTypos } from "../helpers/themeIndex.js";
 import { resolvePageId } from "../helpers/resolvePage.js";
+import { invalidateScope } from "../helpers/readCache.js";
 import { FormatCategorySchema, DataColorSchema, NO_DATA_VISUAL_TYPES } from "../helpers/createVisual.js";
 import { THEME_PRESETS } from "../helpers/defaults.js";
 import type { ServerContext } from "../context.js";
@@ -81,6 +82,8 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       }
 
       ctx.project.saveVisual(pageId, visualId, visual);
+
+      invalidateScope(`page:${pageId}`);
       return {
         content: [
           {
@@ -164,6 +167,8 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       }
 
       ctx.project.saveVisual(pageId, visualId, visual);
+
+      invalidateScope(`page:${pageId}`);
       return {
         content: [
           {
@@ -204,6 +209,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       const visual = ctx.project.getVisual(pageId, visualId);
       applyDataColors(visual, colors, defaultTransparency, categoryEntity, categoryProperty);
       ctx.project.saveVisual(pageId, visualId, visual);
+      invalidateScope(`page:${pageId}`);
       return {
         content: [
           {
@@ -268,6 +274,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       if (formatType === "clear") {
         delete container[property];
         ctx.project.saveVisual(pageId, visualId, visual);
+        invalidateScope(`page:${pageId}`);
         return {
           content: [{ type: "text", text: JSON.stringify({ success: true, cleared: property }) }],
         };
@@ -390,6 +397,8 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       }
 
       ctx.project.saveVisual(pageId, visualId, visual);
+
+      invalidateScope(`page:${pageId}`);
       return {
         content: [
           {
@@ -478,6 +487,8 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
         }
 
         ctx.project.saveVisual(pageId, vid, visual);
+
+        invalidateScope(`page:${pageId}`);
         formatted++;
       }
 
@@ -574,6 +585,8 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       };
 
       ctx.project.saveVisual(pageId, visualId, visual);
+
+      invalidateScope(`page:${pageId}`);
       return {
         content: [{
           type: "text",

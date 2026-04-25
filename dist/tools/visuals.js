@@ -10,6 +10,7 @@ const extractTitle_js_1 = require("../helpers/extractTitle.js");
 const layoutValidation_js_1 = require("../helpers/layoutValidation.js");
 const themeIndex_js_1 = require("../helpers/themeIndex.js");
 const resolvePage_js_1 = require("../helpers/resolvePage.js");
+const readCache_js_1 = require("../helpers/readCache.js");
 function registerVisualTools(server, ctx) {
     // ============================================================
     // TOOL: get_visual_types
@@ -28,32 +29,35 @@ function registerVisualTools(server, ctx) {
         if (!r.resolved)
             return r.errorResponse;
         pageId = r.pageId;
-        const visualIds = ctx.project.listVisualIds(pageId);
-        const visuals = visualIds.map((id) => {
-            const v = ctx.project.getVisual(pageId, id);
-            const titleValue = (0, extractTitle_js_1.extractVisualTitle)(v.visual.visualContainerObjects);
-            if (slim) {
-                const entry = {
+        const finalPageId = pageId;
+        return (0, readCache_js_1.cachedRead)("list_visuals", { pageId: finalPageId, slim }, [`page:${finalPageId}`], () => {
+            const visualIds = ctx.project.listVisualIds(finalPageId);
+            const visuals = visualIds.map((id) => {
+                const v = ctx.project.getVisual(finalPageId, id);
+                const titleValue = (0, extractTitle_js_1.extractVisualTitle)(v.visual.visualContainerObjects);
+                if (slim) {
+                    const entry = {
+                        id,
+                        type: v.visual.visualType,
+                        x: v.position.x,
+                        y: v.position.y,
+                        w: v.position.width,
+                        h: v.position.height,
+                    };
+                    if (titleValue)
+                        entry.title = titleValue;
+                    return entry;
+                }
+                return {
                     id,
-                    type: v.visual.visualType,
-                    x: v.position.x,
-                    y: v.position.y,
-                    w: v.position.width,
-                    h: v.position.height,
+                    visualType: v.visual.visualType,
+                    position: v.position,
+                    title: titleValue,
+                    filterCount: v.filterConfig?.filters?.length ?? 0,
                 };
-                if (titleValue)
-                    entry.title = titleValue;
-                return entry;
-            }
-            return {
-                id,
-                visualType: v.visual.visualType,
-                position: v.position,
-                title: titleValue,
-                filterCount: v.filterConfig?.filters?.length ?? 0,
-            };
+            });
+            return visuals;
         });
-        return { content: [{ type: "text", text: JSON.stringify(visuals, null, 2) }] };
     });
     // ============================================================
     // TOOL: get_visual
@@ -68,87 +72,90 @@ function registerVisualTools(server, ctx) {
         if (!r.resolved)
             return r.errorResponse;
         pageId = r.pageId;
-        const visual = ctx.project.getVisual(pageId, visualId);
+        const finalPageId = pageId;
         // Default = slim. verbose:true OR legacy slim:false → full JSON.
         const wantFull = verbose === true || slim === false;
-        if (wantFull) {
-            return { content: [{ type: "text", text: JSON.stringify(visual, null, 2) }] };
-        }
-        // Extract title
-        const titleValue = (0, extractTitle_js_1.extractVisualTitle)(visual.visual.visualContainerObjects);
-        // Extract bindings as Table[Field] strings
-        const bindings = {};
-        const qs = visual.visual.query?.queryState;
-        if (qs) {
-            for (const [bucket, state] of Object.entries(qs)) {
-                const projs = state?.projections ?? [];
-                bindings[bucket] = projs.map((p) => {
-                    const f = p.field;
-                    if (f?.Column)
-                        return `${f.Column.Expression?.SourceRef?.Entity}[${f.Column.Property}]`;
-                    if (f?.Measure)
-                        return `${f.Measure.Expression?.SourceRef?.Entity}[${f.Measure.Property}]`;
-                    if (f?.Aggregation?.Expression?.Column) {
-                        const col = f.Aggregation.Expression.Column;
-                        return `${col.Expression?.SourceRef?.Entity}[${col.Property}]`;
-                    }
-                    return "(unknown)";
-                });
+        return (0, readCache_js_1.cachedRead)("get_visual", { pageId: finalPageId, visualId, verbose: wantFull }, [`page:${finalPageId}`], () => {
+            const visual = ctx.project.getVisual(finalPageId, visualId);
+            if (wantFull) {
+                return visual;
             }
-        }
-        const result = {
-            id: visual.name,
-            type: visual.visual.visualType,
-            x: visual.position.x,
-            y: visual.position.y,
-            w: visual.position.width,
-            h: visual.position.height,
-        };
-        if (titleValue)
-            result.title = titleValue;
-        if (Object.keys(bindings).length > 0)
-            result.bindings = bindings;
-        result.filterCount = visual.filterConfig?.filters?.length ?? 0;
-        // Slicer-specific surface area: mode + selection state.
-        // Detection rules:
-        //   slicerMode    ← objects.data[0].properties.mode.expr.Literal.Value (strip quotes)
-        //                   defaults: slicer→"Dropdown", listSlicer/textSlicer→n/a
-        //   multiSelect   ← objects.selection[0].properties.singleSelect.expr.Literal.Value
-        //                     "false" → multiSelect=true
-        //                     "true"  → multiSelect=false
-        //                     absent  → infer from PBI default (Dropdown=false, Basic/listSlicer=true)
-        const SLICER_TYPES = new Set(["slicer", "listSlicer", "textSlicer", "advancedSlicerVisual"]);
-        const vType = visual.visual.visualType;
-        if (SLICER_TYPES.has(vType)) {
-            const objs = visual.visual.objects;
-            const dataArr = objs?.data;
-            const selectionArr = objs?.selection;
-            let slicerMode;
-            if (vType === "slicer") {
-                const modeLit = dataArr?.[0]?.properties?.mode?.expr?.Literal?.Value;
-                if (typeof modeLit === "string") {
-                    slicerMode = modeLit.replace(/^'|'$/g, "");
+            // Extract title
+            const titleValue = (0, extractTitle_js_1.extractVisualTitle)(visual.visual.visualContainerObjects);
+            // Extract bindings as Table[Field] strings
+            const bindings = {};
+            const qs = visual.visual.query?.queryState;
+            if (qs) {
+                for (const [bucket, state] of Object.entries(qs)) {
+                    const projs = state?.projections ?? [];
+                    bindings[bucket] = projs.map((p) => {
+                        const f = p.field;
+                        if (f?.Column)
+                            return `${f.Column.Expression?.SourceRef?.Entity}[${f.Column.Property}]`;
+                        if (f?.Measure)
+                            return `${f.Measure.Expression?.SourceRef?.Entity}[${f.Measure.Property}]`;
+                        if (f?.Aggregation?.Expression?.Column) {
+                            const col = f.Aggregation.Expression.Column;
+                            return `${col.Expression?.SourceRef?.Entity}[${col.Property}]`;
+                        }
+                        return "(unknown)";
+                    });
+                }
+            }
+            const result = {
+                id: visual.name,
+                type: visual.visual.visualType,
+                x: visual.position.x,
+                y: visual.position.y,
+                w: visual.position.width,
+                h: visual.position.height,
+            };
+            if (titleValue)
+                result.title = titleValue;
+            if (Object.keys(bindings).length > 0)
+                result.bindings = bindings;
+            result.filterCount = visual.filterConfig?.filters?.length ?? 0;
+            // Slicer-specific surface area: mode + selection state.
+            // Detection rules:
+            //   slicerMode    ← objects.data[0].properties.mode.expr.Literal.Value (strip quotes)
+            //                   defaults: slicer→"Dropdown", listSlicer/textSlicer→n/a
+            //   multiSelect   ← objects.selection[0].properties.singleSelect.expr.Literal.Value
+            //                     "false" → multiSelect=true
+            //                     "true"  → multiSelect=false
+            //                     absent  → infer from PBI default (Dropdown=false, Basic/listSlicer=true)
+            const SLICER_TYPES = new Set(["slicer", "listSlicer", "textSlicer", "advancedSlicerVisual"]);
+            const vType = visual.visual.visualType;
+            if (SLICER_TYPES.has(vType)) {
+                const objs = visual.visual.objects;
+                const dataArr = objs?.data;
+                const selectionArr = objs?.selection;
+                let slicerMode;
+                if (vType === "slicer") {
+                    const modeLit = dataArr?.[0]?.properties?.mode?.expr?.Literal?.Value;
+                    if (typeof modeLit === "string") {
+                        slicerMode = modeLit.replace(/^'|'$/g, "");
+                    }
+                    else {
+                        slicerMode = "Dropdown"; // PBI default
+                    }
+                    result.slicerMode = slicerMode;
+                }
+                const singleLit = selectionArr?.[0]?.properties?.singleSelect?.expr?.Literal?.Value;
+                let multiSelect;
+                if (singleLit === "true") {
+                    multiSelect = false;
+                }
+                else if (singleLit === "false") {
+                    multiSelect = true;
                 }
                 else {
-                    slicerMode = "Dropdown"; // PBI default
+                    // No explicit setting — apply PBI default for the variant
+                    multiSelect = vType === "slicer" ? slicerMode !== "Dropdown" : true;
                 }
-                result.slicerMode = slicerMode;
+                result.multiSelect = multiSelect;
             }
-            const singleLit = selectionArr?.[0]?.properties?.singleSelect?.expr?.Literal?.Value;
-            let multiSelect;
-            if (singleLit === "true") {
-                multiSelect = false;
-            }
-            else if (singleLit === "false") {
-                multiSelect = true;
-            }
-            else {
-                // No explicit setting — apply PBI default for the variant
-                multiSelect = vType === "slicer" ? slicerMode !== "Dropdown" : true;
-            }
-            result.multiSelect = multiSelect;
-        }
-        return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+            return result;
+        });
     });
     // ============================================================
     // TOOL: add_visual (single + batch mode)
@@ -296,6 +303,7 @@ function registerVisualTools(server, ctx) {
             results.push(result);
         }
         (0, model_usage_js_1.invalidateCache)();
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         // Slim by default: ship a flat string[] of ids. The 150-token canvas
         // object only ships when the LLM asks for it on create_page or when
         // layout validation fails — sending it on every successful add is
@@ -333,6 +341,7 @@ function registerVisualTools(server, ctx) {
         pageId = r.pageId;
         ctx.project.deleteVisual(pageId, visualId);
         (0, model_usage_js_1.invalidateCache)();
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [{ type: "text", text: JSON.stringify({ success: true, deletedVisualId: visualId }) }],
         };
@@ -367,6 +376,7 @@ function registerVisualTools(server, ctx) {
             visual.position.tabOrder = z;
         }
         ctx.project.saveVisual(pageId, visualId, visual);
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [{ type: "text", text: JSON.stringify({ success: true, position: visual.position }) }],
         };
@@ -397,6 +407,9 @@ function registerVisualTools(server, ctx) {
         }
         ctx.project.saveVisual(target, newId, duplicate);
         (0, model_usage_js_1.invalidateCache)();
+        (0, readCache_js_1.invalidateScope)(`page:${target}`);
+        if (target !== pageId)
+            (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [
                 {
@@ -418,6 +431,7 @@ function registerVisualTools(server, ctx) {
         visual.visual.visualType = visualType;
         ctx.project.saveVisual(pageId, visualId, visual);
         (0, model_usage_js_1.invalidateCache)();
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [{ type: "text", text: JSON.stringify({ success: true, visualId, visualType }) }],
         };

@@ -35,6 +35,7 @@ import type { VisualSpec, FieldSpecInput } from "../helpers/createVisual.js";
 import { invalidateCache } from "../model-usage.js";
 import type { ServerContext } from "../context.js";
 import { resolvePageId } from "../helpers/resolvePage.js";
+import { invalidateScope } from "../helpers/readCache.js";
 
 // ---------------------------------------------------------------------------
 // Pure grid math — exported for the unit tests
@@ -633,6 +634,7 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
       }
 
       invalidateCache();
+      invalidateScope(`page:${pageId}`);
 
       const commitResponse: Record<string, unknown> = {
         success: true,

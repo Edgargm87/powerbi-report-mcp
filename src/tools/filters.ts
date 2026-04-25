@@ -4,6 +4,7 @@ import { generateId, columnRef } from "../pbir.js";
 import type { FilterItem, FieldRef } from "../pbir.js";
 import type { ServerContext } from "../context.js";
 import { resolvePageId } from "../helpers/resolvePage.js";
+import { cachedRead, invalidateScope } from "../helpers/readCache.js";
 
 // --- Helper: flatten a PBIR FieldRef to "Table[Field]" string ---
 function fieldRefToString(field: FieldRef): string {
@@ -268,35 +269,41 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "list_filters",
-    "List filters on a page or visual. Slim mode (default) flattens field refs to 'Table[Column]' strings. Set slim=false for full PBIR field objects.",
+    "List filters on a page or visual. Slim mode (default) returns Table[Column] strings.",
     {
-      pageId: z.string().describe("The page ID"),
-      visualId: z.string().optional().describe("Visual ID — omit for page-level filters"),
-      slim: z.boolean().optional().default(true).describe("Slim mode (default true) — flattens field ref to Table[Column] string"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
+      visualId: z.string().optional().describe("Visual ID — omit for page-level"),
+      slim: z.boolean().optional().default(true),
     },
     async ({ pageId, visualId, slim }) => {
-      let filters: FilterItem[] = [];
-      let scope: string;
-
-      if (visualId) {
-        const visual = ctx.project.getVisual(pageId, visualId);
-        filters = visual.filterConfig?.filters ?? [];
-        scope = `visual:${visualId}`;
-      } else {
-        const page = ctx.project.getPage(pageId);
-        filters = page.filterConfig?.filters ?? [];
-        scope = `page:${pageId}`;
-      }
-
-      const summary = filters.map((f) => ({
-        name: f.name,
-        type: f.type,
-        field: slim ? fieldRefToString(f.field) : f.field,
-      }));
-
-      return {
-        content: [{ type: "text", text: JSON.stringify({ scope, count: filters.length, filters: summary }, null, 2) }],
-      };
+      const r = resolvePageId(ctx.project, pageId);
+      if (!r.resolved) return r.errorResponse;
+      pageId = r.pageId;
+      const finalPageId = pageId;
+      return cachedRead(
+        "list_filters",
+        { pageId: finalPageId, visualId, slim },
+        [`page:${finalPageId}`],
+        () => {
+          let filters: FilterItem[] = [];
+          let scope: string;
+          if (visualId) {
+            const visual = ctx.project.getVisual(finalPageId, visualId);
+            filters = visual.filterConfig?.filters ?? [];
+            scope = `visual:${visualId}`;
+          } else {
+            const page = ctx.project.getPage(finalPageId);
+            filters = page.filterConfig?.filters ?? [];
+            scope = `page:${finalPageId}`;
+          }
+          const summary = filters.map((f) => ({
+            name: f.name,
+            type: f.type,
+            field: slim ? fieldRefToString(f.field) : f.field,
+          }));
+          return { scope, count: filters.length, filters: summary };
+        }
+      );
     }
   );
 
@@ -405,6 +412,7 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
         page.filterConfig.filters.push(newFilter);
         ctx.project.savePage(pageId, page);
       }
+      invalidateScope(`page:${pageId}`);
 
       const scope = visualId ? "visual" : "page";
       return {
@@ -428,6 +436,7 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
       visualId: z.string().optional().describe("Visual ID — omit to remove from page-level filters"),
     },
     async ({ pageId, filterName, visualId }) => {
+      try {
       if (visualId) {
         const visual = ctx.project.getVisual(pageId, visualId);
         const before = visual.filterConfig?.filters?.length ?? 0;
@@ -451,6 +460,9 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
           content: [{ type: "text", text: JSON.stringify({ success: true, scope: "page", removed: before - after }) }],
         };
       }
+      } finally {
+        invalidateScope(`page:${pageId}`);
+      }
     }
   );
 
@@ -465,6 +477,7 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
       visualId: z.string().optional().describe("Visual ID — omit to clear all page-level filters"),
     },
     async ({ pageId, visualId }) => {
+      try {
       if (visualId) {
         const visual = ctx.project.getVisual(pageId, visualId);
         const count = visual.filterConfig?.filters?.length ?? 0;
@@ -481,6 +494,9 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
         return {
           content: [{ type: "text", text: JSON.stringify({ success: true, scope: "page", cleared: count }) }],
         };
+      }
+      } finally {
+        invalidateScope(`page:${pageId}`);
       }
     }
   );

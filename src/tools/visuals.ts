@@ -14,6 +14,7 @@ import { extractVisualTitle } from "../helpers/extractTitle.js";
 import { runLayoutValidation } from "../helpers/layoutValidation.js";
 import { validateFormatTypos } from "../helpers/themeIndex.js";
 import { resolvePageId } from "../helpers/resolvePage.js";
+import { cachedRead, invalidateScope } from "../helpers/readCache.js";
 import type { WireframeVisual } from "../wireframe-validator.js";
 
 export function registerVisualTools(server: McpServer, ctx: ServerContext): void {
@@ -43,9 +44,11 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
-      const visualIds = ctx.project.listVisualIds(pageId);
+      const finalPageId = pageId;
+      return cachedRead("list_visuals", { pageId: finalPageId, slim }, [`page:${finalPageId}`], () => {
+      const visualIds = ctx.project.listVisualIds(finalPageId);
       const visuals = visualIds.map((id) => {
-        const v = ctx.project.getVisual(pageId, id);
+        const v = ctx.project.getVisual(finalPageId, id);
         const titleValue = extractVisualTitle(v.visual.visualContainerObjects);
 
         if (slim) {
@@ -69,7 +72,8 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
           filterCount: v.filterConfig?.filters?.length ?? 0,
         };
       });
-      return { content: [{ type: "text", text: JSON.stringify(visuals, null, 2) }] };
+      return visuals;
+      });
     }
   );
 
@@ -89,12 +93,17 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
-      const visual = ctx.project.getVisual(pageId, visualId);
-
+      const finalPageId = pageId;
       // Default = slim. verbose:true OR legacy slim:false → full JSON.
       const wantFull = verbose === true || slim === false;
+      return cachedRead(
+        "get_visual",
+        { pageId: finalPageId, visualId, verbose: wantFull },
+        [`page:${finalPageId}`],
+        () => {
+      const visual = ctx.project.getVisual(finalPageId, visualId);
       if (wantFull) {
-        return { content: [{ type: "text", text: JSON.stringify(visual, null, 2) }] };
+        return visual;
       }
 
       // Extract title
@@ -168,7 +177,9 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
         result.multiSelect = multiSelect;
       }
 
-      return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
+      return result;
+        }
+      );
     }
   );
 
@@ -340,6 +351,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       }
 
       invalidateCache();
+      invalidateScope(`page:${pageId}`);
       // Slim by default: ship a flat string[] of ids. The 150-token canvas
       // object only ships when the LLM asks for it on create_page or when
       // layout validation fails — sending it on every successful add is
@@ -382,6 +394,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       pageId = r.pageId;
       ctx.project.deleteVisual(pageId, visualId);
       invalidateCache();
+      invalidateScope(`page:${pageId}`);
       return {
         content: [{ type: "text", text: JSON.stringify({ success: true, deletedVisualId: visualId }) }],
       };
@@ -417,6 +430,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
         visual.position.tabOrder = z;
       }
       ctx.project.saveVisual(pageId, visualId, visual);
+      invalidateScope(`page:${pageId}`);
       return {
         content: [{ type: "text", text: JSON.stringify({ success: true, position: visual.position }) }],
       };
@@ -456,6 +470,8 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
 
       ctx.project.saveVisual(target, newId, duplicate);
       invalidateCache();
+      invalidateScope(`page:${target}`);
+      if (target !== pageId) invalidateScope(`page:${pageId}`);
       return {
         content: [
           {
@@ -483,6 +499,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       visual.visual.visualType = visualType;
       ctx.project.saveVisual(pageId, visualId, visual);
       invalidateCache();
+      invalidateScope(`page:${pageId}`);
       return {
         content: [{ type: "text", text: JSON.stringify({ success: true, visualId, visualType }) }],
       };

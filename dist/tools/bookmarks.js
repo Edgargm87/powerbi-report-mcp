@@ -3,12 +3,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerBookmarkTools = registerBookmarkTools;
 const zod_1 = require("zod");
 const pbir_js_1 = require("../pbir.js");
+const readCache_js_1 = require("../helpers/readCache.js");
 const BOOKMARK_SCHEMA = "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/bookmark/2.0.0/schema.json";
 function registerBookmarkTools(server, ctx) {
     // ============================================================
     // TOOL: list_bookmarks
     // ============================================================
-    server.tool("list_bookmarks", "List all bookmarks defined in the report.", {}, async () => {
+    server.tool("list_bookmarks", "List all bookmarks defined in the report.", {}, async () => (0, readCache_js_1.cachedRead)("list_bookmarks", {}, ["bookmarks"], () => {
         const meta = ctx.project.getBookmarksMetadata();
         const bookmarks = meta.bookmarkOrder.map((id) => {
             try {
@@ -19,15 +20,8 @@ function registerBookmarkTools(server, ctx) {
                 return { id, displayName: "(unreadable)" };
             }
         });
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify({ count: bookmarks.length, bookmarks }, null, 2),
-                },
-            ],
-        };
-    });
+        return { count: bookmarks.length, bookmarks };
+    }));
     // ============================================================
     // TOOL: add_bookmark
     // ============================================================
@@ -53,6 +47,7 @@ function registerBookmarkTools(server, ctx) {
         const meta = ctx.project.getBookmarksMetadata();
         meta.bookmarkOrder.push(bookmarkId);
         ctx.project.saveBookmarksMetadata(meta);
+        (0, readCache_js_1.invalidateScope)("bookmarks");
         return {
             content: [
                 {
@@ -72,6 +67,7 @@ function registerBookmarkTools(server, ctx) {
         const before = meta.bookmarkOrder.length;
         meta.bookmarkOrder = meta.bookmarkOrder.filter((id) => id !== bookmarkId);
         ctx.project.saveBookmarksMetadata(meta);
+        (0, readCache_js_1.invalidateScope)("bookmarks");
         ctx.project.deleteBookmark(bookmarkId);
         return {
             content: [
@@ -92,6 +88,7 @@ function registerBookmarkTools(server, ctx) {
         const bookmark = ctx.project.getBookmark(bookmarkId);
         bookmark.displayName = displayName;
         ctx.project.saveBookmark(bookmarkId, bookmark);
+        (0, readCache_js_1.invalidateScope)("bookmarks");
         return {
             content: [
                 { type: "text", text: JSON.stringify({ success: true, bookmarkId, displayName }) },

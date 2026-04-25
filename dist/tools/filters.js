@@ -4,6 +4,7 @@ exports.registerFilterTools = registerFilterTools;
 const zod_1 = require("zod");
 const pbir_js_1 = require("../pbir.js");
 const resolvePage_js_1 = require("../helpers/resolvePage.js");
+const readCache_js_1 = require("../helpers/readCache.js");
 // --- Helper: flatten a PBIR FieldRef to "Table[Field]" string ---
 function fieldRefToString(field) {
     if (field?.Column)
@@ -221,31 +222,36 @@ function registerFilterTools(server, ctx) {
     // ============================================================
     // TOOL: list_filters
     // ============================================================
-    server.tool("list_filters", "List filters on a page or visual. Slim mode (default) flattens field refs to 'Table[Column]' strings. Set slim=false for full PBIR field objects.", {
-        pageId: zod_1.z.string().describe("The page ID"),
-        visualId: zod_1.z.string().optional().describe("Visual ID — omit for page-level filters"),
-        slim: zod_1.z.boolean().optional().default(true).describe("Slim mode (default true) — flattens field ref to Table[Column] string"),
+    server.tool("list_filters", "List filters on a page or visual. Slim mode (default) returns Table[Column] strings.", {
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
+        visualId: zod_1.z.string().optional().describe("Visual ID — omit for page-level"),
+        slim: zod_1.z.boolean().optional().default(true),
     }, async ({ pageId, visualId, slim }) => {
-        let filters = [];
-        let scope;
-        if (visualId) {
-            const visual = ctx.project.getVisual(pageId, visualId);
-            filters = visual.filterConfig?.filters ?? [];
-            scope = `visual:${visualId}`;
-        }
-        else {
-            const page = ctx.project.getPage(pageId);
-            filters = page.filterConfig?.filters ?? [];
-            scope = `page:${pageId}`;
-        }
-        const summary = filters.map((f) => ({
-            name: f.name,
-            type: f.type,
-            field: slim ? fieldRefToString(f.field) : f.field,
-        }));
-        return {
-            content: [{ type: "text", text: JSON.stringify({ scope, count: filters.length, filters: summary }, null, 2) }],
-        };
+        const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!r.resolved)
+            return r.errorResponse;
+        pageId = r.pageId;
+        const finalPageId = pageId;
+        return (0, readCache_js_1.cachedRead)("list_filters", { pageId: finalPageId, visualId, slim }, [`page:${finalPageId}`], () => {
+            let filters = [];
+            let scope;
+            if (visualId) {
+                const visual = ctx.project.getVisual(finalPageId, visualId);
+                filters = visual.filterConfig?.filters ?? [];
+                scope = `visual:${visualId}`;
+            }
+            else {
+                const page = ctx.project.getPage(finalPageId);
+                filters = page.filterConfig?.filters ?? [];
+                scope = `page:${finalPageId}`;
+            }
+            const summary = filters.map((f) => ({
+                name: f.name,
+                type: f.type,
+                field: slim ? fieldRefToString(f.field) : f.field,
+            }));
+            return { scope, count: filters.length, filters: summary };
+        });
     });
     // ============================================================
     // TOOL: add_page_filter
@@ -347,6 +353,7 @@ function registerFilterTools(server, ctx) {
             page.filterConfig.filters.push(newFilter);
             ctx.project.savePage(pageId, page);
         }
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         const scope = visualId ? "visual" : "page";
         return {
             content: [{
@@ -363,29 +370,34 @@ function registerFilterTools(server, ctx) {
         filterName: zod_1.z.string().describe("The filter name/ID to remove (from list_filters)"),
         visualId: zod_1.z.string().optional().describe("Visual ID — omit to remove from page-level filters"),
     }, async ({ pageId, filterName, visualId }) => {
-        if (visualId) {
-            const visual = ctx.project.getVisual(pageId, visualId);
-            const before = visual.filterConfig?.filters?.length ?? 0;
-            if (visual.filterConfig?.filters) {
-                visual.filterConfig.filters = visual.filterConfig.filters.filter((f) => f.name !== filterName);
+        try {
+            if (visualId) {
+                const visual = ctx.project.getVisual(pageId, visualId);
+                const before = visual.filterConfig?.filters?.length ?? 0;
+                if (visual.filterConfig?.filters) {
+                    visual.filterConfig.filters = visual.filterConfig.filters.filter((f) => f.name !== filterName);
+                }
+                ctx.project.saveVisual(pageId, visualId, visual);
+                const after = visual.filterConfig?.filters?.length ?? 0;
+                return {
+                    content: [{ type: "text", text: JSON.stringify({ success: true, scope: "visual", removed: before - after }) }],
+                };
             }
-            ctx.project.saveVisual(pageId, visualId, visual);
-            const after = visual.filterConfig?.filters?.length ?? 0;
-            return {
-                content: [{ type: "text", text: JSON.stringify({ success: true, scope: "visual", removed: before - after }) }],
-            };
+            else {
+                const page = ctx.project.getPage(pageId);
+                const before = page.filterConfig?.filters?.length ?? 0;
+                if (page.filterConfig?.filters) {
+                    page.filterConfig.filters = page.filterConfig.filters.filter((f) => f.name !== filterName);
+                }
+                ctx.project.savePage(pageId, page);
+                const after = page.filterConfig?.filters?.length ?? 0;
+                return {
+                    content: [{ type: "text", text: JSON.stringify({ success: true, scope: "page", removed: before - after }) }],
+                };
+            }
         }
-        else {
-            const page = ctx.project.getPage(pageId);
-            const before = page.filterConfig?.filters?.length ?? 0;
-            if (page.filterConfig?.filters) {
-                page.filterConfig.filters = page.filterConfig.filters.filter((f) => f.name !== filterName);
-            }
-            ctx.project.savePage(pageId, page);
-            const after = page.filterConfig?.filters?.length ?? 0;
-            return {
-                content: [{ type: "text", text: JSON.stringify({ success: true, scope: "page", removed: before - after }) }],
-            };
+        finally {
+            (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         }
     });
     // ============================================================
@@ -395,25 +407,30 @@ function registerFilterTools(server, ctx) {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().optional().describe("Visual ID — omit to clear all page-level filters"),
     }, async ({ pageId, visualId }) => {
-        if (visualId) {
-            const visual = ctx.project.getVisual(pageId, visualId);
-            const count = visual.filterConfig?.filters?.length ?? 0;
-            if (visual.filterConfig)
-                visual.filterConfig.filters = [];
-            ctx.project.saveVisual(pageId, visualId, visual);
-            return {
-                content: [{ type: "text", text: JSON.stringify({ success: true, scope: "visual", cleared: count }) }],
-            };
+        try {
+            if (visualId) {
+                const visual = ctx.project.getVisual(pageId, visualId);
+                const count = visual.filterConfig?.filters?.length ?? 0;
+                if (visual.filterConfig)
+                    visual.filterConfig.filters = [];
+                ctx.project.saveVisual(pageId, visualId, visual);
+                return {
+                    content: [{ type: "text", text: JSON.stringify({ success: true, scope: "visual", cleared: count }) }],
+                };
+            }
+            else {
+                const page = ctx.project.getPage(pageId);
+                const count = page.filterConfig?.filters?.length ?? 0;
+                if (page.filterConfig)
+                    page.filterConfig.filters = [];
+                ctx.project.savePage(pageId, page);
+                return {
+                    content: [{ type: "text", text: JSON.stringify({ success: true, scope: "page", cleared: count }) }],
+                };
+            }
         }
-        else {
-            const page = ctx.project.getPage(pageId);
-            const count = page.filterConfig?.filters?.length ?? 0;
-            if (page.filterConfig)
-                page.filterConfig.filters = [];
-            ctx.project.savePage(pageId, page);
-            return {
-                content: [{ type: "text", text: JSON.stringify({ success: true, scope: "page", cleared: count }) }],
-            };
+        finally {
+            (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         }
     });
 }

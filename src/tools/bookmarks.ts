@@ -3,6 +3,7 @@ import { z } from "zod";
 import { generateId } from "../pbir.js";
 import type { BookmarkDefinition } from "../pbir.js";
 import type { ServerContext } from "../context.js";
+import { cachedRead, invalidateScope } from "../helpers/readCache.js";
 
 const BOOKMARK_SCHEMA =
   "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/bookmark/2.0.0/schema.json";
@@ -15,27 +16,19 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
     "list_bookmarks",
     "List all bookmarks defined in the report.",
     {},
-    async () => {
-      const meta = ctx.project.getBookmarksMetadata();
-
-      const bookmarks = meta.bookmarkOrder.map((id) => {
-        try {
-          const bm = ctx.project.getBookmark(id);
-          return { id, displayName: bm.displayName };
-        } catch {
-          return { id, displayName: "(unreadable)" };
-        }
-      });
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify({ count: bookmarks.length, bookmarks }, null, 2),
-          },
-        ],
-      };
-    }
+    async () =>
+      cachedRead("list_bookmarks", {}, ["bookmarks"], () => {
+        const meta = ctx.project.getBookmarksMetadata();
+        const bookmarks = meta.bookmarkOrder.map((id) => {
+          try {
+            const bm = ctx.project.getBookmark(id);
+            return { id, displayName: bm.displayName };
+          } catch {
+            return { id, displayName: "(unreadable)" };
+          }
+        });
+        return { count: bookmarks.length, bookmarks };
+      })
   );
 
   // ============================================================
@@ -71,6 +64,7 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
       const meta = ctx.project.getBookmarksMetadata();
       meta.bookmarkOrder.push(bookmarkId);
       ctx.project.saveBookmarksMetadata(meta);
+      invalidateScope("bookmarks");
 
       return {
         content: [
@@ -97,6 +91,7 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
       const before = meta.bookmarkOrder.length;
       meta.bookmarkOrder = meta.bookmarkOrder.filter((id) => id !== bookmarkId);
       ctx.project.saveBookmarksMetadata(meta);
+      invalidateScope("bookmarks");
       ctx.project.deleteBookmark(bookmarkId);
 
       return {
@@ -124,6 +119,7 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
       const bookmark = ctx.project.getBookmark(bookmarkId);
       bookmark.displayName = displayName;
       ctx.project.saveBookmark(bookmarkId, bookmark);
+      invalidateScope("bookmarks");
       return {
         content: [
           { type: "text", text: JSON.stringify({ success: true, bookmarkId, displayName }) },

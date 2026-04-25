@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { ServerContext } from "../context.js";
 import type { ReportDefinition, ResourcePackage } from "../pbir.js";
 import { extractVisualTitle } from "../helpers/extractTitle.js";
+import { cachedRead, invalidateScope } from "../helpers/readCache.js";
 
 // Current PBIR schema versions — used when writing reportVersionAtImport
 const REPORT_VERSION = { visual: "2.7.0", report: "3.2.0", page: "2.3.0" };
@@ -86,6 +87,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
       const report = ctx.project.getReport();
       applyThemeToReport(report, filename);
       ctx.project.saveReport(report);
+      invalidateScope("theme");
 
       return {
         content: [
@@ -108,32 +110,20 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
   // ============================================================
   server.tool(
     "get_report_theme",
-    "Get the currently applied theme for this report. Returns the base theme name and, if a custom theme is applied, its name and full JSON content.",
+    "Get the currently applied theme. Returns base theme name + custom theme JSON if any.",
     {},
-    async () => {
-      const report = ctx.project.getReport();
-      const tc = report.themeCollection;
-      const baseTheme = tc?.baseTheme?.name ?? null;
-      const customThemeName = tc?.customTheme?.name ?? null;
-
-      let customThemeContent: unknown = null;
-      if (customThemeName) {
-        customThemeContent = ctx.project.readRegisteredResource(customThemeName);
-      }
-
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              { baseTheme, customTheme: customThemeName, customThemeContent },
-              null,
-              2
-            ),
-          },
-        ],
-      };
-    }
+    async () =>
+      cachedRead("get_report_theme", {}, ["theme"], () => {
+        const report = ctx.project.getReport();
+        const tc = report.themeCollection;
+        const baseTheme = tc?.baseTheme?.name ?? null;
+        const customThemeName = tc?.customTheme?.name ?? null;
+        let customThemeContent: unknown = null;
+        if (customThemeName) {
+          customThemeContent = ctx.project.readRegisteredResource(customThemeName);
+        }
+        return { baseTheme, customTheme: customThemeName, customThemeContent };
+      })
   );
 
   // ============================================================
@@ -166,6 +156,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
       }
 
       ctx.project.saveReport(report);
+      invalidateScope("theme");
 
       return {
         content: [

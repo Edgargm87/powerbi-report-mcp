@@ -36,6 +36,7 @@ const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
 const model_usage_js_1 = require("../model-usage.js");
 const resolvePage_js_1 = require("../helpers/resolvePage.js");
+const readCache_js_1 = require("../helpers/readCache.js");
 /**
  * Compute widths[], heights[], and the origin (top-left of cell (0,0)) for a
  * grid of `rows × cols` on the canonical 1280×720 canvas.
@@ -478,6 +479,7 @@ function registerLayoutGridTool(server, ctx) {
             });
         }
         (0, model_usage_js_1.invalidateCache)();
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         const commitResponse = {
             success: true,
             mode: "commit",

@@ -12,6 +12,7 @@ import { ok, fail } from "../helpers/mcpResult.js";
 import { getCanvasSummary } from "../helpers/layoutValidation.js";
 import { buildSkillsIndexBanner } from "./guide.js";
 import { resolvePageId } from "../helpers/resolvePage.js";
+import { cachedRead, invalidateScope, invalidateAll } from "../helpers/readCache.js";
 
 export function registerReportTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
@@ -25,6 +26,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     async ({ path: targetPath }) => {
       const result = ctx.connectReport(targetPath);
+      invalidateAll();
       // Append the skills-index banner so every new session gets the index +
       // the always-inline wireframes + report-design content at connect time.
       // Clients that ignore the pbir-instructions MCP resource still see it
@@ -45,13 +47,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     "get_report",
     "Show the currently connected report path.",
     {},
-    async () => {
-      return {
-        content: [
-          { type: "text", text: JSON.stringify({ reportPath: ctx.getReportPath() || "No report connected" }) },
-        ],
-      };
-    }
+    async () =>
+      cachedRead("get_report", {}, ["report"], () => ({
+        reportPath: ctx.getReportPath() || "No report connected",
+      }))
   );
 
   // ============================================================
@@ -66,6 +65,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       pageId: z.string().optional().describe("Scope to a single page (implies includeVisuals)."),
     },
     async ({ slim, includeVisuals, pageId }) => {
+      const scopes: string[] = ["report"];
+      if (pageId) scopes.push(`page:${pageId}`);
+      else scopes.push("pages");
+      return cachedRead("list_pages", { slim, includeVisuals, pageId }, scopes, () => {
       const meta = ctx.project.getPagesMetadata();
       const ids = pageId ? [pageId] : meta.pageOrder;
       const withVisuals = includeVisuals || !!pageId;
@@ -105,18 +108,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       });
       // Canvas constants help the LLM place visuals without guessing —
       // cheap to include, enormous payoff on layout accuracy.
-      return {
-        content: [
-          {
-            type: "text",
-            text: JSON.stringify(
-              pageId ? { pageCount: pages.length, pages, canvas: getCanvasSummary() } : { pages, canvas: getCanvasSummary() },
-              null,
-              2
-            ),
-          },
-        ],
-      };
+      return pageId
+        ? { pageCount: pages.length, pages, canvas: getCanvasSummary() }
+        : { pages, canvas: getCanvasSummary() };
+      });
     }
   );
 
@@ -185,6 +180,9 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       meta.pageOrder.push(pageId);
       ctx.project.savePagesMetadata(meta);
 
+      invalidateScope("pages");
+      invalidateScope("report");
+
       return {
         content: [
           { type: "text", text: JSON.stringify({
@@ -219,6 +217,8 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       const page = ctx.project.getPage(pageId);
       page.displayName = displayName;
       ctx.project.savePage(pageId, page);
+      invalidateScope("pages");
+      invalidateScope(`page:${pageId}`);
       return {
         content: [{ type: "text", text: JSON.stringify({ success: true, pageId, displayName }) }],
       };
@@ -243,6 +243,8 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       ctx.project.savePagesMetadata(meta);
       ctx.project.deletePage(pageId);
       invalidateCache();
+      invalidateScope("pages");
+      invalidateScope(`page:${pageId}`);
       return {
         content: [{ type: "text", text: JSON.stringify({ success: true, deletedPageId: pageId }) }],
       };
@@ -262,6 +264,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       const meta = ctx.project.getPagesMetadata();
       meta.pageOrder = pageOrder;
       ctx.project.savePagesMetadata(meta);
+      invalidateScope("pages");
       return { content: [{ type: "text", text: JSON.stringify({ success: true, pageOrder }) }] };
     }
   );
@@ -282,6 +285,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       const meta = ctx.project.getPagesMetadata();
       meta.activePageName = pageId;
       ctx.project.savePagesMetadata(meta);
+      invalidateScope("pages");
       return {
         content: [{ type: "text", text: JSON.stringify({ success: true, activePageName: pageId }) }],
       };
@@ -309,6 +313,8 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         delete page.visibility;
       }
       ctx.project.savePage(pageId, page);
+      invalidateScope("pages");
+      invalidateScope(`page:${pageId}`);
       return {
         content: [
           { type: "text", text: JSON.stringify({ success: true, pageId, hidden }) },
@@ -366,6 +372,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       const report = ctx.project.getReport();
       report.settings = { ...report.settings, ...settings };
       ctx.project.saveReport(report);
+      invalidateScope("report");
       return {
         content: [
           { type: "text", text: JSON.stringify({ success: true, settings: report.settings }) },
@@ -395,6 +402,8 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       if (height !== undefined) page.height = height;
       if (displayOption !== undefined) page.displayOption = displayOption;
       ctx.project.savePage(pageId, page);
+      invalidateScope("pages");
+      invalidateScope(`page:${pageId}`);
       return {
         content: [
           {
@@ -509,6 +518,8 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       }
 
       invalidateCache();
+      invalidateScope("pages");
+      invalidateScope(`page:${newPageId}`);
       return {
         content: [
           {
@@ -771,6 +782,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         delete (page.objects as Record<string, unknown>).wallpaper;
         if (Object.keys(page.objects).length === 0) delete page.objects;
         ctx.project.savePage(pageId, page);
+        invalidateScope(`page:${pageId}`);
         return { content: [{ type: "text", text: JSON.stringify({ success: true, pageId, cleared: true }) }] };
       }
 
@@ -805,6 +817,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       }
 
       ctx.project.savePage(pageId, page);
+      invalidateScope(`page:${pageId}`);
       return {
         content: [{
           type: "text",
@@ -855,6 +868,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       }
 
       ctx.project.savePage(pageId, page);
+      invalidateScope(`page:${pageId}`);
       return {
         content: [{
           type: "text",

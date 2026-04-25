@@ -7,6 +7,7 @@ import { invalidateCache } from "../model-usage.js";
 import { runBindingValidation, attachBindingValidationMetadata } from "../helpers/bindingValidation.js";
 import { applyBindingsToVisual } from "../helpers/bindingApply.js";
 import { resolvePageId } from "../helpers/resolvePage.js";
+import { invalidateScope } from "../helpers/readCache.js";
 
 export function registerBindingTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
@@ -63,6 +64,7 @@ export function registerBindingTools(server: McpServer, ctx: ServerContext): voi
 
       ctx.project.saveVisual(pageId, visualId, visual);
       invalidateCache();
+      invalidateScope(`page:${pageId}`);
       const response: Record<string, unknown> = { success: true, visualId };
       attachBindingValidationMetadata(response, validation);
       return {

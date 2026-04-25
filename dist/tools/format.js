@@ -5,6 +5,7 @@ const zod_1 = require("zod");
 const formatting_js_1 = require("../helpers/formatting.js");
 const themeIndex_js_1 = require("../helpers/themeIndex.js");
 const resolvePage_js_1 = require("../helpers/resolvePage.js");
+const readCache_js_1 = require("../helpers/readCache.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
 const defaults_js_1 = require("../helpers/defaults.js");
 // Categories that belong in visualContainerObjects (container chrome)
@@ -70,6 +71,7 @@ function registerFormatTools(server, ctx) {
             ];
         }
         ctx.project.saveVisual(pageId, visualId, visual);
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [
                 {
@@ -139,6 +141,7 @@ function registerFormatTools(server, ctx) {
             (0, formatting_js_1.applyFormattingToTarget)(targetObj, formatting);
         }
         ctx.project.saveVisual(pageId, visualId, visual);
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [
                 {
@@ -174,6 +177,7 @@ function registerFormatTools(server, ctx) {
         const visual = ctx.project.getVisual(pageId, visualId);
         (0, formatting_js_1.applyDataColors)(visual, colors, defaultTransparency, categoryEntity, categoryProperty);
         ctx.project.saveVisual(pageId, visualId, visual);
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [
                 {
@@ -226,6 +230,7 @@ function registerFormatTools(server, ctx) {
         if (formatType === "clear") {
             delete container[property];
             ctx.project.saveVisual(pageId, visualId, visual);
+            (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
             return {
                 content: [{ type: "text", text: JSON.stringify({ success: true, cleared: property }) }],
             };
@@ -336,6 +341,7 @@ function registerFormatTools(server, ctx) {
             }
         }
         ctx.project.saveVisual(pageId, visualId, visual);
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [
                 {
@@ -406,6 +412,7 @@ function registerFormatTools(server, ctx) {
                 (0, formatting_js_1.applyDataColors)(visual, colors);
             }
             ctx.project.saveVisual(pageId, vid, visual);
+            (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
             formatted++;
         }
         return {
@@ -492,6 +499,7 @@ function registerFormatTools(server, ctx) {
             ...(isDefaultSort ? { isDefaultSort: true } : {}),
         };
         ctx.project.saveVisual(pageId, visualId, visual);
+        (0, readCache_js_1.invalidateScope)(`page:${pageId}`);
         return {
             content: [{
                     type: "text",

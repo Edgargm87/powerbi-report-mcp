@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerThemeTools = registerThemeTools;
 const zod_1 = require("zod");
 const extractTitle_js_1 = require("../helpers/extractTitle.js");
+const readCache_js_1 = require("../helpers/readCache.js");
 // Current PBIR schema versions — used when writing reportVersionAtImport
 const REPORT_VERSION = { visual: "2.7.0", report: "3.2.0", page: "2.3.0" };
 // --- Helper: sanitise a theme name into a safe filename ---
@@ -75,6 +76,7 @@ function registerThemeTools(server, ctx) {
         const report = ctx.project.getReport();
         applyThemeToReport(report, filename);
         ctx.project.saveReport(report);
+        (0, readCache_js_1.invalidateScope)("theme");
         return {
             content: [
                 {
@@ -92,7 +94,7 @@ function registerThemeTools(server, ctx) {
     // ============================================================
     // TOOL: get_report_theme
     // ============================================================
-    server.tool("get_report_theme", "Get the currently applied theme for this report. Returns the base theme name and, if a custom theme is applied, its name and full JSON content.", {}, async () => {
+    server.tool("get_report_theme", "Get the currently applied theme. Returns base theme name + custom theme JSON if any.", {}, async () => (0, readCache_js_1.cachedRead)("get_report_theme", {}, ["theme"], () => {
         const report = ctx.project.getReport();
         const tc = report.themeCollection;
         const baseTheme = tc?.baseTheme?.name ?? null;
@@ -101,15 +103,8 @@ function registerThemeTools(server, ctx) {
         if (customThemeName) {
             customThemeContent = ctx.project.readRegisteredResource(customThemeName);
         }
-        return {
-            content: [
-                {
-                    type: "text",
-                    text: JSON.stringify({ baseTheme, customTheme: customThemeName, customThemeContent }, null, 2),
-                },
-            ],
-        };
-    });
+        return { baseTheme, customTheme: customThemeName, customThemeContent };
+    }));
     // ============================================================
     // TOOL: remove_report_theme
     // ============================================================
@@ -132,6 +127,7 @@ function registerThemeTools(server, ctx) {
             }
         }
         ctx.project.saveReport(report);
+        (0, readCache_js_1.invalidateScope)("theme");
         return {
             content: [
                 {

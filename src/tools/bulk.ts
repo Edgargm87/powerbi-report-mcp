@@ -12,6 +12,7 @@ import { runBindingValidation, attachBindingValidationMetadata } from "../helper
 import { applyBindingsToVisual } from "../helpers/bindingApply.js";
 import { fail } from "../helpers/mcpResult.js";
 import { resolvePageId } from "../helpers/resolvePage.js";
+import { invalidateScope } from "../helpers/readCache.js";
 
 // Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk).
 // The explicit `z.ZodType<T[]>` return cast is required because `z.preprocess` widens
@@ -116,6 +117,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
       }
 
       invalidateCache();
+      invalidateScope(`page:${pageId}`);
       return {
         content: [
           {
@@ -174,6 +176,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
         }
       }
 
+      invalidateScope(`page:${pageId}`);
       return {
         content: [
           {
@@ -300,6 +303,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
       }
 
       invalidateCache();
+      invalidateScope(`page:${pageId}`);
       const bulkResponse: Record<string, unknown> = {
         success: true,
         updated: updated.length,
