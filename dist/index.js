@@ -270,7 +270,7 @@ async function main() {
     }
     const server = new mcp_js_1.McpServer({
         name: "powerbi-report-mcp",
-        version: "0.6.2",
+        version: "0.8.0",
     });
     // Determine tool loading mode
     // Default: all tools (matches most clients that don't refresh tool catalog).
@@ -446,7 +446,7 @@ async function main() {
     const transport = new stdio_js_1.StdioServerTransport();
     console.error("Power BI Report MCP Server starting...");
     console.error(`Report path: ${reportPath || "none (use pbir_set_report to connect)"}`);
-    console.error(`Version: 0.6.2`);
+    console.error(`Version: 0.8.0`);
     console.error(`Tools mode: ${loadAll ? "all" : "minimal"} (${activeTools.size} active, ${deferredTools.size} on-demand)`);
     console.error(loadAll ? "Tip: Set MCP_TOOLS=minimal to load only the 12 core tools (saves ~7,500 tokens; use pbir_load_tools to activate the rest on demand)." : "Tip: unset MCP_TOOLS or set it to 'all' to load every tool at startup.");
     await server.connect(transport);
