@@ -34,6 +34,7 @@ import { createAndSaveVisual } from "../helpers/createVisual.js";
 import type { VisualSpec, FieldSpecInput } from "../helpers/createVisual.js";
 import { invalidateCache } from "../model-usage.js";
 import type { ServerContext } from "../context.js";
+import { resolvePageId } from "../helpers/resolvePage.js";
 
 // ---------------------------------------------------------------------------
 // Pure grid math — exported for the unit tests
@@ -272,7 +273,7 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
     "layout_grid",
     "Compute a deterministic rows×cols grid layout for a page, optionally writing the visuals. Server owns the margin/gap/remainder math — the LLM can't overflow or leave mismatched gaps. planOnly:true (default) returns the computed plan without writing. planOnly:false validates bindings + layout then writes every cell as a visual in one call. Use this INSTEAD of calling add_visual N times when building a page from scratch. See guide('wireframes') for when each grid shape is appropriate.",
     {
-      pageId: z.string().describe("Page ID the grid belongs to"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       rows: z.number().int().min(1).describe("Grid rows (≥1)"),
       cols: z.number().int().min(1).describe("Grid columns (≥1)"),
       gaps: z
@@ -321,8 +322,10 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
         .describe("Return full {visualId,visualType,slotRef,x,y,width,height} per cell instead of slim ids."),
     },
     async (params) => {
+      const rp = resolvePageId(ctx.project, params.pageId);
+      if (!rp.resolved) return rp.errorResponse;
+      const pageId = rp.pageId;
       const {
-        pageId,
         rows,
         cols,
         gaps,

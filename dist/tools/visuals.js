@@ -9,6 +9,7 @@ const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
 const extractTitle_js_1 = require("../helpers/extractTitle.js");
 const layoutValidation_js_1 = require("../helpers/layoutValidation.js");
 const themeIndex_js_1 = require("../helpers/themeIndex.js");
+const resolvePage_js_1 = require("../helpers/resolvePage.js");
 function registerVisualTools(server, ctx) {
     // ============================================================
     // TOOL: get_visual_types
@@ -19,10 +20,14 @@ function registerVisualTools(server, ctx) {
     // ============================================================
     // TOOL: list_visuals
     // ============================================================
-    server.tool("list_visuals", "List all visuals on a page. Slim mode (default) returns id, type, x, y, w, h and title if set. Set slim=false for full position object and filter count.", {
-        pageId: zod_1.z.string().describe("The page ID"),
-        slim: zod_1.z.boolean().optional().default(true).describe("Slim mode (default true) — flat short keys, omits z/tabOrder/filterCount to reduce token usage"),
+    server.tool("list_visuals", "List all visuals on a page. Default slim returns id/type/x/y/w/h/title. slim:false includes filterCount.", {
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
+        slim: zod_1.z.boolean().optional().default(true),
     }, async ({ pageId, slim }) => {
+        const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!r.resolved)
+            return r.errorResponse;
+        pageId = r.pageId;
         const visualIds = ctx.project.listVisualIds(pageId);
         const visuals = visualIds.map((id) => {
             const v = ctx.project.getVisual(pageId, id);
@@ -54,11 +59,15 @@ function registerVisualTools(server, ctx) {
     // TOOL: get_visual
     // ============================================================
     server.tool("get_visual", "Get visual details. Default returns id/type/position/title/bindings summary. verbose:true returns full PBIR JSON.", {
-        pageId: zod_1.z.string().describe("The page ID"),
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
         verbose: zod_1.z.boolean().optional().describe("Full raw PBIR JSON (heavy)."),
         slim: zod_1.z.boolean().optional().describe("Deprecated alias for !verbose."),
     }, async ({ pageId, visualId, verbose, slim }) => {
+        const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!r.resolved)
+            return r.errorResponse;
+        pageId = r.pageId;
         const visual = ctx.project.getVisual(pageId, visualId);
         // Default = slim. verbose:true OR legacy slim:false → full JSON.
         const wantFull = verbose === true || slim === false;
@@ -145,7 +154,7 @@ function registerVisualTools(server, ctx) {
     // TOOL: add_visual (single + batch mode)
     // ============================================================
     server.tool("add_visual", "Add one or more visuals to a page. Pass `visuals` array. Inline containerFormat/visualFormat/dataColors per entry avoids extra format_visual calls. Call `lookup_theme_property` for valid category/property names per visualType. Stacked charts (columnChart/barChart) need a Series binding. 'KPI card' = `card` with one measure. Scatter uses `Details` bucket.", {
-        pageId: zod_1.z.string(),
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visuals: zod_1.z.array(createVisual_js_1.VisualSpecSchema),
         strictBindings: zod_1.z
             .boolean()
@@ -160,7 +169,10 @@ function registerVisualTools(server, ctx) {
             .optional()
             .describe("Return [{visualId,visualType}] instead of flat id list."),
     }, async (params) => {
-        const { pageId } = params;
+        const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, params.pageId);
+        if (!r.resolved)
+            return r.errorResponse;
+        const pageId = r.pageId;
         const existingVisuals = ctx.project.listVisualIds(pageId);
         let maxZ = 0;
         for (const vid of existingVisuals) {
@@ -312,9 +324,13 @@ function registerVisualTools(server, ctx) {
     // TOOL: delete_visual
     // ============================================================
     server.tool("delete_visual", "Delete a visual from a page", {
-        pageId: zod_1.z.string().describe("The page ID"),
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID to delete"),
     }, async ({ pageId, visualId }) => {
+        const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!r.resolved)
+            return r.errorResponse;
+        pageId = r.pageId;
         ctx.project.deleteVisual(pageId, visualId);
         (0, model_usage_js_1.invalidateCache)();
         return {
@@ -325,14 +341,18 @@ function registerVisualTools(server, ctx) {
     // TOOL: move_visual
     // ============================================================
     server.tool("move_visual", "Move and/or resize a visual on a page", {
-        pageId: zod_1.z.string().describe("The page ID"),
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
-        x: zod_1.z.number().optional().describe("New X position"),
-        y: zod_1.z.number().optional().describe("New Y position"),
-        width: zod_1.z.number().optional().describe("New width"),
-        height: zod_1.z.number().optional().describe("New height"),
-        z: zod_1.z.number().optional().describe("New z-order (layer)"),
+        x: zod_1.z.number().optional(),
+        y: zod_1.z.number().optional(),
+        width: zod_1.z.number().optional(),
+        height: zod_1.z.number().optional(),
+        z: zod_1.z.number().optional().describe("z-order"),
     }, async ({ pageId, visualId, x, y, width, height, z }) => {
+        const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!r.resolved)
+            return r.errorResponse;
+        pageId = r.pageId;
         const visual = ctx.project.getVisual(pageId, visualId);
         if (x !== undefined)
             visual.position.x = x;

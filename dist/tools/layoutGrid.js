@@ -35,6 +35,7 @@ const layoutValidation_js_1 = require("../helpers/layoutValidation.js");
 const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
 const model_usage_js_1 = require("../model-usage.js");
+const resolvePage_js_1 = require("../helpers/resolvePage.js");
 /**
  * Compute widths[], heights[], and the origin (top-left of cell (0,0)) for a
  * grid of `rows × cols` on the canonical 1280×720 canvas.
@@ -183,7 +184,7 @@ const MarginsSchema = zod_1.z
     .optional();
 function registerLayoutGridTool(server, ctx) {
     server.tool("layout_grid", "Compute a deterministic rows×cols grid layout for a page, optionally writing the visuals. Server owns the margin/gap/remainder math — the LLM can't overflow or leave mismatched gaps. planOnly:true (default) returns the computed plan without writing. planOnly:false validates bindings + layout then writes every cell as a visual in one call. Use this INSTEAD of calling add_visual N times when building a page from scratch. See guide('wireframes') for when each grid shape is appropriate.", {
-        pageId: zod_1.z.string().describe("Page ID the grid belongs to"),
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         rows: zod_1.z.number().int().min(1).describe("Grid rows (≥1)"),
         cols: zod_1.z.number().int().min(1).describe("Grid columns (≥1)"),
         gaps: zod_1.z
@@ -221,7 +222,11 @@ function registerLayoutGridTool(server, ctx) {
             .optional()
             .describe("Return full {visualId,visualType,slotRef,x,y,width,height} per cell instead of slim ids."),
     }, async (params) => {
-        const { pageId, rows, cols, gaps, reserveBannerRow, cells, planOnly, strictLayout, } = params;
+        const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, params.pageId);
+        if (!rp.resolved)
+            return rp.errorResponse;
+        const pageId = rp.pageId;
+        const { rows, cols, gaps, reserveBannerRow, cells, planOnly, strictLayout, } = params;
         // Resolve margins
         const m = {
             left: params.margins?.left ?? wireframe_validator_js_1.CANVAS.marginLeft,

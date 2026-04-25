@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerFilterTools = registerFilterTools;
 const zod_1 = require("zod");
 const pbir_js_1 = require("../pbir.js");
+const resolvePage_js_1 = require("../helpers/resolvePage.js");
 // --- Helper: flatten a PBIR FieldRef to "Table[Field]" string ---
 function fieldRefToString(field) {
     if (field?.Column)
@@ -249,8 +250,8 @@ function registerFilterTools(server, ctx) {
     // ============================================================
     // TOOL: add_page_filter
     // ============================================================
-    server.tool("add_page_filter", "Add a filter to a page or visual. Omit visualId for page-level (affects all visuals). Provide visualId for visual-level. NOTE: topN filters only work at visual level — always provide visualId when filterType is topN. Types: categorical (specific values), topN (top/bottom N by measure), relativeDate (rolling date window), advanced (comparison operators like GreaterThan, Contains, IsBlank — supports compound And/Or conditions).", {
-        pageId: zod_1.z.string().describe("The page ID"),
+    server.tool("add_page_filter", "Add a filter to a page or visual. Omit visualId for page-level. topN requires visualId. Types: categorical / topN / relativeDate / advanced (Equals, GreaterThan, Contains, IsBlank, etc; supports And/Or compounds).", {
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().optional().describe("Visual ID — omit for page-level, required for topN"),
         filterType: zod_1.z
             .enum(["categorical", "topN", "relativeDate", "advanced"])
@@ -295,6 +296,10 @@ function registerFilterTools(server, ctx) {
         operator2: zod_1.z.string().optional().describe("advanced: second operator for compound conditions"),
         value2: zod_1.z.union([zod_1.z.string(), zod_1.z.number()]).optional().describe("advanced: second comparison value"),
     }, async ({ pageId, visualId, filterType, entity, property, values, n, topNDirection, orderByEntity, orderByProperty, orderByIsMeasure, period, count, dateDirection, operator, value, logicalOperator, operator2, value2, }) => {
+        const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!rp.resolved)
+            return rp.errorResponse;
+        pageId = rp.pageId;
         if (filterType === "topN" && !visualId) {
             return {
                 content: [{ type: "text", text: JSON.stringify({ success: false, error: "topN filters must be applied at visual level — provide visualId" }) }],

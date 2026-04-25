@@ -11,6 +11,7 @@ import { invalidateCache } from "../model-usage.js";
 import { runBindingValidation, attachBindingValidationMetadata } from "../helpers/bindingValidation.js";
 import { applyBindingsToVisual } from "../helpers/bindingApply.js";
 import { fail } from "../helpers/mcpResult.js";
+import { resolvePageId } from "../helpers/resolvePage.js";
 
 // Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk).
 // The explicit `z.ZodType<T[]>` return cast is required because `z.preprocess` widens
@@ -84,14 +85,17 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
   server.tool(
     "bulk_delete_visuals",
-    "Delete multiple visuals from a page in one call. Set confirmBulk:true when deleting >5.",
+    "Delete multiple visuals from a page. Set confirmBulk:true when >5.",
     {
-      pageId: z.string().describe("The page ID"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualIds: parseArray(z.string()).describe("Visual IDs to delete"),
       confirmBulk: z.coerce.boolean().optional().default(false)
         .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals. Guards against accidental page wipes.`),
     },
     async ({ pageId, visualIds, confirmBulk }) => {
+      const rp = resolvePageId(ctx.project, pageId);
+      if (!rp.resolved) return rp.errorResponse;
+      pageId = rp.pageId;
       if (visualIds.length > BULK_MAX_ITEMS) {
         return bulkSizeLimitError("delete", visualIds.length);
       }
@@ -128,9 +132,9 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
   server.tool(
     "bulk_update_format",
-    "Apply the same formatting to multiple visuals in one call. target='container' for title/background/border, 'visual' for axes/legend/labels. Set confirmBulk:true when formatting >5.",
+    "Apply the same formatting to multiple visuals. target='container' (title/background/border) or 'visual' (axes/legend/labels). Set confirmBulk:true when >5.",
     {
-      pageId: z.string().describe("The page ID"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualIds: parseArray(z.string()).describe("Visual IDs to format"),
       formatting: parseArray(FormatCategorySchema).describe("Formatting to apply to all visuals"),
       target: z
@@ -142,6 +146,9 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
         .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
     },
     async ({ pageId, visualIds, formatting, target, confirmBulk }) => {
+      const rp = resolvePageId(ctx.project, pageId);
+      if (!rp.resolved) return rp.errorResponse;
+      pageId = rp.pageId;
       if (visualIds.length > BULK_MAX_ITEMS) {
         return bulkSizeLimitError("format", visualIds.length);
       }
@@ -183,9 +190,9 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
   server.tool(
     "bulk_bind",
-    "Update data bindings on multiple visuals in one call. Each entry specifies a visualId and its new bindings. Replaces existing bindings entirely. Set confirmBulk:true when rebinding >5. Set continueOnError:true to validate and write each entry independently — a bad binding on one visual no longer fails the whole batch.",
+    "Rebind multiple visuals in one call. Replaces existing bindings. Set confirmBulk:true when >5. continueOnError:true validates per-entry — bad bindings don't abort the batch.",
     {
-      pageId: z.string().describe("The page ID"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       updates: parseArray(
         z.object({
           visualId: z.string().describe("Visual ID to rebind"),
@@ -209,6 +216,9 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
         ),
     },
     async ({ pageId, updates, autoFilters, confirmBulk, continueOnError, strictBindings }) => {
+      const rp = resolvePageId(ctx.project, pageId);
+      if (!rp.resolved) return rp.errorResponse;
+      pageId = rp.pageId;
       if (updates.length > BULK_MAX_ITEMS) {
         return bulkSizeLimitError("rebind", updates.length);
       }

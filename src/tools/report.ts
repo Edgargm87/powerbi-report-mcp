@@ -11,6 +11,7 @@ import { extractVisualTitle } from "../helpers/extractTitle.js";
 import { ok, fail } from "../helpers/mcpResult.js";
 import { getCanvasSummary } from "../helpers/layoutValidation.js";
 import { buildSkillsIndexBanner } from "./guide.js";
+import { resolvePageId } from "../helpers/resolvePage.js";
 
 export function registerReportTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================
@@ -208,10 +209,13 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     "rename_page",
     "Rename an existing page",
     {
-      pageId: z.string().describe("The page ID to rename"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       displayName: z.string().describe("New display name"),
     },
     async ({ pageId, displayName }) => {
+      const r = resolvePageId(ctx.project, pageId);
+      if (!r.resolved) return r.errorResponse;
+      pageId = r.pageId;
       const page = ctx.project.getPage(pageId);
       page.displayName = displayName;
       ctx.project.savePage(pageId, page);
@@ -269,9 +273,12 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     "set_active_page",
     "Set which page is active (shown on open)",
     {
-      pageId: z.string().describe("The page ID to set as active"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
     },
     async ({ pageId }) => {
+      const r = resolvePageId(ctx.project, pageId);
+      if (!r.resolved) return r.errorResponse;
+      pageId = r.pageId;
       const meta = ctx.project.getPagesMetadata();
       meta.activePageName = pageId;
       ctx.project.savePagesMetadata(meta);
@@ -286,12 +293,15 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "set_page_visibility",
-    "Show or hide a page in the report navigation pane. Hidden pages are not shown to report viewers but can still be used for drillthrough.",
+    "Show or hide a page in the navigation pane. Hidden pages still work for drillthrough.",
     {
-      pageId: z.string().describe("The page ID"),
-      hidden: z.coerce.boolean().describe("true to hide the page, false to show it"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
+      hidden: z.coerce.boolean(),
     },
     async ({ pageId, hidden }) => {
+      const r = resolvePageId(ctx.project, pageId);
+      if (!r.resolved) return r.errorResponse;
+      pageId = r.pageId;
       const page = ctx.project.getPage(pageId);
       if (hidden) {
         page.visibility = "HiddenInViewMode";
@@ -371,12 +381,15 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     "update_page_size",
     "Update the page dimensions",
     {
-      pageId: z.string().describe("The page ID"),
-      width: z.number().optional().describe("New width"),
-      height: z.number().optional().describe("New height"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
+      width: z.number().optional(),
+      height: z.number().optional(),
       displayOption: z.enum(["FitToPage", "FitToWidth", "ActualSize"]).optional(),
     },
     async ({ pageId, width, height, displayOption }) => {
+      const r = resolvePageId(ctx.project, pageId);
+      if (!r.resolved) return r.errorResponse;
+      pageId = r.pageId;
       const page = ctx.project.getPage(pageId);
       if (width !== undefined) page.width = width;
       if (height !== undefined) page.height = height;
@@ -737,16 +750,19 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "set_page_background",
-    "Set the page canvas background color and/or wallpaper (area behind the canvas). Pass color as hex (#0D1117). Set transparency 0-100 (0=opaque, 100=fully transparent).",
+    "Set the page canvas background and/or wallpaper. Hex color (#0D1117). Transparency 0-100.",
     {
-      pageId: z.string().describe("The page ID"),
-      color: z.string().optional().describe("Canvas background color (hex, e.g. '#0D1117')"),
-      transparency: z.number().min(0).max(100).optional().default(0).describe("Canvas background transparency 0-100 (default 0 = opaque)"),
-      wallpaperColor: z.string().optional().describe("Wallpaper color — the area behind the page canvas (hex)"),
-      wallpaperTransparency: z.number().min(0).max(100).optional().default(0).describe("Wallpaper transparency 0-100"),
-      clear: z.boolean().optional().describe("Remove all background/wallpaper settings from the page"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
+      color: z.string().optional().describe("Canvas background color (hex)"),
+      transparency: z.number().min(0).max(100).optional().default(0),
+      wallpaperColor: z.string().optional().describe("Color behind the canvas"),
+      wallpaperTransparency: z.number().min(0).max(100).optional().default(0),
+      clear: z.boolean().optional().describe("Remove all background/wallpaper settings"),
     },
     async ({ pageId, color, transparency, wallpaperColor, wallpaperTransparency, clear }) => {
+      const r = resolvePageId(ctx.project, pageId);
+      if (!r.resolved) return r.errorResponse;
+      pageId = r.pageId;
       const page = ctx.project.getPage(pageId);
       if (!page.objects) page.objects = {};
 

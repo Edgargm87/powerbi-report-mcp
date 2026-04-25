@@ -3,6 +3,7 @@ import { z } from "zod";
 import { generateId, columnRef } from "../pbir.js";
 import type { FilterItem, FieldRef } from "../pbir.js";
 import type { ServerContext } from "../context.js";
+import { resolvePageId } from "../helpers/resolvePage.js";
 
 // --- Helper: flatten a PBIR FieldRef to "Table[Field]" string ---
 function fieldRefToString(field: FieldRef): string {
@@ -304,9 +305,9 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "add_page_filter",
-    "Add a filter to a page or visual. Omit visualId for page-level (affects all visuals). Provide visualId for visual-level. NOTE: topN filters only work at visual level — always provide visualId when filterType is topN. Types: categorical (specific values), topN (top/bottom N by measure), relativeDate (rolling date window), advanced (comparison operators like GreaterThan, Contains, IsBlank — supports compound And/Or conditions).",
+    "Add a filter to a page or visual. Omit visualId for page-level. topN requires visualId. Types: categorical / topN / relativeDate / advanced (Equals, GreaterThan, Contains, IsBlank, etc; supports And/Or compounds).",
     {
-      pageId: z.string().describe("The page ID"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().optional().describe("Visual ID — omit for page-level, required for topN"),
       filterType: z
         .enum(["categorical", "topN", "relativeDate", "advanced"])
@@ -357,6 +358,9 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
       period, count, dateDirection,
       operator, value, logicalOperator, operator2, value2,
     }) => {
+      const rp = resolvePageId(ctx.project, pageId);
+      if (!rp.resolved) return rp.errorResponse;
+      pageId = rp.pageId;
       if (filterType === "topN" && !visualId) {
         return {
           content: [{ type: "text", text: JSON.stringify({ success: false, error: "topN filters must be applied at visual level — provide visualId" }) }],

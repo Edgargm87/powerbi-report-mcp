@@ -4,6 +4,7 @@ exports.registerFormatTools = registerFormatTools;
 const zod_1 = require("zod");
 const formatting_js_1 = require("../helpers/formatting.js");
 const themeIndex_js_1 = require("../helpers/themeIndex.js");
+const resolvePage_js_1 = require("../helpers/resolvePage.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
 const defaults_js_1 = require("../helpers/defaults.js");
 // Categories that belong in visualContainerObjects (container chrome)
@@ -16,7 +17,7 @@ function registerFormatTools(server, ctx) {
     // TOOL: set_visual_title
     // ============================================================
     server.tool("set_visual_title", "Set or update the title of a visual. Can set text, visibility, font, size, alignment.", {
-        pageId: zod_1.z.string().describe("The page ID"),
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
         title: zod_1.z.string().optional().describe("The title text to display"),
         show: zod_1.z.boolean().optional().describe("Whether to show the title (default true)"),
@@ -28,6 +29,10 @@ function registerFormatTools(server, ctx) {
         alignment: zod_1.z.enum(["left", "center", "right"]).optional().describe("Title alignment"),
         titleWrap: zod_1.z.boolean().optional().describe("Whether to wrap the title text"),
     }, async ({ pageId, visualId, title, show, fontSize, fontFamily, alignment, titleWrap }) => {
+        const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!r.resolved)
+            return r.errorResponse;
+        pageId = r.pageId;
         const visual = ctx.project.getVisual(pageId, visualId);
         if (!visual.visual.visualContainerObjects) {
             visual.visual.visualContainerObjects = {};
@@ -78,7 +83,7 @@ function registerFormatTools(server, ctx) {
     // TOOL: format_visual
     // ============================================================
     server.tool("format_visual", "Format visual properties. Auto-routes title/background/border/padding/dropShadow/visualHeader to container, others to visual; override with target='visual'|'container'. Call `lookup_theme_property` for valid category/property names per visualType. Gotchas: slicer uses `textSize`, not `fontSize` (items/header); waterfall uses `sentimentColors`, not `dataPoint`.", {
-        pageId: zod_1.z.string().describe("The page ID"),
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
         formatting: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(createVisual_js_1.FormatCategorySchema))
             .describe("Array of formatting categories and their properties to set"),
@@ -88,6 +93,10 @@ function registerFormatTools(server, ctx) {
             .default("auto")
             .describe("'auto' (default) routes container categories (title/background/border/padding/dropShadow/visualHeader) to visualContainerObjects and everything else to objects. Use 'visual' or 'container' to force."),
     }, async ({ pageId, visualId, formatting, target }) => {
+        const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!r.resolved)
+            return r.errorResponse;
+        pageId = r.pageId;
         const visual = ctx.project.getVisual(pageId, visualId);
         // Cheap typo catcher — flag misspelled category/property names against
         // the bundled schema. Always-on, no opt-out. Unknown visualType → no-op.
@@ -147,8 +156,8 @@ function registerFormatTools(server, ctx) {
     // ============================================================
     // TOOL: set_datapoint_colors
     // ============================================================
-    server.tool("set_datapoint_colors", "Set data point colors. For series-based charts (Series bucket) use metadata mode (default). For category-based charts (Category bucket, no Series) provide categoryEntity+categoryProperty to use data selector mode — required for barChart, columnChart, pieChart etc. with a single measure.", {
-        pageId: zod_1.z.string().describe("The page ID"),
+    server.tool("set_datapoint_colors", "Set data point colors. Series-based charts use metadata mode. Category-based (no Series) requires categoryEntity+categoryProperty.", {
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
         colors: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(createVisual_js_1.DataColorSchema)).describe("Array of {seriesName, color} — seriesName is the category value or series name to color"),
         categoryEntity: zod_1.z.string().optional().describe("Category table name — required for category-based charts (barChart, columnChart, pieChart etc.)"),
@@ -158,6 +167,10 @@ function registerFormatTools(server, ctx) {
             .optional()
             .describe("Default transparency for all data points (0-100)"),
     }, async ({ pageId, visualId, colors, categoryEntity, categoryProperty, defaultTransparency }) => {
+        const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!r.resolved)
+            return r.errorResponse;
+        pageId = r.pageId;
         const visual = ctx.project.getVisual(pageId, visualId);
         (0, formatting_js_1.applyDataColors)(visual, colors, defaultTransparency, categoryEntity, categoryProperty);
         ctx.project.saveVisual(pageId, visualId, visual);
@@ -173,8 +186,8 @@ function registerFormatTools(server, ctx) {
     // ============================================================
     // TOOL: set_conditional_format
     // ============================================================
-    server.tool("set_conditional_format", "Apply conditional formatting to a visual container background or title font. formatType: rules (value comparisons), gradient (color scale), clear (remove). ComparisonKind: 0=Eq, 1=GT, 2=GTE, 3=LT, 4=LTE, 5=NEq.", {
-        pageId: zod_1.z.string().describe("The page ID"),
+    server.tool("set_conditional_format", "Apply conditional formatting to a visual container background or title font. formatType: rules / gradient / clear. ComparisonKind: 0=Eq,1=GT,2=GTE,3=LT,4=LTE,5=NEq.", {
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
         property: zod_1.z
             .enum(["background", "title"])
@@ -202,6 +215,10 @@ function registerFormatTools(server, ctx) {
         maxColor: zod_1.z.string().optional().describe("For gradient: color at maximum value (hex)"),
         midColor: zod_1.z.string().optional().describe("For gradient: optional mid-point color (hex)"),
     }, async ({ pageId, visualId, property, formatType, entity, property2, isMeasure, rules, defaultColor, minColor, maxColor, midColor, }) => {
+        const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!rp.resolved)
+            return rp.errorResponse;
+        pageId = rp.pageId;
         const visual = ctx.project.getVisual(pageId, visualId);
         if (!visual.visual.visualContainerObjects)
             visual.visual.visualContainerObjects = {};
@@ -331,8 +348,8 @@ function registerFormatTools(server, ctx) {
     // ============================================================
     // TOOL: apply_theme
     // ============================================================
-    server.tool("apply_theme", `Apply a named theme to all visuals on a page. Available themes: ${Object.keys(defaults_js_1.THEME_PRESETS).join(", ")}. Applies container formatting, and optionally data colors, to every visual on the page in one call.`, {
-        pageId: zod_1.z.string().describe("The page ID"),
+    server.tool("apply_theme", `Apply a named theme preset to all visuals on a page. Themes: ${Object.keys(defaults_js_1.THEME_PRESETS).join(", ")}.`, {
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         theme: zod_1.z
             .enum(["dark", "light", "corporate", "blue-purple"])
             .describe("Theme preset name"),
@@ -342,6 +359,10 @@ function registerFormatTools(server, ctx) {
             .default(true)
             .describe("Whether to apply theme data colors to chart visuals"),
     }, async ({ pageId, theme, applyDataColors: applyColors }) => {
+        const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!rp.resolved)
+            return rp.errorResponse;
+        pageId = rp.pageId;
         const preset = defaults_js_1.THEME_PRESETS[theme];
         if (!preset) {
             return {
@@ -399,8 +420,8 @@ function registerFormatTools(server, ctx) {
     // ============================================================
     // TOOL: set_visual_sort
     // ============================================================
-    server.tool("set_visual_sort", "Set the sort order of a visual. Overrides the default auto-sort. Use Table[Column] shorthand for field references.", {
-        pageId: zod_1.z.string().describe("The page ID"),
+    server.tool("set_visual_sort", "Set the sort order of a visual. Overrides the auto-sort. Use Table[Column] for field refs.", {
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
         sort: zod_1.z.array(zod_1.z.object({
             field: zod_1.z.string().describe("Field to sort by in Table[Column] format (e.g. 'Sales[Revenue]')"),
@@ -413,6 +434,10 @@ function registerFormatTools(server, ctx) {
         isDefaultSort: zod_1.z.boolean().optional().default(false)
             .describe("Whether this is the default sort (true = can be overridden by user)"),
     }, async ({ pageId, visualId, sort, isDefaultSort }) => {
+        const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!rp.resolved)
+            return rp.errorResponse;
+        pageId = rp.pageId;
         const visual = ctx.project.getVisual(pageId, visualId);
         // Import parseFieldSpec to reuse the field parsing logic
         // We need to build FieldRef objects from the sort spec

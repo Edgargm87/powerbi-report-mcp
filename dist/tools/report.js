@@ -44,6 +44,7 @@ const extractTitle_js_1 = require("../helpers/extractTitle.js");
 const mcpResult_js_1 = require("../helpers/mcpResult.js");
 const layoutValidation_js_1 = require("../helpers/layoutValidation.js");
 const guide_js_1 = require("./guide.js");
+const resolvePage_js_1 = require("../helpers/resolvePage.js");
 function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: set_report — switch report at runtime
@@ -201,9 +202,13 @@ function registerReportTools(server, ctx) {
     // TOOL: rename_page
     // ============================================================
     server.tool("rename_page", "Rename an existing page", {
-        pageId: zod_1.z.string().describe("The page ID to rename"),
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         displayName: zod_1.z.string().describe("New display name"),
     }, async ({ pageId, displayName }) => {
+        const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!r.resolved)
+            return r.errorResponse;
+        pageId = r.pageId;
         const page = ctx.project.getPage(pageId);
         page.displayName = displayName;
         ctx.project.savePage(pageId, page);
@@ -244,8 +249,12 @@ function registerReportTools(server, ctx) {
     // TOOL: set_active_page
     // ============================================================
     server.tool("set_active_page", "Set which page is active (shown on open)", {
-        pageId: zod_1.z.string().describe("The page ID to set as active"),
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
     }, async ({ pageId }) => {
+        const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!r.resolved)
+            return r.errorResponse;
+        pageId = r.pageId;
         const meta = ctx.project.getPagesMetadata();
         meta.activePageName = pageId;
         ctx.project.savePagesMetadata(meta);
@@ -256,10 +265,14 @@ function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: set_page_visibility
     // ============================================================
-    server.tool("set_page_visibility", "Show or hide a page in the report navigation pane. Hidden pages are not shown to report viewers but can still be used for drillthrough.", {
-        pageId: zod_1.z.string().describe("The page ID"),
-        hidden: zod_1.z.coerce.boolean().describe("true to hide the page, false to show it"),
+    server.tool("set_page_visibility", "Show or hide a page in the navigation pane. Hidden pages still work for drillthrough.", {
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
+        hidden: zod_1.z.coerce.boolean(),
     }, async ({ pageId, hidden }) => {
+        const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!r.resolved)
+            return r.errorResponse;
+        pageId = r.pageId;
         const page = ctx.project.getPage(pageId);
         if (hidden) {
             page.visibility = "HiddenInViewMode";
@@ -322,11 +335,15 @@ function registerReportTools(server, ctx) {
     // TOOL: update_page_size
     // ============================================================
     server.tool("update_page_size", "Update the page dimensions", {
-        pageId: zod_1.z.string().describe("The page ID"),
-        width: zod_1.z.number().optional().describe("New width"),
-        height: zod_1.z.number().optional().describe("New height"),
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
+        width: zod_1.z.number().optional(),
+        height: zod_1.z.number().optional(),
         displayOption: zod_1.z.enum(["FitToPage", "FitToWidth", "ActualSize"]).optional(),
     }, async ({ pageId, width, height, displayOption }) => {
+        const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!r.resolved)
+            return r.errorResponse;
+        pageId = r.pageId;
         const page = ctx.project.getPage(pageId);
         if (width !== undefined)
             page.width = width;
@@ -626,14 +643,18 @@ function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: set_page_background
     // ============================================================
-    server.tool("set_page_background", "Set the page canvas background color and/or wallpaper (area behind the canvas). Pass color as hex (#0D1117). Set transparency 0-100 (0=opaque, 100=fully transparent).", {
-        pageId: zod_1.z.string().describe("The page ID"),
-        color: zod_1.z.string().optional().describe("Canvas background color (hex, e.g. '#0D1117')"),
-        transparency: zod_1.z.number().min(0).max(100).optional().default(0).describe("Canvas background transparency 0-100 (default 0 = opaque)"),
-        wallpaperColor: zod_1.z.string().optional().describe("Wallpaper color — the area behind the page canvas (hex)"),
-        wallpaperTransparency: zod_1.z.number().min(0).max(100).optional().default(0).describe("Wallpaper transparency 0-100"),
-        clear: zod_1.z.boolean().optional().describe("Remove all background/wallpaper settings from the page"),
+    server.tool("set_page_background", "Set the page canvas background and/or wallpaper. Hex color (#0D1117). Transparency 0-100.", {
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
+        color: zod_1.z.string().optional().describe("Canvas background color (hex)"),
+        transparency: zod_1.z.number().min(0).max(100).optional().default(0),
+        wallpaperColor: zod_1.z.string().optional().describe("Color behind the canvas"),
+        wallpaperTransparency: zod_1.z.number().min(0).max(100).optional().default(0),
+        clear: zod_1.z.boolean().optional().describe("Remove all background/wallpaper settings"),
     }, async ({ pageId, color, transparency, wallpaperColor, wallpaperTransparency, clear }) => {
+        const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!r.resolved)
+            return r.errorResponse;
+        pageId = r.pageId;
         const page = ctx.project.getPage(pageId);
         if (!page.objects)
             page.objects = {};

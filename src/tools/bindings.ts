@@ -6,6 +6,7 @@ import type { ServerContext } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
 import { runBindingValidation, attachBindingValidationMetadata } from "../helpers/bindingValidation.js";
 import { applyBindingsToVisual } from "../helpers/bindingApply.js";
+import { resolvePageId } from "../helpers/resolvePage.js";
 
 export function registerBindingTools(server: McpServer, ctx: ServerContext): void {
   // ============================================================

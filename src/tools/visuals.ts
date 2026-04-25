@@ -13,6 +13,7 @@ import { runBindingValidation, attachBindingValidationMetadata } from "../helper
 import { extractVisualTitle } from "../helpers/extractTitle.js";
 import { runLayoutValidation } from "../helpers/layoutValidation.js";
 import { validateFormatTypos } from "../helpers/themeIndex.js";
+import { resolvePageId } from "../helpers/resolvePage.js";
 import type { WireframeVisual } from "../wireframe-validator.js";
 
 export function registerVisualTools(server: McpServer, ctx: ServerContext): void {
@@ -33,12 +34,15 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "list_visuals",
-    "List all visuals on a page. Slim mode (default) returns id, type, x, y, w, h and title if set. Set slim=false for full position object and filter count.",
+    "List all visuals on a page. Default slim returns id/type/x/y/w/h/title. slim:false includes filterCount.",
     {
-      pageId: z.string().describe("The page ID"),
-      slim: z.boolean().optional().default(true).describe("Slim mode (default true) — flat short keys, omits z/tabOrder/filterCount to reduce token usage"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
+      slim: z.boolean().optional().default(true),
     },
     async ({ pageId, slim }) => {
+      const r = resolvePageId(ctx.project, pageId);
+      if (!r.resolved) return r.errorResponse;
+      pageId = r.pageId;
       const visualIds = ctx.project.listVisualIds(pageId);
       const visuals = visualIds.map((id) => {
         const v = ctx.project.getVisual(pageId, id);
@@ -76,12 +80,15 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
     "get_visual",
     "Get visual details. Default returns id/type/position/title/bindings summary. verbose:true returns full PBIR JSON.",
     {
-      pageId: z.string().describe("The page ID"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID"),
       verbose: z.boolean().optional().describe("Full raw PBIR JSON (heavy)."),
       slim: z.boolean().optional().describe("Deprecated alias for !verbose."),
     },
     async ({ pageId, visualId, verbose, slim }) => {
+      const r = resolvePageId(ctx.project, pageId);
+      if (!r.resolved) return r.errorResponse;
+      pageId = r.pageId;
       const visual = ctx.project.getVisual(pageId, visualId);
 
       // Default = slim. verbose:true OR legacy slim:false → full JSON.
@@ -172,7 +179,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
     "add_visual",
     "Add one or more visuals to a page. Pass `visuals` array. Inline containerFormat/visualFormat/dataColors per entry avoids extra format_visual calls. Call `lookup_theme_property` for valid category/property names per visualType. Stacked charts (columnChart/barChart) need a Series binding. 'KPI card' = `card` with one measure. Scatter uses `Details` bucket.",
     {
-      pageId: z.string(),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visuals: z.array(VisualSpecSchema),
       strictBindings: z
         .boolean()
@@ -188,7 +195,9 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
         .describe("Return [{visualId,visualType}] instead of flat id list."),
     },
     async (params) => {
-      const { pageId } = params;
+      const r = resolvePageId(ctx.project, params.pageId);
+      if (!r.resolved) return r.errorResponse;
+      const pageId = r.pageId;
 
       const existingVisuals = ctx.project.listVisualIds(pageId);
       let maxZ = 0;
@@ -364,10 +373,13 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
     "delete_visual",
     "Delete a visual from a page",
     {
-      pageId: z.string().describe("The page ID"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID to delete"),
     },
     async ({ pageId, visualId }) => {
+      const r = resolvePageId(ctx.project, pageId);
+      if (!r.resolved) return r.errorResponse;
+      pageId = r.pageId;
       ctx.project.deleteVisual(pageId, visualId);
       invalidateCache();
       return {
@@ -383,15 +395,18 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
     "move_visual",
     "Move and/or resize a visual on a page",
     {
-      pageId: z.string().describe("The page ID"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID"),
-      x: z.number().optional().describe("New X position"),
-      y: z.number().optional().describe("New Y position"),
-      width: z.number().optional().describe("New width"),
-      height: z.number().optional().describe("New height"),
-      z: z.number().optional().describe("New z-order (layer)"),
+      x: z.number().optional(),
+      y: z.number().optional(),
+      width: z.number().optional(),
+      height: z.number().optional(),
+      z: z.number().optional().describe("z-order"),
     },
     async ({ pageId, visualId, x, y, width, height, z }) => {
+      const r = resolvePageId(ctx.project, pageId);
+      if (!r.resolved) return r.errorResponse;
+      pageId = r.pageId;
       const visual = ctx.project.getVisual(pageId, visualId);
       if (x !== undefined) visual.position.x = x;
       if (y !== undefined) visual.position.y = y;

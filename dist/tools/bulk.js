@@ -8,6 +8,7 @@ const model_usage_js_1 = require("../model-usage.js");
 const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
 const bindingApply_js_1 = require("../helpers/bindingApply.js");
 const mcpResult_js_1 = require("../helpers/mcpResult.js");
+const resolvePage_js_1 = require("../helpers/resolvePage.js");
 // Helper: accept both a real array and a JSON-stringified array (MCP serialisation quirk).
 // The explicit `z.ZodType<T[]>` return cast is required because `z.preprocess` widens
 // the output to `unknown` under strict mode — which breaks downstream `z.infer` chains
@@ -68,12 +69,16 @@ function registerBulkTools(server, ctx) {
     // ============================================================
     // TOOL: bulk_delete_visuals
     // ============================================================
-    server.tool("bulk_delete_visuals", "Delete multiple visuals from a page in one call. Set confirmBulk:true when deleting >5.", {
-        pageId: zod_1.z.string().describe("The page ID"),
+    server.tool("bulk_delete_visuals", "Delete multiple visuals from a page. Set confirmBulk:true when >5.", {
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualIds: parseArray(zod_1.z.string()).describe("Visual IDs to delete"),
         confirmBulk: zod_1.z.coerce.boolean().optional().default(false)
             .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals. Guards against accidental page wipes.`),
     }, async ({ pageId, visualIds, confirmBulk }) => {
+        const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!rp.resolved)
+            return rp.errorResponse;
+        pageId = rp.pageId;
         if (visualIds.length > BULK_MAX_ITEMS) {
             return bulkSizeLimitError("delete", visualIds.length);
         }
@@ -104,8 +109,8 @@ function registerBulkTools(server, ctx) {
     // ============================================================
     // TOOL: bulk_update_format
     // ============================================================
-    server.tool("bulk_update_format", "Apply the same formatting to multiple visuals in one call. target='container' for title/background/border, 'visual' for axes/legend/labels. Set confirmBulk:true when formatting >5.", {
-        pageId: zod_1.z.string().describe("The page ID"),
+    server.tool("bulk_update_format", "Apply the same formatting to multiple visuals. target='container' (title/background/border) or 'visual' (axes/legend/labels). Set confirmBulk:true when >5.", {
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualIds: parseArray(zod_1.z.string()).describe("Visual IDs to format"),
         formatting: parseArray(createVisual_js_1.FormatCategorySchema).describe("Formatting to apply to all visuals"),
         target: zod_1.z
@@ -116,6 +121,10 @@ function registerBulkTools(server, ctx) {
         confirmBulk: zod_1.z.coerce.boolean().optional().default(false)
             .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
     }, async ({ pageId, visualIds, formatting, target, confirmBulk }) => {
+        const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!rp.resolved)
+            return rp.errorResponse;
+        pageId = rp.pageId;
         if (visualIds.length > BULK_MAX_ITEMS) {
             return bulkSizeLimitError("format", visualIds.length);
         }
@@ -150,8 +159,8 @@ function registerBulkTools(server, ctx) {
     // ============================================================
     // TOOL: bulk_bind
     // ============================================================
-    server.tool("bulk_bind", "Update data bindings on multiple visuals in one call. Each entry specifies a visualId and its new bindings. Replaces existing bindings entirely. Set confirmBulk:true when rebinding >5. Set continueOnError:true to validate and write each entry independently — a bad binding on one visual no longer fails the whole batch.", {
-        pageId: zod_1.z.string().describe("The page ID"),
+    server.tool("bulk_bind", "Rebind multiple visuals in one call. Replaces existing bindings. Set confirmBulk:true when >5. continueOnError:true validates per-entry — bad bindings don't abort the batch.", {
+        pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         updates: parseArray(zod_1.z.object({
             visualId: zod_1.z.string().describe("Visual ID to rebind"),
             bindings: parseArray(createVisual_js_1.BucketBindingSchema).describe("New bindings"),
@@ -170,6 +179,10 @@ function registerBulkTools(server, ctx) {
             .optional()
             .describe("Binding validation: true=strict (default, fail on unknown field), false=warn (proceed with warnings). Omit for env default."),
     }, async ({ pageId, updates, autoFilters, confirmBulk, continueOnError, strictBindings }) => {
+        const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
+        if (!rp.resolved)
+            return rp.errorResponse;
+        pageId = rp.pageId;
         if (updates.length > BULK_MAX_ITEMS) {
             return bulkSizeLimitError("rebind", updates.length);
         }

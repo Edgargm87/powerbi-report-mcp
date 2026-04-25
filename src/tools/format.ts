@@ -2,6 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { applyFormattingToTarget, applyDataColors } from "../helpers/formatting.js";
 import { validateFormatTypos } from "../helpers/themeIndex.js";
+import { resolvePageId } from "../helpers/resolvePage.js";
 import { FormatCategorySchema, DataColorSchema, NO_DATA_VISUAL_TYPES } from "../helpers/createVisual.js";
 import { THEME_PRESETS } from "../helpers/defaults.js";
 import type { ServerContext } from "../context.js";
@@ -21,7 +22,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
     "set_visual_title",
     "Set or update the title of a visual. Can set text, visibility, font, size, alignment.",
     {
-      pageId: z.string().describe("The page ID"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID"),
       title: z.string().optional().describe("The title text to display"),
       show: z.boolean().optional().describe("Whether to show the title (default true)"),
@@ -36,6 +37,9 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       titleWrap: z.boolean().optional().describe("Whether to wrap the title text"),
     },
     async ({ pageId, visualId, title, show, fontSize, fontFamily, alignment, titleWrap }) => {
+      const r = resolvePageId(ctx.project, pageId);
+      if (!r.resolved) return r.errorResponse;
+      pageId = r.pageId;
       const visual = ctx.project.getVisual(pageId, visualId);
       if (!visual.visual.visualContainerObjects) {
         visual.visual.visualContainerObjects = {};
@@ -95,7 +99,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
     "format_visual",
     "Format visual properties. Auto-routes title/background/border/padding/dropShadow/visualHeader to container, others to visual; override with target='visual'|'container'. Call `lookup_theme_property` for valid category/property names per visualType. Gotchas: slicer uses `textSize`, not `fontSize` (items/header); waterfall uses `sentimentColors`, not `dataPoint`.",
     {
-      pageId: z.string().describe("The page ID"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID"),
       formatting: z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, z.array(FormatCategorySchema))
         .describe("Array of formatting categories and their properties to set"),
@@ -108,6 +112,9 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
         ),
     },
     async ({ pageId, visualId, formatting, target }) => {
+      const r = resolvePageId(ctx.project, pageId);
+      if (!r.resolved) return r.errorResponse;
+      pageId = r.pageId;
       const visual = ctx.project.getVisual(pageId, visualId);
 
       // Cheap typo catcher — flag misspelled category/property names against
@@ -178,9 +185,9 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "set_datapoint_colors",
-    "Set data point colors. For series-based charts (Series bucket) use metadata mode (default). For category-based charts (Category bucket, no Series) provide categoryEntity+categoryProperty to use data selector mode — required for barChart, columnChart, pieChart etc. with a single measure.",
+    "Set data point colors. Series-based charts use metadata mode. Category-based (no Series) requires categoryEntity+categoryProperty.",
     {
-      pageId: z.string().describe("The page ID"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID"),
       colors: z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, z.array(DataColorSchema)).describe("Array of {seriesName, color} — seriesName is the category value or series name to color"),
       categoryEntity: z.string().optional().describe("Category table name — required for category-based charts (barChart, columnChart, pieChart etc.)"),
@@ -191,6 +198,9 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
         .describe("Default transparency for all data points (0-100)"),
     },
     async ({ pageId, visualId, colors, categoryEntity, categoryProperty, defaultTransparency }) => {
+      const r = resolvePageId(ctx.project, pageId);
+      if (!r.resolved) return r.errorResponse;
+      pageId = r.pageId;
       const visual = ctx.project.getVisual(pageId, visualId);
       applyDataColors(visual, colors, defaultTransparency, categoryEntity, categoryProperty);
       ctx.project.saveVisual(pageId, visualId, visual);
@@ -210,9 +220,9 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "set_conditional_format",
-    "Apply conditional formatting to a visual container background or title font. formatType: rules (value comparisons), gradient (color scale), clear (remove). ComparisonKind: 0=Eq, 1=GT, 2=GTE, 3=LT, 4=LTE, 5=NEq.",
+    "Apply conditional formatting to a visual container background or title font. formatType: rules / gradient / clear. ComparisonKind: 0=Eq,1=GT,2=GTE,3=LT,4=LTE,5=NEq.",
     {
-      pageId: z.string().describe("The page ID"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID"),
       property: z
         .enum(["background", "title"])
@@ -248,6 +258,9 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       rules, defaultColor,
       minColor, maxColor, midColor,
     }) => {
+      const rp = resolvePageId(ctx.project, pageId);
+      if (!rp.resolved) return rp.errorResponse;
+      pageId = rp.pageId;
       const visual = ctx.project.getVisual(pageId, visualId);
       if (!visual.visual.visualContainerObjects) visual.visual.visualContainerObjects = {};
       const container = visual.visual.visualContainerObjects as Record<string, unknown[]>;
@@ -393,9 +406,9 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "apply_theme",
-    `Apply a named theme to all visuals on a page. Available themes: ${Object.keys(THEME_PRESETS).join(", ")}. Applies container formatting, and optionally data colors, to every visual on the page in one call.`,
+    `Apply a named theme preset to all visuals on a page. Themes: ${Object.keys(THEME_PRESETS).join(", ")}.`,
     {
-      pageId: z.string().describe("The page ID"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       theme: z
         .enum(["dark", "light", "corporate", "blue-purple"])
         .describe("Theme preset name"),
@@ -406,6 +419,9 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
         .describe("Whether to apply theme data colors to chart visuals"),
     },
     async ({ pageId, theme, applyDataColors: applyColors }) => {
+      const rp = resolvePageId(ctx.project, pageId);
+      if (!rp.resolved) return rp.errorResponse;
+      pageId = rp.pageId;
       const preset = THEME_PRESETS[theme];
       if (!preset) {
         return {
@@ -481,9 +497,9 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "set_visual_sort",
-    "Set the sort order of a visual. Overrides the default auto-sort. Use Table[Column] shorthand for field references.",
+    "Set the sort order of a visual. Overrides the auto-sort. Use Table[Column] for field refs.",
     {
-      pageId: z.string().describe("The page ID"),
+      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID"),
       sort: z.array(z.object({
         field: z.string().describe("Field to sort by in Table[Column] format (e.g. 'Sales[Revenue]')"),
@@ -497,6 +513,9 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
         .describe("Whether this is the default sort (true = can be overridden by user)"),
     },
     async ({ pageId, visualId, sort, isDefaultSort }) => {
+      const rp = resolvePageId(ctx.project, pageId);
+      if (!rp.resolved) return rp.errorResponse;
+      pageId = rp.pageId;
       const visual = ctx.project.getVisual(pageId, visualId);
 
       // Import parseFieldSpec to reuse the field parsing logic
