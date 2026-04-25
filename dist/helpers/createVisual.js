@@ -218,9 +218,13 @@ function createAndSaveVisual(project, pageId, spec, baseZ) {
     if (bindings && bindings.length > 0) {
         for (const binding of bindings) {
             let bucketName = binding.bucket;
-            if (bucketName === "Fields") {
-                const validBuckets = pbir_js_1.VISUAL_BUCKETS[visualType];
-                if (validBuckets && validBuckets.length > 0 && !validBuckets.includes("Fields")) {
+            // Bucket coercion: see bindingApply.ts for the full rationale. Mirrors
+            // the same logic so add_visual and update_visual_bindings stay in lockstep.
+            const validBuckets = pbir_js_1.VISUAL_BUCKETS[visualType];
+            if (validBuckets && validBuckets.length > 0 && !validBuckets.includes(bucketName)) {
+                const isGenericPlaceholder = ["Field", "Fields", "Category", "Categories"].includes(bucketName);
+                const isSingleBucketVisual = validBuckets.length === 1;
+                if (isGenericPlaceholder || isSingleBucketVisual) {
                     bucketName = validBuckets[0];
                 }
             }

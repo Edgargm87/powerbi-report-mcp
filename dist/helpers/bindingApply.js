@@ -24,9 +24,18 @@ function applyBindingsToVisual(visual, bindings, opts) {
     const queryState = {};
     for (const binding of bindings) {
         let bucketName = binding.bucket;
-        if (bucketName === "Fields") {
-            const validBuckets = pbir_js_1.VISUAL_BUCKETS[vType];
-            if (validBuckets && validBuckets.length > 0 && !validBuckets.includes("Fields")) {
+        // Coerce generic / wrong bucket names to the visual's canonical bucket.
+        // Triggers when:
+        //   (a) the LLM passed a generic placeholder (Field/Fields/Categories), OR
+        //   (b) the visual has exactly ONE valid bucket (slicers, gauge, kpi, card, etc.)
+        //       and the supplied name doesn't match it — silent-wrong otherwise (PBI
+        //       writes `queryState.Field` but renders nothing). See test:slicer for
+        //       the regression that drove this.
+        const validBuckets = pbir_js_1.VISUAL_BUCKETS[vType];
+        if (validBuckets && validBuckets.length > 0 && !validBuckets.includes(bucketName)) {
+            const isGenericPlaceholder = ["Field", "Fields", "Category", "Categories"].includes(bucketName);
+            const isSingleBucketVisual = validBuckets.length === 1;
+            if (isGenericPlaceholder || isSingleBucketVisual) {
                 bucketName = validBuckets[0];
             }
         }

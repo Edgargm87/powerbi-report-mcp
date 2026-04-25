@@ -174,6 +174,76 @@ console.log("\nslicer height >= 44 is respected:");
   assert(visual.position.height === 120, `height 120 preserved (got ${visual.position.height})`);
 }
 
+// --- Bucket coercion: silent-wrong "Field" (singular) bug ---
+// Regression: LLM passed bucket:"Field" for a slicer; old code wrote
+// queryState.Field literally → PBI rendered the title but couldn't bind
+// (the column showed as "selected" in the field well but the slicer was dead).
+// The remap only matched "Fields" (plural). Fix: coerce any non-matching
+// bucket name to validBuckets[0] when the visual has only one valid bucket.
+console.log("\nbucket coercion — slicer with bucket:'Field' → 'Values':");
+for (const visualType of ["slicer", "listSlicer", "textSlicer"]) {
+  const project = makeFakeProject();
+  const { visualId } = createAndSaveVisual(
+    project,
+    "pageA",
+    {
+      visualType,
+      bindings: [
+        { bucket: "Field", fields: [{ field: "Sales[Region]", type: "column" }] },
+      ],
+    },
+    0
+  );
+  const visual = project.saved.get(visualId);
+  const buckets = Object.keys(visual.visual?.query?.queryState ?? {});
+  assert(
+    buckets.length === 1 && buckets[0] === "Values",
+    `${visualType} queryState bucket = ["Values"] (got ${JSON.stringify(buckets)})`
+  );
+}
+console.log("\nbucket coercion — advancedSlicerVisual with bucket:'Field' → 'Rows':");
+{
+  const project = makeFakeProject();
+  const { visualId } = createAndSaveVisual(
+    project,
+    "pageA",
+    {
+      visualType: "advancedSlicerVisual",
+      bindings: [
+        { bucket: "Field", fields: [{ field: "Sales[Region]", type: "column" }] },
+      ],
+    },
+    0
+  );
+  const visual = project.saved.get(visualId);
+  const buckets = Object.keys(visual.visual?.query?.queryState ?? {});
+  assert(
+    buckets.length === 1 && buckets[0] === "Rows",
+    `advancedSlicerVisual queryState bucket = ["Rows"] (got ${JSON.stringify(buckets)})`
+  );
+}
+console.log("\nbucket coercion — also accepts 'Categories' / 'Category' typos:");
+{
+  const project = makeFakeProject();
+  const { visualId } = createAndSaveVisual(
+    project,
+    "pageA",
+    {
+      visualType: "slicer",
+      bindings: [
+        { bucket: "Categories", fields: [{ field: "Date[Year]", type: "column" }] },
+      ],
+    },
+    0
+  );
+  const visual = project.saved.get(visualId);
+  const buckets = Object.keys(visual.visual?.query?.queryState ?? {});
+  assert(
+    buckets.length === 1 && buckets[0] === "Values",
+    `slicer 'Categories' coerced to 'Values' (got ${JSON.stringify(buckets)})`
+  );
+}
+
 // Non-slicer with low height is NOT bumped (guard is slicer-only).
 console.log("\nnon-slicer height < 44 is NOT bumped:");
 {
