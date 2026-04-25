@@ -30,7 +30,7 @@ claude mcp add powerbi-modeling-mcp C:\path\to\powerbi-modeling-mcp\server\power
 
 ## Optional: Pre-connect to a report
 
-Add the report path as a second argument to skip the `set_report` step:
+Add the report path as a second argument to skip the `pbir_set_report` step:
 
 ```json
 "args": ["C:\\path\\to\\powerbi-report-mcp\\dist\\index.js", "C:\\path\\to\\MyReport.Report"]

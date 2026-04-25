@@ -137,7 +137,7 @@ Three visual types require a top-level `howCreated: "InsertVisualButton"` proper
 
 Affected types: `actionButton`, `pageNavigator`, `image`
 
-These are defined in `INSERT_BUTTON_VISUAL_TYPES` in `src/helpers/createVisual.ts`. The server adds this property automatically when you use `add_visual`.
+These are defined in `INSERT_BUTTON_VISUAL_TYPES` in `src/helpers/createVisual.ts`. The server adds this property automatically when you use `pbir_add_visual`.
 
 ### Slicer Modes
 
@@ -277,7 +277,7 @@ This produces a stacked bar chart where each bar represents a Region, and the co
 
 ## 6. Formatting Reference
 
-The `format_visual` tool is pass-through: any category/property combination you specify is written directly into the visual's formatting objects. This means any valid Power BI formatting category and property works -- but using the **wrong name fails silently**. Power BI does not error on unrecognized properties; it simply ignores them. Your formatting looks like it applied, but nothing changes on the canvas.
+The `pbir_format_visual` tool is pass-through: any category/property combination you specify is written directly into the visual's formatting objects. This means any valid Power BI formatting category and property works -- but using the **wrong name fails silently**. Power BI does not error on unrecognized properties; it simply ignores them. Your formatting looks like it applied, but nothing changes on the canvas.
 
 This section documents the correct names so you do not have to guess.
 
@@ -300,13 +300,13 @@ These are the most dangerous naming inconsistencies across visual types. Getting
 | Pie/donut label position | PascalCase required: `Outside`, `Inside`, `BestFit`. Lowercase silently ignored. |
 | Gauge `calloutValue` | Has NO `fontSize` property. Central number font size is not controllable via formatting. |
 | Action button states | State keys: `*` (default), `hover`, `press`, `selected`, `disabled`. Omitted states inherit from `*`. |
-| Color objects | All color properties require `{"solid":{"color":"#hex"}}` format. format_visual handles this automatically -- pass plain `#hex` strings. |
+| Color objects | All color properties require `{"solid":{"color":"#hex"}}` format. pbir_format_visual handles this automatically -- pass plain `#hex` strings. |
 
 ---
 
 ### Container Names by Visual Type
 
-Formatting containers are the `category` values you pass to `format_visual`. Each visual type supports a specific set of containers. Using a container name that does not belong to a visual type fails silently.
+Formatting containers are the `category` values you pass to `pbir_format_visual`. Each visual type supports a specific set of containers. Using a container name that does not belong to a visual type fails silently.
 
 #### Bar / Column family
 

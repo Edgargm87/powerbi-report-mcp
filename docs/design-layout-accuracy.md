@@ -18,8 +18,8 @@ mid-session is fine). Claude Desktop benefits incidentally.
 |---|----------|--------|
 | 1 | Error message format | **Structured teaching** (~80 tokens) — `{code, actual, limits, suggestion, rule, guide}` |
 | 2 | Strict-layout default | **On by default**, `strictLayout:false` per-call escape hatch |
-| 3 | `layout_grid` shape | **Plan→commit two-phase by default** (`planOnly:true`), `planOnly:false` single-shot for power users |
-| 4 | Skill pointers in errors | **Yes** — every error carries a `guide` field referencing `guide('wireframes')` or similar |
+| 3 | `pbir_layout_grid` shape | **Plan→commit two-phase by default** (`planOnly:true`), `planOnly:false` single-shot for power users |
+| 4 | Skill pointers in errors | **Yes** — every error carries a `pbir_guide` field referencing `guide('wireframes')` or similar |
 | 5 | Strict-gate scope | **Block 7 rules, warn on column alignment only** (see table below) |
 
 ---
@@ -28,23 +28,23 @@ mid-session is fine). Claude Desktop benefits incidentally.
 
 ### 2a. Three surface changes
 
-1. **`add_visual` gains write-time wireframe validation** with strict default.
-2. **New tool: `layout_grid`** — grid-primitive layout with plan→commit flow.
-3. **Canvas dimensions surfaced** in `create_page`, `list_pages`, `get_page_summary` responses.
+1. **`pbir_add_visual` gains write-time wireframe validation** with strict default.
+2. **New tool: `pbir_layout_grid`** — grid-primitive layout with plan→commit flow.
+3. **Canvas dimensions surfaced** in `pbir_create_page`, `pbir_list_pages`, `get_page_summary` responses.
 
 ### 2b. Out of scope (deferred)
 
 - Relative anchors (`anchor:"visualId", side:"right"`) — user doesn't test cascading edits.
-- Named taste templates (`"executive-summary"`) — `layout_grid` covers this need.
-- Canvas-percent coords (`x:"50%"`) — overlaps with `layout_grid`.
-- `draft_page_wireframe` as a distinct tool — `layout_grid` with `planOnly:true`
+- Named taste templates (`"executive-summary"`) — `pbir_layout_grid` covers this need.
+- Canvas-percent coords (`x:"50%"`) — overlaps with `pbir_layout_grid`.
+- `draft_page_wireframe` as a distinct tool — `pbir_layout_grid` with `planOnly:true`
   is functionally equivalent. One tool, two modes.
 
 ---
 
 ## 3. Error format contract
 
-Single shape, used by `add_visual` strict-mode rejections, `layout_grid` plan
+Single shape, used by `pbir_add_visual` strict-mode rejections, `pbir_layout_grid` plan
 validation, and any future layout-touching tool.
 
 ```ts
@@ -86,7 +86,7 @@ interface LayoutError {
 }
 ```
 
-**Example response when strict-mode `add_visual` rejects a write:**
+**Example response when strict-mode `pbir_add_visual` rejects a write:**
 
 ```json
 {
@@ -107,7 +107,7 @@ interface LayoutError {
       "limits":  { "maxRightEdge": 1250, "yourRightEdge": 1300 },
       "suggestion": "Reduce width to 50 (keep x=1200) OR move x to 1150 (keep width=100).",
       "rule": "x + width must be ≤ 1250 (15px L/R margins on a 1280px canvas).",
-      "guide": "guide('wireframes')"
+      "pbir_guide": "guide('wireframes')"
     }
   ]
 }
@@ -135,12 +135,12 @@ Reuses the validator codes in `src/wireframe-validator.ts`. Mapping:
 | `COLUMN_MISALIGN` | warning | **warn only** | Row 1 cols don't align to row 0 cols; legitimate with spans |
 | `ROW_MISALIGN` | warning | **warn only** | Same reasoning |
 
-**Escape hatch:** `strictLayout: false` on `add_visual` or `layout_grid` downgrades
+**Escape hatch:** `strictLayout: false` on `pbir_add_visual` or `pbir_layout_grid` downgrades
 every blocking error to a warning. Same semantics as `strictBindings`.
 
 ---
 
-## 5. API — `add_visual` (modified)
+## 5. API — `pbir_add_visual` (modified)
 
 No new required parameters. One new optional:
 
@@ -172,7 +172,7 @@ No new required parameters. One new optional:
 
 ---
 
-## 6. API — `layout_grid` (new tool)
+## 6. API — `pbir_layout_grid` (new tool)
 
 ### 6a. Input schema
 
@@ -196,18 +196,18 @@ No new required parameters. One new optional:
     rowSpan?: number;     // default 1
     colSpan?: number;     // default 1
 
-    // Visual content — same shape as add_visual's nested form
+    // Visual content — same shape as pbir_add_visual's nested form
     visualType: string;
     title?: string;
     bindings?: BucketBinding[];
     format?: Record<string, unknown>;
     dataColors?: string[];
-    // ... any other add_visual field
+    // ... any other pbir_add_visual field
   }>;
 
   planOnly?: boolean;        // default TRUE — return plan, don't write
   strictLayout?: boolean;    // default true — applies to the computed plan
-  autoFilters?: boolean;     // default true, passed through to add_visual
+  autoFilters?: boolean;     // default true, passed through to pbir_add_visual
 }
 ```
 
@@ -246,7 +246,7 @@ No new required parameters. One new optional:
     "warnings": 0,
     "coverage": 98.7
   },
-  "nextStep": "Call layout_grid again with planOnly:false (or add_visual for each plan entry) to commit."
+  "nextStep": "Call pbir_layout_grid again with planOnly:false (or pbir_add_visual for each plan entry) to commit."
 }
 ```
 
@@ -256,7 +256,7 @@ learning channel. After 3 pages the LLM can do the 5-column split from memory.
 ### 6c. `planOnly:false` — writes directly
 
 Server computes the plan (same math), validates, and if validation passes,
-calls `add_visual` for each cell. Returns the same response plus `ids:[...]`.
+calls `pbir_add_visual` for each cell. Returns the same response plus `ids:[...]`.
 
 If validation fails in strict mode: returns the plan + `layoutErrors:[]`,
 no writes.
@@ -293,7 +293,7 @@ h = sum(heights[r..r+rs-1]) + (rs-1)*gap
 This math is **deterministic** and the same for any (rows, cols, gaps,
 margins) — easy to unit test with concrete fixtures.
 
-### 6e. Validation rules specific to `layout_grid`
+### 6e. Validation rules specific to `pbir_layout_grid`
 
 - `cells[].row < rows` and `cells[].col < cols`. Otherwise `cell_out_of_grid`.
 - `row + rowSpan <= rows`, `col + colSpan <= cols`. Otherwise `span_overflow_grid`.
@@ -307,12 +307,12 @@ margins) — easy to unit test with concrete fixtures.
 
 Zero-cost addition to three existing tools:
 
-**`create_page` response** (currently returns `{success, pageId}`):
+**`pbir_create_page` response** (currently returns `{success, pageId}`):
 ```json
 { "success": true, "pageId": "...", "canvas": { /* CANVAS constants */ } }
 ```
 
-**`list_pages` response** — add top-level `canvas` once (not per page — same for all).
+**`pbir_list_pages` response** — add top-level `canvas` once (not per page — same for all).
 
 **`get_page_summary` response** — add `canvas` alongside existing fields.
 
@@ -325,20 +325,20 @@ No breaking changes (additive).
 | File | Change |
 |---|---|
 | `src/helpers/layoutValidation.ts` | **NEW.** Wraps `validateWireframe` in the strict/warn/off policy shape; produces `LayoutError[]` from `WireframeIssue[]`; converts severity per rule table §4. |
-| `src/tools/visuals.ts` | `add_visual` gains `strictLayout` param + pre-write validation call. On reject: return `layoutErrors` response. On write success: include `canvas` + `layoutWarnings`. |
-| `src/tools/layoutGrid.ts` | **NEW.** The `layout_grid` tool registration. Grid math, validation, plan-vs-commit branch. |
-| `src/index.ts` | Register `layout_grid` (on-demand by default; make core once proven). |
-| `src/default-tools.ts` | No change initially. Consider promoting `layout_grid` to default after beta. |
-| `src/tools/pages.ts` | `create_page` returns `canvas`. |
-| `src/tools/pages.ts` or `src/tools/visuals.ts` | `list_pages` / `get_page_summary` return `canvas`. |
-| `skills/wireframes.md` | Add a "layout_grid" section with 3 worked examples (2×3 dashboard, banner+content, hero+sidebar). |
+| `src/tools/visuals.ts` | `pbir_add_visual` gains `strictLayout` param + pre-write validation call. On reject: return `layoutErrors` response. On write success: include `canvas` + `layoutWarnings`. |
+| `src/tools/layoutGrid.ts` | **NEW.** The `pbir_layout_grid` tool registration. Grid math, validation, plan-vs-commit branch. |
+| `src/index.ts` | Register `pbir_layout_grid` (on-demand by default; make core once proven). |
+| `src/default-tools.ts` | No change initially. Consider promoting `pbir_layout_grid` to default after beta. |
+| `src/tools/pages.ts` | `pbir_create_page` returns `canvas`. |
+| `src/tools/pages.ts` or `src/tools/visuals.ts` | `pbir_list_pages` / `get_page_summary` return `canvas`. |
+| `skills/wireframes.md` | Add a "pbir_layout_grid" section with 3 worked examples (2×3 dashboard, banner+content, hero+sidebar). |
 | `scripts/test-layout-validator.js` | **NEW.** Mirror of `test-binding-validator.js` — 25+ cases covering every `LayoutError.code`. |
 | `scripts/test-layout-grid.js` | **NEW.** Grid-math unit tests: 1×1, 2×3, 5×1 with banner, edge-gap-span cases, rounding remainder distribution. |
 | `.githooks/pre-commit` | Add both new test scripts to the gate. |
 | `.github/workflows/ci.yml` | Same. |
 | `package.json` | New scripts `test:layout`, `test:grid`; added to `test:all`. |
 | `README.md` | Add "Layout validation" section near "Smart Tool Loading". |
-| `src/index.ts` PBIR_INSTRUCTIONS | One sentence: "When building a fresh page from scratch, prefer `layout_grid` with `planOnly:true` over calling `add_visual` multiple times." |
+| `src/index.ts` PBIR_INSTRUCTIONS | One sentence: "When building a fresh page from scratch, prefer `pbir_layout_grid` with `planOnly:true` over calling `pbir_add_visual` multiple times." |
 
 ---
 
@@ -364,7 +364,7 @@ existing `strictBindings` pattern.
 - `OFF 1..3` — spot checks that `mode:off` skips validation.
 - `SKIP 1..3` — missing canvas (shouldn't happen but defensive).
 - `RESPONSE 1..4` — `LayoutError` shape contract: every field present, `suggestion`
-  non-empty, `rule` non-empty, `guide` present.
+  non-empty, `rule` non-empty, `pbir_guide` present.
 
 ### 10b. `test-layout-grid.js`
 - `MATH 1..8` — 1×1, 1×2, 2×1, 2×3, 3×3, 5×1, 1×5, 2×3 with banner row.
@@ -387,15 +387,15 @@ Implement in three slices so value lands early and each slice is independently s
 ### Slice 1 — Canvas exposure + write-time validator (arithmetic accountability)
 Smallest diff, biggest immediate win.
 - New `src/helpers/layoutValidation.ts`.
-- `add_visual` wired in (strict default, env-var, per-call override).
-- Canvas dims on `create_page` / `list_pages` / `get_page_summary`.
+- `pbir_add_visual` wired in (strict default, env-var, per-call override).
+- Canvas dims on `pbir_create_page` / `pbir_list_pages` / `get_page_summary`.
 - `test-layout-validator.js` + CI gate.
 - README + skill updates.
 
 **Exit criterion:** LLM can no longer commit a bad position silently.
 Pre-commit + CI green.
 
-### Slice 2 — `layout_grid` plan mode
+### Slice 2 — `pbir_layout_grid` plan mode
 - New `src/tools/layoutGrid.ts` with `planOnly:true` only.
 - Grid math + validation.
 - `test-layout-grid.js`.
@@ -404,9 +404,9 @@ Pre-commit + CI green.
 **Exit criterion:** LLM builds a 2×3 dashboard in one plan call; we verify the
 computed coords pass the wireframe-validator and match canonical layouts.
 
-### Slice 3 — `layout_grid` commit mode
-- `planOnly:false` branch writes visuals by reusing `add_visual`'s core logic.
-- End-to-end test: plan → commit → `list_visuals` shows the right shape.
+### Slice 3 — `pbir_layout_grid` commit mode
+- `planOnly:false` branch writes visuals by reusing `pbir_add_visual`'s core logic.
+- End-to-end test: plan → commit → `pbir_list_visuals` shows the right shape.
 
 **Exit criterion:** loose prompt ("build a sales dashboard") produces a
 valid page in one or two tool calls, with the LLM seeing the numbers.
@@ -419,7 +419,7 @@ valid page in one or two tool calls, with the LLM seeing the numbers.
 |---|---|
 | Strict default breaks existing working flows | `MCP_LAYOUT_VALIDATION=warn` env escape, per-call `strictLayout:false`, one changelog entry loud about the behaviour change. |
 | Validator false positives on legitimate-but-weird layouts (posters, screensavers) | Keep `COLUMN_MISALIGN` as warn-only. Document the escape hatches prominently. |
-| `layout_grid` grid math has edge cases on narrow/tall canvases | Unit-test with the CANVAS constants and 2–3 alternate canvas sizes. Don't support non-default canvas for v1. |
+| `pbir_layout_grid` grid math has edge cases on narrow/tall canvases | Unit-test with the CANVAS constants and 2–3 alternate canvas sizes. Don't support non-default canvas for v1. |
 | Two-phase (plan→commit) increases round trips | Single-shot mode (`planOnly:false`) exists for token-sensitive users. Default to plan because the learning win is larger. |
 | Error messages balloon token usage on bad LLMs | Structured LayoutError is ~80 tokens; bad LLMs making 10 errors/page is 800 tokens. Compare to the thousand-token recovery loops when they commit broken layouts and have to re-read the report. Net win. |
 | Backward compatibility with scripts that pass bad positions on purpose | `strictLayout:false` per-call, `MCP_LAYOUT_VALIDATION=off` globally. Tests for both. |
@@ -432,7 +432,7 @@ valid page in one or two tool calls, with the LLM seeing the numbers.
   or appears in `layoutWarnings` — never ships invisibly.
 - **LLM self-correction rate.** On a sample of 10 "build a page from prompt"
   sessions: measure how often the LLM succeeds on the first try vs. first-retry.
-  Target: >70% first-try with `layout_grid`, up from ~20% today.
+  Target: >70% first-try with `pbir_layout_grid`, up from ~20% today.
 - **Skill read reduction.** LLMs currently read `skills/wireframes.md` often
   because they're unsure. Post-ship, the error messages should carry enough
   context that `guide('wireframes')` calls drop.
@@ -445,7 +445,7 @@ valid page in one or two tool calls, with the LLM seeing the numbers.
 
 - **Non-default canvas sizes** (1920×1080, 16:10, portrait) — out of scope for v1.
   The CANVAS constants are shared; extending is a later PR.
-- **`layout_grid` promotion to default tool set** — ship on-demand first,
+- **`pbir_layout_grid` promotion to default tool set** — ship on-demand first,
   promote after a release's worth of feedback.
 - **Automatic grid inference** — given an existing page, offer to reverse-engineer
   its grid. Future nice-to-have.

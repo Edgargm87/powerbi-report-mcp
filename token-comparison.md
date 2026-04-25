@@ -12,8 +12,8 @@ Scenario: build pages with 4 KPIs + 5 slicers + 4 charts + wireframe shapes.
 |---|---|---|---|
 | **Schema overhead** | ~12,000 (all tool defs) | ~500 (bash tool only) | ~500 (bash tool only) |
 | **Batch operations** | ✅ N visuals in 1 call | ❌ 1 command per visual | ❌ 1 file write per visual |
-| **Binding** | ✅ Inline with add_visual | ❌ Separate bind command each | ❌ Manual JSON construction |
-| **Format** | ✅ apply_theme = 1 call | ❌ 1 command per visual | ❌ Manual JSON per visual |
+| **Binding** | ✅ Inline with pbir_add_visual | ❌ Separate bind command each | ❌ Manual JSON construction |
+| **Format** | ✅ pbir_apply_theme = 1 call | ❌ 1 command per visual | ❌ Manual JSON per visual |
 | **Output verbosity** | Low (structured JSON) | Medium (CLI stdout) | High (full file contents) |
 | **Error risk** | Low (validated) | Medium (CLI flags) | High (raw JSON) |
 
@@ -25,11 +25,11 @@ Scenario: build pages with 4 KPIs + 5 slicers + 4 charts + wireframe shapes.
 
 | Step | Calls | Tokens |
 |---|---|---|
-| list_pages + create_page | 2 | ~150 |
-| add_visual batch shapes | 1 | ~630 |
-| add_visual batch data visuals (inline titles) | 1 | ~1,660 |
-| apply_theme | 1 | ~50 |
-| reload_report | 1 | ~35 |
+| pbir_list_pages + pbir_create_page | 2 | ~150 |
+| pbir_add_visual batch shapes | 1 | ~630 |
+| pbir_add_visual batch data visuals (inline titles) | 1 | ~1,660 |
+| pbir_apply_theme | 1 | ~50 |
+| pbir_reload_report | 1 | ~35 |
 | **Subtotal** | **6 calls** | **~2,525** |
 
 ### CLI (pbi-cli) — Same page
@@ -213,8 +213,8 @@ By page 5 you're carrying ~5,000-8,000 tokens of prior tool results on every cal
 |---|---|
 | Quick single-page exploration | CLI |
 | Full report build (3+ pages) | MCP |
-| Heavily formatted report | MCP (`apply_theme` advantage) |
-| Bulk binding updates | MCP (`update_visual_bindings`) |
+| Heavily formatted report | MCP (`pbir_apply_theme` advantage) |
+| Bulk binding updates | MCP (`pbir_update_visual_bindings`) |
 | One-off page inspection | CLI (`pbi report get-page`) |
 | Long session (5+ pages) | MCP + `/compact` every 3 pages |
 
@@ -225,8 +225,8 @@ By page 5 you're carrying ~5,000-8,000 tokens of prior tool results on every cal
 ```
 1. Single page or quick check  → CLI may be more efficient
 2. Multi-page build            → MCP (batching pays off fast)
-3. Any formatting              → MCP (apply_theme vs N CLI calls)
+3. Any formatting              → MCP (pbir_apply_theme vs N CLI calls)
 4. Long sessions               → /compact every 3 pages
-5. Never                       → individual format_visual per visual
+5. Never                       → individual pbir_format_visual per visual
 6. Never                       → manual JSON editing
 ```

@@ -412,9 +412,9 @@ This applies to both rules-based and gradient conditional formatting.
 
 ## 4. Report Settings
 
-### 4.1 update_report_settings -- allowlisted keys only (B06)
+### 4.1 pbir_update_report_settings -- allowlisted keys only (B06)
 
-**What went wrong:** Accepting arbitrary keys in the `update_report_settings` tool (e.g., `persistFilters`). Writing unknown keys to `report.json` causes a PBIR schema validation error and the report will not open in PBI Desktop at all.
+**What went wrong:** Accepting arbitrary keys in the `pbir_update_report_settings` tool (e.g., `persistFilters`). Writing unknown keys to `report.json` causes a PBIR schema validation error and the report will not open in PBI Desktop at all.
 
 **What PBI Desktop expects:** Only a fixed set of known keys are valid in the report settings object within `report.json`. The tool now validates against an allowlist and returns an error before writing if an invalid key is provided.
 
@@ -426,7 +426,7 @@ This applies to both rules-based and gradient conditional formatting.
 
 ### 5.1 Boolean params serialised as strings (B01)
 
-**What went wrong:** The `hidden` boolean parameter on `set_page_visibility` was rejected when an MCP client serialised `true` as the string `"true"`.
+**What went wrong:** The `hidden` boolean parameter on `pbir_set_page_visibility` was rejected when an MCP client serialised `true` as the string `"true"`.
 
 **Fix:** Use `z.coerce.boolean()` instead of `z.boolean()` for all boolean parameters that may come from MCP clients.
 
@@ -449,7 +449,7 @@ Applied across `bindings.ts`, `bulk.ts`, `format.ts`, `report.ts`.
 
 ---
 
-### 5.3 Aggregation FieldRef in list_filters slim mode (B03)
+### 5.3 Aggregation FieldRef in pbir_list_filters slim mode (B03)
 
 **What went wrong:** The `fieldRefToString` helper only handled `Column` and `Measure` field ref types. Auto-filters on SUM columns use an `Aggregation` wrapper, which fell through to raw JSON output in slim mode.
 
@@ -482,7 +482,7 @@ if (f?.Aggregation?.Expression?.Column) {
 
 **Status:** Code written, tools not exposed in MCP session.
 
-Tools (`list_bookmarks`, `add_bookmark`, `rename_bookmark`, `delete_bookmark`) are registered in source code but not loaded into the MCP session. Parked pending further testing.
+Tools (`pbir_list_bookmarks`, `pbir_add_bookmark`, `pbir_rename_bookmark`, `pbir_delete_bookmark`) are registered in source code but not loaded into the MCP session. Parked pending further testing.
 
 ---
 

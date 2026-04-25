@@ -173,7 +173,7 @@ Add your tool to the `ALL_TOOLS` record in `index.ts` with a short description:
 ```typescript
 const ALL_TOOLS: Record<string, string> = {
   // ... existing tools ...
-  my_tool_name: "Short description for the load_tools listing",
+  my_tool_name: "Short description for the pbir_load_tools listing",
 };
 ```
 
@@ -182,7 +182,7 @@ const ALL_TOOLS: Record<string, string> = {
 Tools are loaded into two tiers:
 
 - **Default (loaded at startup)**: the 12 core workflow tools. Listed in `src/default-tools.ts` — this file is the **single source of truth** for the default set and is read by both the runtime (`src/index.ts`) and the skill-coverage audit (`scripts/audit-skill-coverage.js`).
-- **On-demand (activated via `load_tools`)**: everything else. Not counted against session schema overhead unless activated.
+- **On-demand (activated via `pbir_load_tools`)**: everything else. Not counted against session schema overhead unless activated.
 
 **Criteria for default:** the tool is used in more than 50% of typical sessions and is part of the happy-path workflow (connect → orient → create page → add visuals → format → bind → theme → reload). Specialized tools (filters, conditional formatting, bookmarks, theme audit, etc.) stay on-demand.
 
@@ -194,7 +194,7 @@ Every registered tool **must** have a backtick-wrapped mention (`` `tool_name` `
 
 - **Default tools**: the mention should be meaningful — a parameter table, an example call, or a workflow snippet. Default tools are in every session; their skill doc is the LLM's primary reference.
 - **On-demand tools**: a single example call with the key parameters is usually enough.
-- New concept? Add a new `skills/<topic>.md` file. The `guide` tool discovers topics live from disk — no code change needed.
+- New concept? Add a new `skills/<topic>.md` file. The `pbir_guide` tool discovers topics live from disk — no code change needed.
 - Add the tool to the tool reference table in `README.md`.
 
 Run `npm run audit` locally to see which tools are covered and by which skill files. The audit now tags default tools with `[DEFAULT]` in its output.
@@ -207,8 +207,8 @@ There is no automated test suite. All testing is manual UAT (User Acceptance Tes
 
 ### How to run tests
 
-1. Connect to a test report using `set_report`.
-2. Create a dedicated test page (e.g., `create_page` with a name like "Test-YourFeature").
+1. Connect to a test report using `pbir_set_report`.
+2. Create a dedicated test page (e.g., `pbir_create_page` with a name like "Test-YourFeature").
 3. Exercise your tool with representative inputs.
 4. Open the report in Power BI Desktop -- save and reload to verify the PBIR JSON is valid.
 5. Clean up: delete test pages when done.
@@ -301,8 +301,8 @@ This "apply manually, read back JSON" method has been the most reliable way to d
 Follow conventional commit style, consistent with the format used in `CHANGELOG.md`:
 
 ```
-fix: set_datapoint_colors uses fillTransparency instead of transparency (B13)
-feat: add duplicate_page tool with cross-page visual copy
+fix: pbir_set_datapoint_colors uses fillTransparency instead of transparency (B13)
+feat: add pbir_duplicate_page tool with cross-page visual copy
 refactor: extract field parsing into helpers/createVisual.ts
 ```
 

@@ -127,8 +127,8 @@ Ask your AI assistant to build an entire page in one shot:
 
 Behind the scenes, this triggers two tool calls:
 
-1. `create_page` -- creates a 1280x720 page named "Sales Overview"
-2. `add_visual` (batch mode) -- creates all 5 visuals in a single call:
+1. `pbir_create_page` -- creates a 1280x720 page named "Sales Overview"
+2. `pbir_add_visual` (batch mode) -- creates all 5 visuals in a single call:
    - A `shape` rectangle banner (dark blue background, white bold title text)
    - Three `card` visuals bound to `financials[Gross Sales]`, `financials[Profit]`, and `financials[Units Sold]` (all with Sum aggregation)
    - A `clusteredBarChart` with Category = `financials[Country]` and Y = `financials[Gross Sales]` (Sum)
@@ -151,5 +151,5 @@ You should see the banner, three KPI cards with aggregated values, and a bar cha
 
 - **More prompts:** See [example-prompts.md](example-prompts.md) for a full library of prompts covering charts, formatting, conditional formatting, filters, theming, and multi-page reports.
 - **Full tool reference:** See the [README](../README.md) for all 42 tools, formatting options, and supported visual types.
-- **Smart tool loading:** By default, 10 core tools are loaded. Use `load_tools` mid-session to activate additional tools (filters, themes, conditional formatting, etc.) on demand without restarting.
+- **Smart tool loading:** By default, 10 core tools are loaded. Use `pbir_load_tools` mid-session to activate additional tools (filters, themes, conditional formatting, etc.) on demand without restarting.
 - **Semantic model queries:** Pair with [powerbi-modeling-mcp](https://github.com/user/powerbi-modeling-mcp) to query your data model, inspect tables and columns, and write DAX -- all from the same AI conversation.

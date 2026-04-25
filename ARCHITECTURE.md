@@ -53,7 +53,7 @@ src/
                         overrides, and data color palettes.
 
   tools/
-    report.ts           Page and report management tools (20 tools).
+    report.ts           Page and report management tools (19 tools).
     visuals.ts          Visual CRUD tools (8 tools).
     format.ts           Formatting and conditional formatting tools (4 tools).
     bindings.ts         Data binding tools (1 tool).
@@ -152,7 +152,7 @@ project.deleteRegisteredResource(filename)
 
 The class also includes bookmark helpers (`getBookmarksMetadata`, `saveBookmark`, etc.).
 
-**Lazy initialization via Proxy:** In `index.ts`, the actual `PbirProject` instance is wrapped in a `Proxy`. Any property access on the proxy checks whether a report has been connected. If not, it throws a clear error directing the user to call `set_report` first. This means tool handlers can use `ctx.project.getPage(...)` without null checks -- the proxy handles it.
+**Lazy initialization via Proxy:** In `index.ts`, the actual `PbirProject` instance is wrapped in a `Proxy`. Any property access on the proxy checks whether a report has been connected. If not, it throws a clear error directing the user to call `pbir_set_report` first. This means tool handlers can use `ctx.project.getPage(...)` without null checks -- the proxy handles it.
 
 ---
 
@@ -208,13 +208,13 @@ function safe<T>(fn: (args: T) => Promise<unknown>) {
 To reduce token overhead for LLM clients, the server loads only a default subset of 11 tools at startup. The remaining tools are stored in `deferredTools` and can be activated on demand.
 
 **DEFAULT_TOOLS** (always loaded):
-`set_report`, `list_pages`, `list_visuals`, `create_page`, `add_visual`, `get_visual`, `format_visual`, `update_visual_bindings`, `set_report_theme`, `bulk_bind`, `model_usage`
+`pbir_set_report`, `pbir_list_pages`, `pbir_list_visuals`, `pbir_create_page`, `pbir_add_visual`, `pbir_get_visual`, `pbir_format_visual`, `pbir_update_visual_bindings`, `pbir_set_report_theme`, `pbir_bulk_bind`, `pbir_model_usage`
 
 **ALL_TOOLS** -- a map of every tool name to its description (54 tools total).
 
 **Activation mechanisms:**
 
-1. **`load_tools` meta-tool** -- always registered (bypasses the filter). Called with no arguments, it lists available on-demand tools. Called with tool names, it activates them by moving entries from `deferredTools` into the live server:
+1. **`pbir_load_tools` meta-tool** -- always registered (bypasses the filter). Called with no arguments, it lists available on-demand tools. Called with tool names, it activates them by moving entries from `deferredTools` into the live server:
 
    ```ts
    _tool(name, entry.desc, entry.schema, entry.handler);
@@ -233,92 +233,91 @@ To reduce token overhead for LLM clients, the server loads only a default subset
 
 ## 6. Tool Modules
 
-### report.ts (20 tools)
+### report.ts (19 tools)
 
 | Tool | Purpose |
 |------|---------|
-| `set_report` | Connect to a `.Report` folder (or parent `.pbip` directory) |
-| `get_report` | Show the currently connected report path |
-| `list_pages` | List pages with slim/full mode |
-| `create_page` | Create a new page with name, dimensions, display option |
-| `rename_page` | Rename an existing page |
-| `delete_page` | Delete a page and all its visuals |
-| `reorder_pages` | Set page order array |
-| `set_active_page` | Set which page opens by default |
-| `set_page_visibility` | Show/hide a page in the navigation pane |
-| `get_report_settings` | Read report-level settings and theme config |
-| `update_report_settings` | Merge settings into report.json (validated key whitelist) |
-| `update_page_size` | Change page width/height/displayOption |
-| `auto_layout` | Auto-arrange visuals in a grid |
-| `duplicate_page` | Deep-clone a page with all visuals |
-| `get_page_summary` | Pages + visuals in a single call (replaces list_pages + list_visuals) |
-| `reload_report` | Kill PBI Desktop and reopen the .pbip file |
-| `set_filter_pane` | Show/hide and expand/collapse the filter pane |
-| `set_page_background` | Set page canvas background color and/or wallpaper |
-| `set_visual_interaction` | Set cross-filter/highlight interaction between visuals |
-| `manage_extension_measures` | Add, list, or remove report-level DAX measures |
+| `pbir_set_report` | Connect to a `.Report` folder (or parent `.pbip` directory) |
+| `pbir_get_report` | Show the currently connected report path |
+| `pbir_list_pages` | List pages with slim/full mode |
+| `pbir_create_page` | Create a new page with name, dimensions, display option |
+| `pbir_rename_page` | Rename an existing page |
+| `pbir_delete_page` | Delete a page and all its visuals |
+| `pbir_reorder_pages` | Set page order array |
+| `pbir_set_active_page` | Set which page opens by default |
+| `pbir_set_page_visibility` | Show/hide a page in the navigation pane |
+| `pbir_get_report_settings` | Read report-level settings and theme config |
+| `pbir_update_report_settings` | Merge settings into report.json (validated key whitelist) |
+| `pbir_update_page_size` | Change page width/height/displayOption |
+| `pbir_auto_layout` | Auto-arrange visuals in a grid |
+| `pbir_duplicate_page` | Deep-clone a page with all visuals |
+| `pbir_reload_report` | Kill PBI Desktop and reopen the .pbip file |
+| `pbir_set_filter_pane` | Show/hide and expand/collapse the filter pane |
+| `pbir_set_page_background` | Set page canvas background color and/or wallpaper |
+| `pbir_set_visual_interaction` | Set cross-filter/highlight interaction between visuals |
+| `pbir_manage_extension_measures` | Add, list, or remove report-level DAX measures |
 
 ### visuals.ts (8 tools)
 
 | Tool | Purpose |
 |------|---------|
-| `get_visual_types` | List all visual types and their bucket names |
-| `list_visuals` | List visuals on a page (slim/full mode) |
-| `get_visual` | Inspect a visual's config (slim: bindings summary; full: raw JSON) |
-| `add_visual` | Create one or more visuals (single or batch mode with `visuals` array) |
-| `delete_visual` | Delete a visual |
-| `move_visual` | Move/resize a visual |
-| `duplicate_visual` | Clone a visual, optionally to another page |
-| `change_visual_type` | Change a visual's type while keeping bindings |
+| `pbir_get_visual_types` | List all visual types and their bucket names |
+| `pbir_list_visuals` | List visuals on a page (slim/full mode) |
+| `pbir_get_visual` | Inspect a visual's config (slim: bindings summary; full: raw JSON) |
+| `pbir_add_visual` | Create one or more visuals (batch mode required — pass a `visuals` array) |
+| `pbir_delete_visual` | Delete a visual |
+| `pbir_move_visual` | Move/resize a visual |
+| `pbir_duplicate_visual` | Clone a visual, optionally to another page |
+| `pbir_change_visual_type` | Change a visual's type while keeping bindings |
 
 ### format.ts (4 tools)
 
 | Tool | Purpose |
 |------|---------|
-| `set_visual_title` | Set title text, visibility, font, size, alignment |
-| `format_visual` | Apply formatting categories to visual or container objects |
-| `set_datapoint_colors` | Set series or category data point colors |
-| `set_conditional_format` | Apply rules-based or gradient conditional formatting |
-| `apply_theme` | Apply a named theme preset to all visuals on a page |
+| `pbir_set_visual_title` | Set title text, visibility, font, size, alignment |
+| `pbir_format_visual` | Apply formatting categories to visual or container objects |
+| `pbir_set_datapoint_colors` | Set series or category data point colors |
+| `pbir_set_conditional_format` | Apply rules-based or gradient conditional formatting |
+| `pbir_apply_theme` | Apply a named theme preset to all visuals on a page |
 
 ### bindings.ts (1 tool)
 
 | Tool | Purpose |
 |------|---------|
-| `update_visual_bindings` | Replace a visual's data bindings entirely, rebuild sort and filters |
+| `pbir_update_visual_bindings` | Replace a visual's data bindings entirely, rebuild sort and filters |
 
 ### themes.ts (5 tools)
 
 | Tool | Purpose |
 |------|---------|
-| `set_report_theme` | Write a custom theme JSON to StaticResources and wire it into report.json |
-| `get_report_theme` | Read the current base and custom theme |
-| `remove_report_theme` | Unlink the custom theme from report.json |
-| `diff_report_theme` | Compare a proposed theme against the current one |
-| `list_report_themes` | List theme files in StaticResources |
+| `pbir_set_report_theme` | Write a custom theme JSON to StaticResources and wire it into report.json |
+| `pbir_get_report_theme` | Read the current base and custom theme |
+| `pbir_remove_report_theme` | Unlink the custom theme from report.json |
+| `pbir_diff_report_theme` | Compare a proposed theme against the current one |
+| `pbir_list_report_themes` | List theme files in StaticResources |
 
 ### filters.ts (4 tools)
 
 | Tool | Purpose |
 |------|---------|
-| `list_filters` | List filters on a page or visual |
-| `add_page_filter` | Add categorical, topN, or relativeDate filters |
-| `remove_filter` | Remove a specific filter by name |
-| `clear_filters` | Remove all filters from a page or visual |
+| `pbir_list_filters` | List filters on a page or visual |
+| `pbir_add_page_filter` | Add categorical, topN, or relativeDate filters |
+| `pbir_remove_filter` | Remove a specific filter by name |
+| `pbir_clear_filters` | Remove all filters from a page or visual |
 
 ### bulk.ts (3 tools)
 
 | Tool | Purpose |
 |------|---------|
-| `bulk_delete_visuals` | Delete multiple visuals in one call |
-| `bulk_update_format` | Apply the same formatting to multiple visuals |
-| `bulk_bind` | Rebind multiple visuals in one call |
+| `pbir_bulk_delete_visuals` | Delete multiple visuals in one call |
+| `pbir_bulk_update_format` | Apply the same formatting to multiple visuals |
+| `pbir_bulk_bind` | Rebind multiple visuals in one call |
 
 ### model-usage.ts (1 tool, default)
 
 | Tool | Purpose |
 |------|---------|
-| `model_usage` | Cross-reference semantic model (TMDL/BIM) with report visuals — shows where every measure and column is used, DAX dependencies, unused fields, and per-page breakdown. Also generates an HTML dashboard. |
+| `pbir_model_usage` | Cross-reference semantic model (TMDL/BIM) with report visuals — shows where every measure and column is used, DAX dependencies, unused fields, and per-page breakdown. Also generates an HTML dashboard. |
 
 **Key functions:**
 
@@ -339,16 +338,16 @@ To reduce token overhead for LLM clients, the server loads only a default subset
 
 | Tool | Purpose |
 |------|---------|
-| `list_bookmarks` | List all bookmarks in the report |
-| `add_bookmark` | Create a new bookmark with optional page navigation |
-| `delete_bookmark` | Delete a bookmark by ID |
-| `rename_bookmark` | Rename an existing bookmark |
+| `pbir_list_bookmarks` | List all bookmarks in the report |
+| `pbir_add_bookmark` | Create a new bookmark with optional page navigation |
+| `pbir_delete_bookmark` | Delete a bookmark by ID |
+| `pbir_rename_bookmark` | Rename an existing bookmark |
 
 ### guide.ts (1 tool)
 
 | Tool | Purpose |
 |------|---------|
-| `guide` | Serve domain knowledge on demand — topics: `svg-visuals`, `report-design` |
+| `pbir_guide` | Serve domain knowledge on demand — topics: `svg-visuals`, `report-design` |
 
 The guide tool provides focused, actionable knowledge to help AI agents make better decisions when orchestrating multi-tool workflows. Topics include SVG visual DAX templates, binding rules, and report design principles. New topics can be added by extending the `topics` map in `registerGuideTool()`.
 
@@ -431,7 +430,7 @@ safe() wrapper
   |
   | try/catch around handler
   v
-Tool handler (e.g. tools/visuals.ts :: add_visual)
+Tool handler (e.g. tools/visuals.ts :: pbir_add_visual)
   |
   | Reads current state via ctx.project (PbirProject)
   v
@@ -449,9 +448,9 @@ Tool handler builds response
 MCP Client receives result
 ```
 
-**Concrete example -- `add_visual`:**
+**Concrete example -- `pbir_add_visual`:**
 
-1. Client sends `add_visual` with `pageId`, `visualType`, `bindings`, position params
+1. Client sends `pbir_add_visual` with `pageId`, `visualType`, `bindings`, position params
 2. Zod validates all inputs (including nested `BucketBindingSchema` and `FieldSpecSchema`)
 3. Handler reads existing visuals to determine the next z-order value
 4. Calls `createAndSaveVisual()` which:
@@ -472,7 +471,7 @@ All tool inputs are validated using **Zod** schemas. Notable patterns:
 MCP clients sometimes serialize arrays as JSON strings. Several tools use `z.preprocess` to handle both formats:
 
 ```ts
-// In report.ts (reorder_pages)
+// In report.ts (pbir_reorder_pages)
 pageOrder: z.preprocess(
   (v) => typeof v === "string" ? JSON.parse(v) : v,
   z.array(z.string())
@@ -489,7 +488,7 @@ function parseArray<T>(schema: z.ZodType<T>) {
 
 ### z.coerce.boolean
 
-Used in `set_page_visibility` to accept both actual booleans and string `"true"/"false"`:
+Used in `pbir_set_page_visibility` to accept both actual booleans and string `"true"/"false"`:
 
 ```ts
 hidden: z.coerce.boolean().describe("true to hide the page, false to show it")
@@ -497,7 +496,7 @@ hidden: z.coerce.boolean().describe("true to hide the page, false to show it")
 
 ### Nested schemas
 
-`add_visual` composes multiple schemas: `BucketBindingSchema` contains `FieldSpecSchema`, and the batch mode uses `VisualSpecSchema` which includes `FormatCategorySchema` and `DataColorSchema`.
+`pbir_add_visual` composes multiple schemas: `BucketBindingSchema` contains `FieldSpecSchema`, and the batch mode uses `VisualSpecSchema` which includes `FormatCategorySchema` and `DataColorSchema`.
 
 ### Field specification validation
 
@@ -528,7 +527,7 @@ The `project` object in `index.ts` is a Proxy that throws if no report is connec
 const project = new Proxy({} as PbirProject, {
   get(_target, prop) {
     if (!_project) {
-      throw new Error("No report connected. Use the set_report tool...");
+      throw new Error("No report connected. Use the pbir_set_report tool...");
     }
     // ...
   },
@@ -550,8 +549,8 @@ Uncaught exceptions and unhandled rejections are logged to stderr but do not kil
 
 ### Validation errors
 
-Zod validation errors are thrown before the handler executes. These are caught by `safe()` and returned as structured errors. Some tools also perform manual validation (e.g. `update_report_settings` checks keys against a whitelist, filter tools validate required fields for each filter type) and return early with `{ success: false, error: "..." }`.
+Zod validation errors are thrown before the handler executes. These are caught by `safe()` and returned as structured errors. Some tools also perform manual validation (e.g. `pbir_update_report_settings` checks keys against a whitelist, filter tools validate required fields for each filter type) and return early with `{ success: false, error: "..." }`.
 
 ### Per-item error collection in bulk operations
 
-Bulk tools (`bulk_delete_visuals`, `bulk_update_format`, `bulk_bind`) process items in a loop with individual try/catch blocks. Failures for individual items are collected in an `errors` array and returned alongside successful results, so one bad visual ID does not abort the entire batch.
+Bulk tools (`pbir_bulk_delete_visuals`, `pbir_bulk_update_format`, `pbir_bulk_bind`) process items in a loop with individual try/catch blocks. Failures for individual items are collected in an `errors` array and returned alongside successful results, so one bad visual ID does not abort the entire batch.
