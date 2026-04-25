@@ -576,7 +576,7 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
                   success: false,
                   mode: "commit" as const,
                   planOnly: false,
-                  error: bv.message,
+                  error: "binding_validation_failed",
                   bindingErrors: bv.errors,
                   bindingMode: bv.mode,
                   ...prelude,
@@ -650,13 +650,9 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
       if (outcome.warnings.length > 0) commitResponse.layoutWarnings = outcome.warnings;
       if (bv.errors.length > 0) {
         commitResponse.bindingWarnings = bv.errors;
-        commitResponse.bindingWarningMessage = bv.message;
       }
       if (isNoteworthySkip(bv.skipReason)) {
-        commitResponse.bindingValidation = {
-          skipped: bv.skipReason,
-          note: "Bindings were NOT checked against the semantic model. Double-check field names — a typo will load silently and render nothing.",
-        };
+        commitResponse.bindingValidation = { skipped: bv.skipReason };
       }
 
       return {

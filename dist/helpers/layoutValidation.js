@@ -43,7 +43,6 @@ function resolveMode(strictLayout) {
 // ---------------------------------------------------------------------------
 // Issue → LayoutError translation
 // ---------------------------------------------------------------------------
-const GUIDE = "Call guide('wireframes') for the canonical layout rules (margins, gaps, banner, 5-column grid math).";
 /**
  * Codes that are ALWAYS warnings regardless of mode. These are aesthetic
  * rules — blocking them would force flat, uniform layouts.
@@ -70,8 +69,6 @@ function translateIssue(issue, visualsById) {
     const base = {
         visualIds: issue.visuals,
         severity,
-        rawMessage: issue.message,
-        guide: GUIDE,
         actual: actualPos,
     };
     switch (issue.code) {
@@ -85,7 +82,6 @@ function translateIssue(issue, visualsById) {
                     code: "out_of_bounds_negative",
                     limits: { minX: 0, minY: 0 },
                     suggestion: `Set x≥0 and y≥0. Non-banner content should start at x≥${wireframe_validator_js_1.CANVAS.marginLeft}, y≥${wireframe_validator_js_1.CANVAS.firstContentRowY}.`,
-                    rule: "x and y must be ≥ 0.",
                 };
             }
             if (actual && actual.x + actual.width > wireframe_validator_js_1.CANVAS.width) {
@@ -101,7 +97,6 @@ function translateIssue(issue, visualsById) {
                         usableWidth: wireframe_validator_js_1.CANVAS.usableWidth,
                     },
                     suggestion: `Reduce width to ${maxAllowed - actual.x} (keep x=${actual.x}) OR move x to ${maxAllowed - actual.width} (keep width=${actual.width}).`,
-                    rule: `x + width must be ≤ ${maxAllowed} (${wireframe_validator_js_1.CANVAS.marginLeft}px L / ${wireframe_validator_js_1.CANVAS.marginRight}px R margins on a ${wireframe_validator_js_1.CANVAS.width}px canvas).`,
                 };
             }
             if (actual && actual.y + actual.height > wireframe_validator_js_1.CANVAS.height) {
@@ -117,7 +112,6 @@ function translateIssue(issue, visualsById) {
                         usableHeight: wireframe_validator_js_1.CANVAS.usableHeight,
                     },
                     suggestion: `Reduce height to ${maxAllowed - actual.y} (keep y=${actual.y}) OR move y to ${maxAllowed - actual.height} (keep height=${actual.height}).`,
-                    rule: `y + height must be ≤ ${maxAllowed} (${wireframe_validator_js_1.CANVAS.marginBottom}px bottom margin on a ${wireframe_validator_js_1.CANVAS.height}px canvas).`,
                 };
             }
             return {
@@ -125,7 +119,6 @@ function translateIssue(issue, visualsById) {
                 code: "out_of_bounds_right",
                 limits: { canvasWidth: wireframe_validator_js_1.CANVAS.width, canvasHeight: wireframe_validator_js_1.CANVAS.height },
                 suggestion: `Position and size so x + width ≤ ${wireframe_validator_js_1.CANVAS.width - wireframe_validator_js_1.CANVAS.marginRight} and y + height ≤ ${wireframe_validator_js_1.CANVAS.height - wireframe_validator_js_1.CANVAS.marginBottom}.`,
-                rule: `Visual must fit within the ${wireframe_validator_js_1.CANVAS.usableWidth}×${wireframe_validator_js_1.CANVAS.usableHeight} usable canvas.`,
             };
         }
         case "OVERLAP":
@@ -133,7 +126,6 @@ function translateIssue(issue, visualsById) {
                 ...base,
                 code: "overlap",
                 suggestion: "Move one of the visuals so their rectangles don't intersect. Maintain a 5px gap between adjacent visuals.",
-                rule: "No two visuals may have overlapping x/y/width/height rectangles.",
             };
         case "LEFT_MARGIN":
             return {
@@ -141,7 +133,6 @@ function translateIssue(issue, visualsById) {
                 code: "wrong_left_margin",
                 limits: { requiredLeftX: wireframe_validator_js_1.CANVAS.marginLeft },
                 suggestion: `Move x to ${wireframe_validator_js_1.CANVAS.marginLeft} (the canonical left margin).`,
-                rule: `The leftmost visual in every row must start at x=${wireframe_validator_js_1.CANVAS.marginLeft}.`,
             };
         case "RIGHT_MARGIN":
             return {
@@ -149,7 +140,6 @@ function translateIssue(issue, visualsById) {
                 code: "wrong_right_margin",
                 limits: { requiredRightEdge: wireframe_validator_js_1.CANVAS.width - wireframe_validator_js_1.CANVAS.marginRight },
                 suggestion: `Adjust width so x+width = ${wireframe_validator_js_1.CANVAS.width - wireframe_validator_js_1.CANVAS.marginRight} on the rightmost visual of each row.`,
-                rule: `The rightmost visual in every row must end at x+width=${wireframe_validator_js_1.CANVAS.width - wireframe_validator_js_1.CANVAS.marginRight}.`,
             };
         case "BOTTOM_MARGIN":
             return {
@@ -157,7 +147,6 @@ function translateIssue(issue, visualsById) {
                 code: "wrong_bottom_margin",
                 limits: { maxBottomEdge: wireframe_validator_js_1.CANVAS.height - wireframe_validator_js_1.CANVAS.marginBottom },
                 suggestion: `Adjust y+height so the bottom row ends at y+height ≤ ${wireframe_validator_js_1.CANVAS.height - wireframe_validator_js_1.CANVAS.marginBottom}.`,
-                rule: `Bottom row must end at y+height ≤ ${wireframe_validator_js_1.CANVAS.height - wireframe_validator_js_1.CANVAS.marginBottom} (${wireframe_validator_js_1.CANVAS.marginBottom}px breathing room).`,
             };
         case "WRONG_GAP_H":
             return {
@@ -165,7 +154,6 @@ function translateIssue(issue, visualsById) {
                 code: "wrong_horizontal_gap",
                 limits: { requiredGap: wireframe_validator_js_1.CANVAS.gap },
                 suggestion: `Space adjacent visuals in a row so the gap between right-edge of one and left-edge of next equals exactly ${wireframe_validator_js_1.CANVAS.gap}px.`,
-                rule: `Horizontal gap between adjacent visuals in a row must be exactly ${wireframe_validator_js_1.CANVAS.gap}px.`,
             };
         case "WRONG_GAP_V":
             return {
@@ -173,14 +161,12 @@ function translateIssue(issue, visualsById) {
                 code: "wrong_vertical_gap",
                 limits: { requiredGap: wireframe_validator_js_1.CANVAS.gap },
                 suggestion: `Space rows so the gap between the bottom of row N and the top of row N+1 equals exactly ${wireframe_validator_js_1.CANVAS.gap}px.`,
-                rule: `Vertical gap between adjacent rows must be exactly ${wireframe_validator_js_1.CANVAS.gap}px.`,
             };
         case "SILENT_DEFAULT":
             return {
                 ...base,
                 code: "silent_default_position",
                 suggestion: `Provide explicit x and y. Non-banner visuals typically start at x≥${wireframe_validator_js_1.CANVAS.marginLeft}, y≥${wireframe_validator_js_1.CANVAS.firstContentRowY}.`,
-                rule: "Only banner visuals may sit at (0,0). All other visuals need explicit coordinates.",
             };
         case "ROUNDING_OVERFLOW":
             return {
@@ -188,7 +174,6 @@ function translateIssue(issue, visualsById) {
                 code: "rounding_overflow",
                 limits: { usableWidth: wireframe_validator_js_1.CANVAS.usableWidth, usableHeight: wireframe_validator_js_1.CANVAS.usableHeight },
                 suggestion: "When splitting the canvas into N equal columns, distribute the 1–2 pixel remainder — give the first few cells an extra pixel of width rather than leaving a sub-5px gap at the edge.",
-                rule: `Sum of widths + (N-1)×${wireframe_validator_js_1.CANVAS.gap}px gaps must exactly equal ${wireframe_validator_js_1.CANVAS.usableWidth}px.`,
             };
         case "BANNER_POSITION":
             return {
@@ -196,7 +181,6 @@ function translateIssue(issue, visualsById) {
                 code: "banner_position",
                 limits: { bannerX: 0, bannerY: wireframe_validator_js_1.CANVAS.bannerY, bannerHeight: wireframe_validator_js_1.CANVAS.bannerHeight },
                 suggestion: `Banner shape must sit at x=0, y=${wireframe_validator_js_1.CANVAS.bannerY}, height=${wireframe_validator_js_1.CANVAS.bannerHeight}.`,
-                rule: "Banner is exempted from margins and must pin to the top-left.",
             };
         case "BANNER_WIDTH":
             return {
@@ -204,28 +188,24 @@ function translateIssue(issue, visualsById) {
                 code: "banner_width",
                 limits: { bannerWidth: wireframe_validator_js_1.CANVAS.width },
                 suggestion: `Banner shape must span the full canvas width (${wireframe_validator_js_1.CANVAS.width}px).`,
-                rule: `Banner width must equal canvas width (${wireframe_validator_js_1.CANVAS.width}px).`,
             };
         case "NEGATIVE_DIMENSION":
             return {
                 ...base,
                 code: "negative_dimension",
                 suggestion: "Width and height must be positive integers. Typical minimum for a readable visual is 80×60.",
-                rule: "width > 0 and height > 0.",
             };
         case "COLUMN_MISALIGN":
             return {
                 ...base,
                 code: "column_misalign",
                 suggestion: "If the drift is unintentional, align columns in row N+1 to the x-coordinates of row N. Legitimate with column-spans — ignore in that case.",
-                rule: "Columns across rows should share x-coordinates unless a visual spans multiple columns.",
             };
         case "ROW_MISALIGN":
             return {
                 ...base,
                 code: "row_misalign",
                 suggestion: "If the drift is unintentional, align rows in column N+1 to the y-coordinates of column N. Legitimate with row-spans — ignore in that case.",
-                rule: "Rows across columns should share y-coordinates unless a visual spans multiple rows.",
             };
     }
 }

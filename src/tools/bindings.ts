@@ -42,7 +42,7 @@ export function registerBindingTools(server: McpServer, ctx: ServerContext): voi
               text: JSON.stringify(
                 {
                   success: false,
-                  error: validation.message,
+                  error: "binding_validation_failed",
                   bindingErrors: validation.errors,
                   mode: validation.mode,
                 },

@@ -185,9 +185,11 @@ section("Warn mode — never blocks");
   const visuals = [{ id: "v", visualType: "card", x: 1200, y: 60, width: 200, height: 100, title: "Overflow" }];
   const r = runLayoutValidation(visuals, false);
   const w = r.warnings.find((x) => x.code === "out_of_bounds_right");
+  // 2026-04-25: rule/guide/rawMessage prose dropped — codes are documented in
+  // skills/errors.md instead. Just verify the structured payload survives.
   assert(
-    "WARN 4  downgraded error retains teaching fields",
-    w && w.actual && w.limits && w.suggestion && w.rule && w.guide
+    "WARN 4  downgraded error retains structured payload",
+    w && w.actual && w.limits && w.suggestion
   );
 }
 
@@ -249,10 +251,10 @@ section("LayoutError shape");
   const e = r.errors[0];
   assert("SHAPE 1  code present",        e && typeof e.code === "string" && e.code.length > 0);
   assert("SHAPE 2  suggestion non-empty", e && typeof e.suggestion === "string" && e.suggestion.length > 0);
-  assert("SHAPE 3  rule non-empty",       e && typeof e.rule === "string" && e.rule.length > 0);
-  assert("SHAPE 4  guide present",        e && typeof e.guide === "string" && e.guide.includes("guide"));
-  assert("SHAPE 5  actual echoes input",  e && e.actual && e.actual.x === 1200 && e.actual.width === 200);
-  assert("SHAPE 6  limits populated",     e && e.limits && typeof e.limits.maxRightEdge === "number");
+  assert("SHAPE 3  actual echoes input",  e && e.actual && e.actual.x === 1200 && e.actual.width === 200);
+  assert("SHAPE 4  limits populated",     e && e.limits && typeof e.limits.maxRightEdge === "number");
+  // SHAPE 5/6 (rule/guide) removed 2026-04-25 — codes documented in skills/errors.md.
+  assert("SHAPE 5  rule/guide stripped",  e && e.rule === undefined && e.guide === undefined);
 }
 
 // ---------------------------------------------------------------------------

@@ -18,10 +18,6 @@ export interface LayoutError {
     };
     limits?: Record<string, number>;
     suggestion: string;
-    rule: string;
-    guide: string;
-    /** Original human-readable message from the validator. */
-    rawMessage: string;
 }
 export interface LayoutValidationOutcome {
     mode: LayoutMode;

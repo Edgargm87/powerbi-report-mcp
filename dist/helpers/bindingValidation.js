@@ -292,27 +292,18 @@ function describeReason(err) {
     }
 }
 /**
- * Turn an error list into a single human-readable string. Used as the
- * payload of the thrown/returned error in strict mode and as the content of
- * `bindingWarnings` in warn mode.
+ * Compact stable error code for binding-validation responses. The structured
+ * `errors[]` array carries `reason`, `entity`, `property`, and `suggestions`
+ * — the LLM looks the codes up in skills/errors.md once per session, so we
+ * don't ship the prose explanation per call.
  */
 function formatBindingErrors(errors) {
     if (!errors.length)
         return "";
-    const lines = [];
-    lines.push(`Binding validation failed (${errors.length} issue${errors.length === 1 ? "" : "s"}):`);
-    for (const err of errors) {
-        const reason = describeReason(err);
-        let line = `  • ${err.label} (${err.kind}): ${reason}`;
-        if (err.suggestions.length > 0) {
-            line += `. Did you mean: ${err.suggestions.join(", ")}?`;
-        }
-        lines.push(line);
-    }
-    lines.push(`Validation runs against the sibling .SemanticModel folder + report extension measures. ` +
-        `To bypass for a single call set strictBindings: false, or set MCP_BINDING_VALIDATION=off globally.`);
-    return lines.join("\n");
+    return `binding_validation_failed (${errors.length})`;
 }
+// Kept for completeness — describeReason is still used by other helpers if any.
+void describeReason;
 /**
  * Returns true when the skip reason is worth surfacing to the agent. Trivial
  * skips (`mode_off`, `empty_bindings`) are noise — they either reflect the
@@ -336,13 +327,9 @@ function isNoteworthySkip(reason) {
 function attachBindingValidationMetadata(response, validation) {
     if (validation.errors.length > 0) {
         response.bindingWarnings = validation.errors;
-        response.bindingWarningMessage = validation.message;
     }
     if (isNoteworthySkip(validation.skipReason)) {
-        response.bindingValidation = {
-            skipped: validation.skipReason,
-            note: "Bindings were NOT checked against the semantic model. Double-check field names — a typo will load silently and render nothing.",
-        };
+        response.bindingValidation = { skipped: validation.skipReason };
     }
     return response;
 }

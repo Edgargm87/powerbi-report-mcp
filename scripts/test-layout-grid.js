@@ -384,7 +384,7 @@ const { runLayoutValidation } = require("../dist/helpers/layoutValidation.js");
   assert(
     "VALID 3  banner+2×2 passes strict",
     outcome.proceed && outcome.errors.length === 0,
-    outcome.errors.map((e) => e.code + ":" + e.rawMessage).join(" | ")
+    outcome.errors.map((e) => e.code + ":" + e.suggestion).join(" | ")
   );
 }
 

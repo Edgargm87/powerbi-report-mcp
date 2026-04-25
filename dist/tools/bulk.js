@@ -211,7 +211,7 @@ function registerBulkTools(server, ctx) {
                             type: "text",
                             text: JSON.stringify({
                                 success: false,
-                                error: validation.message,
+                                error: "binding_validation_failed",
                                 bindingErrors: validation.errors,
                                 mode: validation.mode,
                                 hint: "Retry with continueOnError:true to apply the valid entries and get a per-visual error report.",
@@ -239,7 +239,7 @@ function registerBulkTools(server, ctx) {
                     }));
                     const entryValidation = (0, bindingValidation_js_1.runBindingValidation)(ctx.project, entryBindings, strictBindings);
                     if (!entryValidation.proceed) {
-                        errors.push(`${visualId}: ${entryValidation.message}`);
+                        errors.push(`${visualId}: binding_validation_failed`);
                         perEntryBindingErrors.push({ visualId, errors: entryValidation.errors });
                         continue;
                     }

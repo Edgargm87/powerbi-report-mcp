@@ -68,9 +68,10 @@ export declare function validateBindings(bindings: Array<{
     fields: FieldSpecInput[];
 }> | undefined, inventory: ModelFieldInventory | null): BindingValidationError[];
 /**
- * Turn an error list into a single human-readable string. Used as the
- * payload of the thrown/returned error in strict mode and as the content of
- * `bindingWarnings` in warn mode.
+ * Compact stable error code for binding-validation responses. The structured
+ * `errors[]` array carries `reason`, `entity`, `property`, and `suggestions`
+ * — the LLM looks the codes up in skills/errors.md once per session, so we
+ * don't ship the prose explanation per call.
  */
 export declare function formatBindingErrors(errors: BindingValidationError[]): string;
 export interface ValidationOutcome {

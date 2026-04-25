@@ -239,7 +239,7 @@ function registerVisualTools(server, ctx) {
                         type: "text",
                         text: JSON.stringify({
                             success: false,
-                            error: validation.message,
+                            error: "binding_validation_failed",
                             bindingErrors: validation.errors,
                             mode: validation.mode,
                         }, null, 2),

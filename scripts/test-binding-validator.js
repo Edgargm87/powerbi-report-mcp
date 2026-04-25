@@ -257,12 +257,11 @@ if (batchErrors.length === 2) {
 }
 
 const msg = formatBindingErrors(batchErrors);
-if (
-  msg.includes("Binding validation failed") &&
-  msg.includes("Sales[FooBar]") &&
-  msg.includes("Slaes[Quantity]")
-) {
-  pass("FMT 1  formatBindingErrors includes header + both labels");
+// As of 2026-04-25 the verbose multi-line message was replaced with a compact
+// stable code (`binding_validation_failed (N)`). The structured `errors[]`
+// array is the source of truth — labels/suggestions live there now.
+if (msg.startsWith("binding_validation_failed") && msg.includes(`(${batchErrors.length})`)) {
+  pass("FMT 1  formatBindingErrors returns compact code with count");
 } else {
   fail("FMT 1  formatBindingErrors output", msg);
 }

@@ -434,7 +434,7 @@ function registerLayoutGridTool(server, ctx) {
                             success: false,
                             mode: "commit",
                             planOnly: false,
-                            error: bv.message,
+                            error: "binding_validation_failed",
                             bindingErrors: bv.errors,
                             bindingMode: bv.mode,
                             ...prelude,
@@ -495,13 +495,9 @@ function registerLayoutGridTool(server, ctx) {
             commitResponse.layoutWarnings = outcome.warnings;
         if (bv.errors.length > 0) {
             commitResponse.bindingWarnings = bv.errors;
-            commitResponse.bindingWarningMessage = bv.message;
         }
         if ((0, bindingValidation_js_1.isNoteworthySkip)(bv.skipReason)) {
-            commitResponse.bindingValidation = {
-                skipped: bv.skipReason,
-                note: "Bindings were NOT checked against the semantic model. Double-check field names — a typo will load silently and render nothing.",
-            };
+            commitResponse.bindingValidation = { skipped: bv.skipReason };
         }
         return {
             content: [{ type: "text", text: JSON.stringify(commitResponse, null, 2) }],

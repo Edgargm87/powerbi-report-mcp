@@ -270,7 +270,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
               text: JSON.stringify(
                 {
                   success: false,
-                  error: validation.message,
+                  error: "binding_validation_failed",
                   bindingErrors: validation.errors,
                   mode: validation.mode,
                 },

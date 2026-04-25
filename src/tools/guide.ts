@@ -70,6 +70,7 @@ const TOPIC_PRIORITY = [
   "svg-visuals",
   "themes",
   "report",
+  "errors",
   "token-usage",
 ];
 
