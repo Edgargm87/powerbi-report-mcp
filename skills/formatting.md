@@ -23,9 +23,9 @@ Before reaching for any formatting tool, decide which band the work falls in.
 
 If a theme change "doesn't seem to take effect," run `audit_theme_compliance` — it flags visuals whose inline overrides are masking theme values. Then decide: accept the override (keep it), or clear it (re-run `set_report_theme` after stripping the override block).
 
-### Schema-backed validation (new)
+### Discovering valid property names
 
-`format_visual` validates every `category` + `property` name against the bundled PBI theme schema (`schemas/reportThemeSchema-<version>.json`) before writing. Typos like `"fnotSize"` or invalid categories like `"labls"` return `{ success: false, issues: [...] }` with `didYouMean` suggestions, instead of writing silently-ignored garbage into the PBIR. Call `lookup_theme_property({ visualType, category })` to discover valid names. Pass `strict: false` to `format_visual` only when you're certain the bundled schema has fallen behind a newer PBI release.
+`format_visual` does not pre-validate property names — PBI Desktop silently ignores unknown property keys at render time. Call `lookup_theme_property({ visualType, category })` *before* writing to confirm the exact names for the target visual type (e.g. slicer uses `textSize`, not `fontSize`; waterfall uses `sentimentColors`, not `dataPoint`).
 
 ### Decision rule
 

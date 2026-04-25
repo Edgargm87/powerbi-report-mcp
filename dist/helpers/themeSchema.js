@@ -48,7 +48,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.loadSchema = loadSchema;
 exports.getCategoriesForVisualType = getCategoriesForVisualType;
 exports.summarizePropertySpec = summarizePropertySpec;
-exports.validateFormatting = validateFormatting;
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 let cachedSchema = null;
@@ -182,84 +181,4 @@ function summarizePropertySpec(schema, spec) {
             out.type = "number (fontSize)";
     }
     return out;
-}
-function closestMatches(candidate, pool, max = 3) {
-    const cand = candidate.toLowerCase();
-    return pool
-        .map((p) => ({ p, score: scoreSimilarity(cand, p.toLowerCase()) }))
-        .filter((x) => x.score > 0)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, max)
-        .map((x) => x.p);
-}
-function scoreSimilarity(a, b) {
-    // Cheap: substring hits + prefix bonus − length penalty. Good enough to
-    // catch typos like "fnotSize" → "fontSize" and "labls" → "labels".
-    if (a === b)
-        return 100;
-    if (b.includes(a) || a.includes(b))
-        return 50 - Math.abs(a.length - b.length);
-    // char-set overlap
-    const setA = new Set(a);
-    let overlap = 0;
-    for (const c of b)
-        if (setA.has(c))
-            overlap++;
-    const ratio = overlap / Math.max(a.length, b.length);
-    if (ratio < 0.5)
-        return 0;
-    // prefix bonus
-    let prefix = 0;
-    while (prefix < a.length && prefix < b.length && a[prefix] === b[prefix])
-        prefix++;
-    return Math.round(ratio * 20 + prefix * 3 - Math.abs(a.length - b.length));
-}
-/**
- * Validate a list of {category, properties} entries against the schema for a
- * given visualType. Returns empty array when everything is known.
- *
- * The schema's `*` category is treated as a pass-through — anything allowed
- * there is allowed under every category (it's the shared bag of common props).
- *
- * Unknown visualType → no-op (we don't want to block writes on visual types
- * the schema hasn't caught up with yet; the refresh script handles that).
- */
-function validateFormatting(visualType, entries) {
-    try {
-        const { schema } = loadSchema();
-        const cats = getCategoriesForVisualType(schema, visualType);
-        if (cats.size === 0)
-            return []; // unknown visualType — skip validation
-        const wildcard = cats.get("*") || {};
-        const issues = [];
-        const allCatNames = [...cats.keys()].filter((k) => k !== "*");
-        for (const entry of entries) {
-            const catProps = cats.get(entry.category);
-            if (!catProps) {
-                issues.push({
-                    category: entry.category,
-                    issue: "unknown-category",
-                    name: entry.category,
-                    didYouMean: closestMatches(entry.category, allCatNames),
-                });
-                continue;
-            }
-            const validNames = new Set([...Object.keys(catProps), ...Object.keys(wildcard)]);
-            for (const propName of Object.keys(entry.properties)) {
-                if (!validNames.has(propName)) {
-                    issues.push({
-                        category: entry.category,
-                        issue: "unknown-property",
-                        name: propName,
-                        didYouMean: closestMatches(propName, [...validNames]),
-                    });
-                }
-            }
-        }
-        return issues;
-    }
-    catch {
-        // Schema missing or unreadable — refuse to block writes on infra failure
-        return [];
-    }
 }

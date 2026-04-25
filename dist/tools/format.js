@@ -4,7 +4,6 @@ exports.registerFormatTools = registerFormatTools;
 const zod_1 = require("zod");
 const formatting_js_1 = require("../helpers/formatting.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
-const themeSchema_js_1 = require("../helpers/themeSchema.js");
 const defaults_js_1 = require("../helpers/defaults.js");
 // Categories that belong in visualContainerObjects (container chrome)
 const CONTAINER_CATEGORIES = new Set([
@@ -77,7 +76,7 @@ function registerFormatTools(server, ctx) {
     // ============================================================
     // TOOL: format_visual
     // ============================================================
-    server.tool("format_visual", "Format visual properties. Auto-routes title/background/border/padding/dropShadow/visualHeader to container, others to visual; override with target='visual'|'container'. Validates names against bundled theme schema (strict=false to skip). Gotchas: slicer uses `textSize`, not `fontSize` (items/header); waterfall uses `sentimentColors`, not `dataPoint`.", {
+    server.tool("format_visual", "Format visual properties. Auto-routes title/background/border/padding/dropShadow/visualHeader to container, others to visual; override with target='visual'|'container'. Call `lookup_theme_property` for valid category/property names per visualType. Gotchas: slicer uses `textSize`, not `fontSize` (items/header); waterfall uses `sentimentColors`, not `dataPoint`.", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().describe("The visual ID"),
         formatting: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(createVisual_js_1.FormatCategorySchema))
@@ -87,37 +86,8 @@ function registerFormatTools(server, ctx) {
             .optional()
             .default("auto")
             .describe("'auto' (default) routes container categories (title/background/border/padding/dropShadow/visualHeader) to visualContainerObjects and everything else to objects. Use 'visual' or 'container' to force."),
-        strict: zod_1.z
-            .boolean()
-            .optional()
-            .default(true)
-            .describe("When true (default), reject writes that contain unknown category or property names (per the bundled PBI theme schema). Set false to force-write anyway — only do this for schema-newer-than-bundled cases."),
-    }, async ({ pageId, visualId, formatting, target, strict }) => {
+    }, async ({ pageId, visualId, formatting, target }) => {
         const visual = ctx.project.getVisual(pageId, visualId);
-        const visualType = visual.visual?.visualType || "";
-        // Pre-write validation against the bundled theme schema.
-        // Unknown visualType skips silently (schema may lag); known type + typo fails loudly.
-        if (strict && visualType) {
-            const issues = (0, themeSchema_js_1.validateFormatting)(visualType, formatting);
-            if (issues.length > 0) {
-                return {
-                    content: [
-                        {
-                            type: "text",
-                            text: JSON.stringify({
-                                success: false,
-                                error: "Formatting rejected: unknown category or property names for this visualType.",
-                                visualType,
-                                issues,
-                                hint: "Call lookup_theme_property({ visualType, category }) to see valid names. " +
-                                    "If you're certain the schema is stale (PBI shipped something new), retry with strict: false.",
-                            }),
-                        },
-                    ],
-                    isError: true,
-                };
-            }
-        }
         if (target === "auto") {
             // Split formatting into container vs visual categories
             const containerFmt = formatting.filter((f) => CONTAINER_CATEGORIES.has(f.category));
