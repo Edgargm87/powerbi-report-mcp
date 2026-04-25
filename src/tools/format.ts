@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { applyFormattingToTarget, applyDataColors } from "../helpers/formatting.js";
+import { validateFormatTypos } from "../helpers/themeIndex.js";
 import { FormatCategorySchema, DataColorSchema, NO_DATA_VISUAL_TYPES } from "../helpers/createVisual.js";
 import { THEME_PRESETS } from "../helpers/defaults.js";
 import type { ServerContext } from "../context.js";
@@ -108,6 +109,32 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
     },
     async ({ pageId, visualId, formatting, target }) => {
       const visual = ctx.project.getVisual(pageId, visualId);
+
+      // Cheap typo catcher — flag misspelled category/property names against
+      // the bundled schema. Always-on, no opt-out. Unknown visualType → no-op.
+      const typoIssues = validateFormatTypos(visual.visual.visualType, formatting);
+      if (typoIssues.length > 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: false,
+                  error: "format_typo",
+                  issues: typoIssues.map(({ category, prop, didYouMean }) => ({
+                    cat: category,
+                    ...(prop ? { prop } : {}),
+                    didYouMean,
+                  })),
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
 
       if (target === "auto") {
         // Split formatting into container vs visual categories

@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerFormatTools = registerFormatTools;
 const zod_1 = require("zod");
 const formatting_js_1 = require("../helpers/formatting.js");
+const themeIndex_js_1 = require("../helpers/themeIndex.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
 const defaults_js_1 = require("../helpers/defaults.js");
 // Categories that belong in visualContainerObjects (container chrome)
@@ -88,6 +89,27 @@ function registerFormatTools(server, ctx) {
             .describe("'auto' (default) routes container categories (title/background/border/padding/dropShadow/visualHeader) to visualContainerObjects and everything else to objects. Use 'visual' or 'container' to force."),
     }, async ({ pageId, visualId, formatting, target }) => {
         const visual = ctx.project.getVisual(pageId, visualId);
+        // Cheap typo catcher — flag misspelled category/property names against
+        // the bundled schema. Always-on, no opt-out. Unknown visualType → no-op.
+        const typoIssues = (0, themeIndex_js_1.validateFormatTypos)(visual.visual.visualType, formatting);
+        if (typoIssues.length > 0) {
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify({
+                            success: false,
+                            error: "format_typo",
+                            issues: typoIssues.map(({ category, prop, didYouMean }) => ({
+                                cat: category,
+                                ...(prop ? { prop } : {}),
+                                didYouMean,
+                            })),
+                        }, null, 2),
+                    },
+                ],
+            };
+        }
         if (target === "auto") {
             // Split formatting into container vs visual categories
             const containerFmt = formatting.filter((f) => CONTAINER_CATEGORIES.has(f.category));

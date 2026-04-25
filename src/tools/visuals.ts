@@ -12,6 +12,7 @@ import { invalidateCache } from "../model-usage.js";
 import { runBindingValidation, attachBindingValidationMetadata } from "../helpers/bindingValidation.js";
 import { extractVisualTitle } from "../helpers/extractTitle.js";
 import { runLayoutValidation, getCanvasSummary } from "../helpers/layoutValidation.js";
+import { validateFormatTypos } from "../helpers/themeIndex.js";
 import type { WireframeVisual } from "../wireframe-validator.js";
 
 export function registerVisualTools(server: McpServer, ctx: ServerContext): void {
@@ -190,6 +191,44 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       }
 
       const specs: VisualSpec[] = params.visuals as VisualSpec[];
+
+      // Cheap typo catcher — flag misspelled category/property names against
+      // the bundled schema BEFORE we burn binding/layout cycles. Always-on,
+      // no opt-out. Unknown visualType → no-op (schema lag tolerance).
+      const typoIssues: Array<{ visualIndex: number } & ReturnType<typeof validateFormatTypos>[number]> = [];
+      for (let i = 0; i < specs.length; i++) {
+        const s = specs[i];
+        const entries = [
+          ...(s.containerFormat ?? []),
+          ...(s.visualFormat ?? []),
+        ];
+        if (entries.length === 0) continue;
+        const issues = validateFormatTypos(s.visualType, entries);
+        for (const issue of issues) typoIssues.push({ visualIndex: i, ...issue });
+      }
+      if (typoIssues.length > 0) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: false,
+                  error: "format_typo",
+                  issues: typoIssues.map(({ visualIndex, category, prop, didYouMean }) => ({
+                    visualIndex,
+                    cat: category,
+                    ...(prop ? { prop } : {}),
+                    didYouMean,
+                  })),
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
 
       // Binding validation (strict / warn / off).
       // Flatten bindings across every spec in the call so one validator pass
