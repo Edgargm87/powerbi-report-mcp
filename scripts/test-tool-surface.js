@@ -128,6 +128,20 @@ function listTools() {
     process.exit(1);
   }
 
+  // Schema check: every tool must have outputSchema (declared via the
+  // generic envelope in src/index.ts so structuredContent validates).
+  const noOutSchema = result.tools.filter((t) => !t.outputSchema).map((t) => t.name);
+  if (noOutSchema.length) {
+    console.error("FAIL: tools missing outputSchema:", noOutSchema);
+    process.exit(1);
+  }
+
+  // Every tool should have a human title set via registerTool({title}).
+  const noTitle = result.tools.filter((t) => !t.title).map((t) => t.name);
+  if (noTitle.length) {
+    console.warn(`[soft] ${noTitle.length} tool(s) missing title in tools/list response: ${noTitle.slice(0, 5).join(", ")}${noTitle.length > 5 ? "…" : ""}`);
+  }
+
   // Soft warn: annotations may not be echoed by all clients, so this is
   // informational rather than a hard fail.
   const noAnnot = result.tools.filter((t) => !t.annotations).map((t) => t.name);

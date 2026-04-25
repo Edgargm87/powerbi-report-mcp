@@ -281,25 +281,48 @@ async function main() {
     const loadAll = !loadMinimal;
     const activeTools = new Set(loadAll ? ALL_TOOLS : default_tools_js_1.DEFAULT_TOOLS);
     const deferredTools = new Map();
-    // Auto-wrap all tool handlers with safe() and filter by active set.
-    // Accepts both 4-arg `(name, desc, schema, handler)` and 5-arg
-    // `(name, desc, schema, annotations, handler)` — the SDK supports both
-    // overloads; the 5-arg form attaches MCP tool annotations (readOnlyHint,
-    // destructiveHint, idempotentHint, openWorldHint) for clients that surface
-    // them.
-    const _tool = server.tool.bind(server);
-    server.tool = (name, desc, schema, annotationsOrHandler, handler) => {
+    // Generic outputSchema applied to every tool. The MCP spec requires
+    // structuredContent to validate against the declared outputSchema, so we
+    // intentionally keep this loose — every response carries `success: boolean`
+    // and a free-form payload (.passthrough() permits any extra keys). This
+    // satisfies the structured-output contract for every tool without forcing
+    // 55 bespoke per-tool schemas; tighter per-tool schemas can be added in
+    // follow-up work without touching the wrapper.
+    const GENERIC_OUTPUT_SCHEMA = { success: zod_1.z.boolean(), error: zod_1.z.string().optional() };
+    // snake_case tool name → human Title Case for the registerTool `title`
+    // field, e.g. pbir_list_pages → "List Pages", pbir_set_report → "Set Report".
+    // Uses a small acronym map so common acronyms render correctly.
+    const ACRONYMS = new Set(["dax", "id", "url", "svg", "html", "json", "kpi"]);
+    function humanTitle(name) {
+        const stripped = name.replace(/^pbir_/, "");
+        return stripped.split("_").map((w) => {
+            if (!w)
+                return w;
+            if (ACRONYMS.has(w.toLowerCase()))
+                return w.toUpperCase();
+            return w[0].toUpperCase() + w.slice(1);
+        }).join(" ");
+    }
+    // Modern entrypoint — server.registerTool({title, description, inputSchema,
+    // outputSchema, annotations}, handler). This replaces the deprecated
+    // 4/5-arg server.tool() form and is required for outputSchema support.
+    const registerToolRaw = server.registerTool.bind(server);
+    function doRegister(name, desc, schema, annotations, handler) {
+        registerToolRaw(name, {
+            title: humanTitle(name),
+            description: desc,
+            inputSchema: schema || undefined,
+            outputSchema: GENERIC_OUTPUT_SCHEMA,
+            annotations,
+        }, handler);
+    }
+    const _tool = (name, desc, schema, annotationsOrHandler, handler) => {
         const hasAnnotations = typeof annotationsOrHandler === "object" && annotationsOrHandler !== null;
         const realHandler = (hasAnnotations ? handler : annotationsOrHandler);
         const annotations = hasAnnotations ? annotationsOrHandler : undefined;
         const safeHandler = safe(realHandler);
         if (activeTools.has(name)) {
-            if (annotations) {
-                _tool(name, desc, schema, annotations, safeHandler);
-            }
-            else {
-                _tool(name, desc, schema, safeHandler);
-            }
+            doRegister(name, desc, schema, annotations, safeHandler);
         }
         else {
             // Store for on-demand activation. Annotations are passed when the
@@ -307,6 +330,7 @@ async function main() {
             deferredTools.set(name, { desc, schema, handler: safeHandler, annotations });
         }
     };
+    server.tool = _tool;
     // Build shared context
     const ctx = {
         getReportPath: () => reportPath,
@@ -327,7 +351,10 @@ async function main() {
     (0, themeLookup_js_1.registerThemeLookupTool)(server);
     (0, model_usage_js_1.registerModelUsageTool)(server, ctx);
     // registerCalculationTools(server, ctx); // PARKED
-    // Meta tool: pbir_load_tools — lists available on-demand tools and activates them
+    // Meta tool: pbir_load_tools — lists available on-demand tools and activates
+    // them. Pre-register in the active set so the shim's gating accepts it; the
+    // shim turns this into a server.registerTool call under the hood.
+    activeTools.add("pbir_load_tools");
     _tool("pbir_load_tools", "List on-demand tools (no args) or activate by name (pass `tools` array).", {
         tools: zod_1.z
             .array(zod_1.z.string())
@@ -361,12 +388,8 @@ async function main() {
         for (const name of tools) {
             const entry = deferredTools.get(name);
             if (entry) {
-                if (entry.annotations) {
-                    _tool(name, entry.desc, entry.schema, entry.annotations, entry.handler);
-                }
-                else {
-                    _tool(name, entry.desc, entry.schema, entry.handler);
-                }
+                // Handler is already safe()-wrapped from the deferred entry.
+                doRegister(name, entry.desc, entry.schema, entry.annotations, entry.handler);
                 activeTools.add(name);
                 deferredTools.delete(name);
                 activated.push(name);
