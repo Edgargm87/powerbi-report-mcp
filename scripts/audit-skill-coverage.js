@@ -128,7 +128,9 @@ function collectSkills() {
   if (!fs.existsSync(SKILLS_DIR)) return [];
   return fs
     .readdirSync(SKILLS_DIR)
-    .filter((f) => f.endsWith(".md"))
+    // `_*.md` files are meta (e.g. _overview.md served as the pbir-instructions
+    // MCP resource) — exclude from public-skill audit + summary-frontmatter check.
+    .filter((f) => f.endsWith(".md") && !f.startsWith("_"))
     .sort()
     .map((f) => ({
       file: `skills/${f}`,

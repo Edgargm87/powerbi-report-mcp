@@ -28,13 +28,15 @@ function stripFrontmatter(md: string): string {
   return out;
 }
 
-/** Discover all *.md files under skills/. Returns sorted topic keys. */
+/** Discover all *.md files under skills/. Returns sorted topic keys.
+ *  Files starting with `_` are meta (e.g. _overview.md, served as the
+ *  pbir-instructions MCP resource) and excluded from the public topic list. */
 function listTopics(): string[] {
   const dir = getSkillsDir();
   if (!fs.existsSync(dir)) return [];
   return fs
     .readdirSync(dir)
-    .filter((f) => f.endsWith(".md"))
+    .filter((f) => f.endsWith(".md") && !f.startsWith("_"))
     .map((f) => f.replace(/\.md$/, ""))
     .sort();
 }
