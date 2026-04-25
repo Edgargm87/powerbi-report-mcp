@@ -20,7 +20,7 @@ function registerBindingTools(server, ctx) {
             .boolean()
             .optional()
             .describe("Binding validation: true=strict (default, fail on unknown field), false=warn (proceed with warnings). Omit for env default."),
-    }, async ({ pageId, visualId, bindings, autoFilters, strictBindings }) => {
+    }, { "openWorldHint": false }, async ({ pageId, visualId, bindings, autoFilters, strictBindings }) => {
         // Binding validation — before any write.
         const validationBindings = bindings.map((b) => ({
             bucket: b.bucket,

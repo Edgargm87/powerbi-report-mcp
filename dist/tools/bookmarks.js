@@ -9,7 +9,7 @@ function registerBookmarkTools(server, ctx) {
     // ============================================================
     // TOOL: list_bookmarks
     // ============================================================
-    server.tool("list_bookmarks", "List all bookmarks defined in the report.", {}, async () => (0, readCache_js_1.cachedRead)("list_bookmarks", {}, ["bookmarks"], () => {
+    server.tool("list_bookmarks", "List all bookmarks defined in the report.", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => (0, readCache_js_1.cachedRead)("list_bookmarks", {}, ["bookmarks"], () => {
         const meta = ctx.project.getBookmarksMetadata();
         const bookmarks = meta.bookmarkOrder.map((id) => {
             try {
@@ -31,7 +31,7 @@ function registerBookmarkTools(server, ctx) {
             .string()
             .optional()
             .describe("Page ID that this bookmark should navigate to when activated"),
-    }, async ({ displayName, activePageId }) => {
+    }, { "openWorldHint": false }, async ({ displayName, activePageId }) => {
         const bookmarkId = (0, pbir_js_1.generateId)();
         const explorationState = {};
         if (activePageId) {
@@ -62,7 +62,7 @@ function registerBookmarkTools(server, ctx) {
     // ============================================================
     server.tool("delete_bookmark", "Delete a bookmark by ID.", {
         bookmarkId: zod_1.z.string().describe("The bookmark ID to delete (from list_bookmarks)"),
-    }, async ({ bookmarkId }) => {
+    }, { "destructiveHint": true, "openWorldHint": false }, async ({ bookmarkId }) => {
         const meta = ctx.project.getBookmarksMetadata();
         const before = meta.bookmarkOrder.length;
         meta.bookmarkOrder = meta.bookmarkOrder.filter((id) => id !== bookmarkId);
@@ -84,7 +84,7 @@ function registerBookmarkTools(server, ctx) {
     server.tool("rename_bookmark", "Rename an existing bookmark.", {
         bookmarkId: zod_1.z.string().describe("The bookmark ID to rename"),
         displayName: zod_1.z.string().describe("New display name"),
-    }, async ({ bookmarkId, displayName }) => {
+    }, { "openWorldHint": false }, async ({ bookmarkId, displayName }) => {
         const bookmark = ctx.project.getBookmark(bookmarkId);
         bookmark.displayName = displayName;
         ctx.project.saveBookmark(bookmarkId, bookmark);

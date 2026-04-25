@@ -220,17 +220,43 @@ async function main() {
 
   // Store deferred tool registrations so load_tools can activate them later
   type ToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult>;
-  const deferredTools: Map<string, { desc: string; schema: unknown; handler: ToolHandler }> = new Map();
+  const deferredTools: Map<string, { desc: string; schema: unknown; handler: ToolHandler; annotations?: Record<string, unknown> }> = new Map();
 
-  // Auto-wrap all tool handlers with safe() and filter by active set
-  const _tool = server.tool.bind(server);
-  (server as unknown as { tool: (name: string, desc: string, schema: unknown, handler: ToolHandler) => void }).tool = (name, desc, schema, handler) => {
-    const safeHandler = safe(handler);
+  // Auto-wrap all tool handlers with safe() and filter by active set.
+  // Accepts both 4-arg `(name, desc, schema, handler)` and 5-arg
+  // `(name, desc, schema, annotations, handler)` — the SDK supports both
+  // overloads; the 5-arg form attaches MCP tool annotations (readOnlyHint,
+  // destructiveHint, idempotentHint, openWorldHint) for clients that surface
+  // them.
+  const _tool = server.tool.bind(server) as unknown as (
+    name: string,
+    desc: string,
+    schema: Record<string, unknown>,
+    annotationsOrHandler: unknown,
+    handler?: ToolHandler
+  ) => void;
+  type WrappedTool = (
+    name: string,
+    desc: string,
+    schema: unknown,
+    annotationsOrHandler: unknown,
+    handler?: ToolHandler
+  ) => void;
+  (server as unknown as { tool: WrappedTool }).tool = (name, desc, schema, annotationsOrHandler, handler) => {
+    const hasAnnotations = typeof annotationsOrHandler === "object" && annotationsOrHandler !== null;
+    const realHandler = (hasAnnotations ? handler! : (annotationsOrHandler as ToolHandler));
+    const annotations = hasAnnotations ? (annotationsOrHandler as Record<string, unknown>) : undefined;
+    const safeHandler = safe(realHandler);
     if (activeTools.has(name)) {
-      _tool(name, desc, schema as Record<string, unknown>, safeHandler);
+      if (annotations) {
+        _tool(name, desc, schema as Record<string, unknown>, annotations, safeHandler);
+      } else {
+        _tool(name, desc, schema as Record<string, unknown>, safeHandler);
+      }
     } else {
-      // Store for on-demand activation
-      deferredTools.set(name, { desc, schema, handler: safeHandler });
+      // Store for on-demand activation. Annotations are passed when the
+      // deferred tool is later activated via load_tools.
+      deferredTools.set(name, { desc, schema, handler: safeHandler, annotations });
     }
   };
 
@@ -266,6 +292,7 @@ async function main() {
         .optional()
         .describe("Tool names to activate. Omit to list available on-demand tools."),
     },
+    { openWorldHint: false } as Record<string, unknown>,
     safe(async ({ tools }: { tools?: string[] }) => {
       if (!tools || tools.length === 0) {
         // List available on-demand tools
@@ -294,7 +321,11 @@ async function main() {
       for (const name of tools) {
         const entry = deferredTools.get(name);
         if (entry) {
-          _tool(name, entry.desc, entry.schema as Record<string, unknown>, entry.handler);
+          if (entry.annotations) {
+            _tool(name, entry.desc, entry.schema as Record<string, unknown>, entry.annotations, entry.handler);
+          } else {
+            _tool(name, entry.desc, entry.schema as Record<string, unknown>, entry.handler);
+          }
           activeTools.add(name);
           deferredTools.delete(name);
           activated.push(name);

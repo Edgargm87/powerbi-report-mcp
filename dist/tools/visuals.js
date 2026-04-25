@@ -15,7 +15,7 @@ function registerVisualTools(server, ctx) {
     // ============================================================
     // TOOL: get_visual_types
     // ============================================================
-    server.tool("get_visual_types", "Get a list of available visual types and their data role buckets", {}, async () => {
+    server.tool("get_visual_types", "Get a list of available visual types and their data role buckets", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => {
         return { content: [{ type: "text", text: JSON.stringify(pbir_js_1.VISUAL_BUCKETS, null, 2) }] };
     });
     // ============================================================
@@ -24,7 +24,7 @@ function registerVisualTools(server, ctx) {
     server.tool("list_visuals", "List all visuals on a page. Default slim returns id/type/x/y/w/h/title. slim:false includes filterCount.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         slim: zod_1.z.boolean().optional().default(true),
-    }, async ({ pageId, slim }) => {
+    }, { "readOnlyHint": true, "openWorldHint": false }, async ({ pageId, slim }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -67,7 +67,7 @@ function registerVisualTools(server, ctx) {
         visualId: zod_1.z.string().describe("The visual ID"),
         verbose: zod_1.z.boolean().optional().describe("Full raw PBIR JSON (heavy)."),
         slim: zod_1.z.boolean().optional().describe("Deprecated alias for !verbose."),
-    }, async ({ pageId, visualId, verbose, slim }) => {
+    }, { "readOnlyHint": true, "openWorldHint": false }, async ({ pageId, visualId, verbose, slim }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -175,7 +175,7 @@ function registerVisualTools(server, ctx) {
             .boolean()
             .optional()
             .describe("Return [{visualId,visualType}] instead of flat id list."),
-    }, async (params) => {
+    }, { "openWorldHint": false }, async (params) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, params.pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -334,7 +334,7 @@ function registerVisualTools(server, ctx) {
     server.tool("delete_visual", "Delete a visual from a page", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID to delete"),
-    }, async ({ pageId, visualId }) => {
+    }, { "destructiveHint": true, "openWorldHint": false }, async ({ pageId, visualId }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -357,7 +357,7 @@ function registerVisualTools(server, ctx) {
         width: zod_1.z.number().optional(),
         height: zod_1.z.number().optional(),
         z: zod_1.z.number().optional().describe("z-order"),
-    }, async ({ pageId, visualId, x, y, width, height, z }) => {
+    }, { "openWorldHint": false }, async ({ pageId, visualId, x, y, width, height, z }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -390,7 +390,7 @@ function registerVisualTools(server, ctx) {
         targetPageId: zod_1.z.string().optional().describe("Target page ID (defaults to same page)"),
         offsetX: zod_1.z.number().optional().default(20).describe("X offset for the duplicate"),
         offsetY: zod_1.z.number().optional().default(20).describe("Y offset for the duplicate"),
-    }, async ({ pageId, visualId, targetPageId, offsetX, offsetY }) => {
+    }, { "openWorldHint": false }, async ({ pageId, visualId, targetPageId, offsetX, offsetY }) => {
         const original = ctx.project.getVisual(pageId, visualId);
         const newId = (0, pbir_js_1.generateId)();
         const target = targetPageId || pageId;
@@ -426,7 +426,7 @@ function registerVisualTools(server, ctx) {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().describe("The visual ID"),
         visualType: zod_1.z.string().describe("The new visual type"),
-    }, async ({ pageId, visualId, visualType }) => {
+    }, { "openWorldHint": false }, async ({ pageId, visualId, visualType }) => {
         const visual = ctx.project.getVisual(pageId, visualId);
         visual.visual.visualType = visualType;
         ctx.project.saveVisual(pageId, visualId, visual);

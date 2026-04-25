@@ -24,8 +24,12 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     {
       path: z.string().describe("Absolute path to the .Report folder or the parent folder containing a .pbip project"),
     },
+    {"openWorldHint":false},
     async ({ path: targetPath }) => {
       const result = ctx.connectReport(targetPath);
+      if (result.success === false) {
+        return fail(result.error ?? "Failed to connect to report", { path: targetPath });
+      }
       invalidateAll();
       // Append the skills-index banner so every new session gets the index +
       // the always-inline wireframes + report-design content at connect time.
@@ -47,6 +51,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     "get_report",
     "Show the currently connected report path.",
     {},
+    {"readOnlyHint":true,"openWorldHint":false},
     async () =>
       cachedRead("get_report", {}, ["report"], () => ({
         reportPath: ctx.getReportPath() || "No report connected",
@@ -64,6 +69,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       includeVisuals: z.boolean().optional().default(false).describe("When true, each page also includes a `visuals` array with slim per-visual entries."),
       pageId: z.string().optional().describe("Scope to a single page (implies includeVisuals)."),
     },
+    {"readOnlyHint":true,"openWorldHint":false},
     async ({ slim, includeVisuals, pageId }) => {
       const scopes: string[] = ["report"];
       if (pageId) scopes.push(`page:${pageId}`);
@@ -136,6 +142,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         property: z.string().describe("Column name for the drillthrough field"),
       }).optional().describe("Drillthrough field — makes this a drillthrough page filtered by this field"),
     },
+    {"openWorldHint":false},
     async ({ displayName, type, width, height, displayOption, drillthrough }) => {
       const isTooltip = type === "tooltip";
 
@@ -210,6 +217,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       displayName: z.string().describe("New display name"),
     },
+    {"openWorldHint":false},
     async ({ pageId, displayName }) => {
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
@@ -234,6 +242,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     {
       pageId: z.string().describe("The page ID to delete"),
     },
+    {"destructiveHint":true,"openWorldHint":false},
     async ({ pageId }) => {
       const meta = ctx.project.getPagesMetadata();
       meta.pageOrder = meta.pageOrder.filter((id) => id !== pageId);
@@ -260,6 +269,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     {
       pageOrder: z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, z.array(z.string())).describe("Array of page IDs in desired order"),
     },
+    {"openWorldHint":false},
     async ({ pageOrder }) => {
       const meta = ctx.project.getPagesMetadata();
       meta.pageOrder = pageOrder;
@@ -278,6 +288,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
     },
+    {"idempotentHint":true,"openWorldHint":false},
     async ({ pageId }) => {
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
@@ -302,6 +313,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       hidden: z.coerce.boolean(),
     },
+    {"idempotentHint":true,"openWorldHint":false},
     async ({ pageId, hidden }) => {
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
@@ -330,6 +342,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     "get_report_settings",
     "Get the report-level settings and theme configuration",
     {},
+    {"readOnlyHint":true,"openWorldHint":false},
     async () => {
       const report = ctx.project.getReport();
       return { content: [{ type: "text", text: JSON.stringify(report, null, 2) }] };
@@ -360,12 +373,11 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     {
       settings: z.record(z.string(), z.unknown()),
     },
+    {"idempotentHint":true,"openWorldHint":false},
     async ({ settings }) => {
       const invalid = Object.keys(settings).filter((k) => !VALID_REPORT_SETTINGS.has(k));
       if (invalid.length > 0) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({ success: false, error: `Invalid setting keys: ${invalid.join(", ")}. Valid keys: ${[...VALID_REPORT_SETTINGS].join(", ")}` }) }],
-        };
+        return fail(`Invalid setting keys: ${invalid.join(", ")}. Valid keys: ${[...VALID_REPORT_SETTINGS].join(", ")}`);
       }
       const report = ctx.project.getReport();
       report.settings = { ...report.settings, ...settings };
@@ -391,6 +403,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       height: z.number().optional(),
       displayOption: z.enum(["FitToPage", "FitToWidth", "ActualSize"]).optional(),
     },
+    {"openWorldHint":false},
     async ({ pageId, width, height, displayOption }) => {
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
@@ -426,6 +439,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       marginTop: z.number().optional().default(10),
       marginLeft: z.number().optional().default(10),
     },
+    {"openWorldHint":false},
     async ({ pageId, columns, padding, marginTop, marginLeft }) => {
       const page = ctx.project.getPage(pageId);
       const visualIds = ctx.project.listVisualIds(pageId);
@@ -484,6 +498,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         .optional()
         .describe("Display name for the new page (defaults to 'Copy of <original>')"),
     },
+    {"openWorldHint":false},
     async ({ pageId, displayName }) => {
       const sourcePage = ctx.project.getPage(pageId);
       const newPageId = generateId();
@@ -549,6 +564,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
           "Must be true to actually reload. When false/omitted, the tool returns a save-first warning instead of killing PBI Desktop. The agent should relay the warning, wait for user confirmation, then retry with confirm:true."
         ),
     },
+    {"destructiveHint":true,"openWorldHint":false},
     async ({ confirm }) => {
       const reportPath = ctx.getReportPath();
       if (!reportPath) {
@@ -640,6 +656,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       visible: z.boolean(),
       expanded: z.boolean().optional().default(true),
     },
+    {"idempotentHint":true,"openWorldHint":false},
     async ({ visible, expanded }) => {
       const report = ctx.project.getReport();
 
@@ -674,6 +691,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       expression: z.string().optional().describe("DAX (for add)"),
       dataType: z.string().optional().default("Text").describe("Text/Double/Int64/Boolean/DateTime"),
     },
+    {"destructiveHint":true,"openWorldHint":false},
     async ({ operation, tableName, measureName, expression, dataType }) => {
       if (operation === "list") {
         const ext = ctx.project.getReportExtensions();
@@ -688,7 +706,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
 
       if (operation === "add") {
         if (!measureName || !expression) {
-          return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "add requires: measureName, expression" }) }] };
+          return fail("add requires: measureName, expression");
         }
 
         let ext = ctx.project.getReportExtensions();
@@ -723,12 +741,12 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
 
       if (operation === "remove") {
         if (!measureName) {
-          return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "remove requires: measureName" }) }] };
+          return fail("remove requires: measureName");
         }
 
         const ext = ctx.project.getReportExtensions();
         if (!ext?.entities?.length) {
-          return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "No extension measures exist" }) }] };
+          return fail("No extension measures exist");
         }
 
         let removed = false;
@@ -748,7 +766,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         return { content: [{ type: "text", text: JSON.stringify({ success: true, operation: "remove", measure: measureName, removed }) }] };
       }
 
-      return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "Unknown operation" }) }] };
+      return fail("Unknown operation");
     }
   );
 
@@ -766,6 +784,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       wallpaperTransparency: z.number().min(0).max(100).optional().default(0),
       clear: z.boolean().optional().describe("Remove all background/wallpaper settings"),
     },
+    {"idempotentHint":true,"openWorldHint":false},
     async ({ pageId, color, transparency, wallpaperColor, wallpaperTransparency, clear }) => {
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
@@ -840,6 +859,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       target: z.string(),
       type: z.enum(["Filter", "Highlight", "NoFilter"]),
     },
+    {"idempotentHint":true,"openWorldHint":false},
     async ({ pageId, source, target, type }) => {
       const page = ctx.project.getPage(pageId);
 

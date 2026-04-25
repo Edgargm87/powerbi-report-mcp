@@ -52,8 +52,11 @@ function registerReportTools(server, ctx) {
     // ============================================================
     server.tool("set_report", "Connect to a different Power BI report (.Report folder or parent .pbip project folder). Use this to switch reports mid-session without restarting the server.", {
         path: zod_1.z.string().describe("Absolute path to the .Report folder or the parent folder containing a .pbip project"),
-    }, async ({ path: targetPath }) => {
+    }, { "openWorldHint": false }, async ({ path: targetPath }) => {
         const result = ctx.connectReport(targetPath);
+        if (result.success === false) {
+            return (0, mcpResult_js_1.fail)(result.error ?? "Failed to connect to report", { path: targetPath });
+        }
         (0, readCache_js_1.invalidateAll)();
         // Append the skills-index banner so every new session gets the index +
         // the always-inline wireframes + report-design content at connect time.
@@ -69,7 +72,7 @@ function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: get_report — show currently connected report
     // ============================================================
-    server.tool("get_report", "Show the currently connected report path.", {}, async () => (0, readCache_js_1.cachedRead)("get_report", {}, ["report"], () => ({
+    server.tool("get_report", "Show the currently connected report path.", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => (0, readCache_js_1.cachedRead)("get_report", {}, ["report"], () => ({
         reportPath: ctx.getReportPath() || "No report connected",
     })));
     // ============================================================
@@ -79,7 +82,7 @@ function registerReportTools(server, ctx) {
         slim: zod_1.z.boolean().optional().default(true).describe("Slim mode (default true) — omits width/height/displayOption to reduce token usage"),
         includeVisuals: zod_1.z.boolean().optional().default(false).describe("When true, each page also includes a `visuals` array with slim per-visual entries."),
         pageId: zod_1.z.string().optional().describe("Scope to a single page (implies includeVisuals)."),
-    }, async ({ slim, includeVisuals, pageId }) => {
+    }, { "readOnlyHint": true, "openWorldHint": false }, async ({ slim, includeVisuals, pageId }) => {
         const scopes = ["report"];
         if (pageId)
             scopes.push(`page:${pageId}`);
@@ -147,7 +150,7 @@ function registerReportTools(server, ctx) {
             entity: zod_1.z.string().describe("Table name for the drillthrough field"),
             property: zod_1.z.string().describe("Column name for the drillthrough field"),
         }).optional().describe("Drillthrough field — makes this a drillthrough page filtered by this field"),
-    }, async ({ displayName, type, width, height, displayOption, drillthrough }) => {
+    }, { "openWorldHint": false }, async ({ displayName, type, width, height, displayOption, drillthrough }) => {
         const isTooltip = type === "tooltip";
         // Apply tooltip defaults when not explicitly overridden
         const resolvedWidth = width ?? (isTooltip ? 320 : 1280);
@@ -206,7 +209,7 @@ function registerReportTools(server, ctx) {
     server.tool("rename_page", "Rename an existing page", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         displayName: zod_1.z.string().describe("New display name"),
-    }, async ({ pageId, displayName }) => {
+    }, { "openWorldHint": false }, async ({ pageId, displayName }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -225,7 +228,7 @@ function registerReportTools(server, ctx) {
     // ============================================================
     server.tool("delete_page", "Delete a page and all its visuals", {
         pageId: zod_1.z.string().describe("The page ID to delete"),
-    }, async ({ pageId }) => {
+    }, { "destructiveHint": true, "openWorldHint": false }, async ({ pageId }) => {
         const meta = ctx.project.getPagesMetadata();
         meta.pageOrder = meta.pageOrder.filter((id) => id !== pageId);
         if (meta.activePageName === pageId && meta.pageOrder.length > 0) {
@@ -245,7 +248,7 @@ function registerReportTools(server, ctx) {
     // ============================================================
     server.tool("reorder_pages", "Set the page order", {
         pageOrder: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(zod_1.z.string())).describe("Array of page IDs in desired order"),
-    }, async ({ pageOrder }) => {
+    }, { "openWorldHint": false }, async ({ pageOrder }) => {
         const meta = ctx.project.getPagesMetadata();
         meta.pageOrder = pageOrder;
         ctx.project.savePagesMetadata(meta);
@@ -257,7 +260,7 @@ function registerReportTools(server, ctx) {
     // ============================================================
     server.tool("set_active_page", "Set which page is active (shown on open)", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
-    }, async ({ pageId }) => {
+    }, { "idempotentHint": true, "openWorldHint": false }, async ({ pageId }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -276,7 +279,7 @@ function registerReportTools(server, ctx) {
     server.tool("set_page_visibility", "Show or hide a page in the navigation pane. Hidden pages still work for drillthrough.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         hidden: zod_1.z.coerce.boolean(),
-    }, async ({ pageId, hidden }) => {
+    }, { "idempotentHint": true, "openWorldHint": false }, async ({ pageId, hidden }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -300,7 +303,7 @@ function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: get_report_settings
     // ============================================================
-    server.tool("get_report_settings", "Get the report-level settings and theme configuration", {}, async () => {
+    server.tool("get_report_settings", "Get the report-level settings and theme configuration", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => {
         const report = ctx.project.getReport();
         return { content: [{ type: "text", text: JSON.stringify(report, null, 2) }] };
     });
@@ -323,12 +326,10 @@ function registerReportTools(server, ctx) {
     ]);
     server.tool("update_report_settings", "Merge report-level settings. Keys: useStylableVisualContainerHeader, useEnhancedTooltips, exportDataMode (0|1), persistentFilters, keyboardNavigationEnabled, defaultDrillFilterOtherVisuals, allowChangeFilterTypes, useDefaultAggregateDisplayName.", {
         settings: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()),
-    }, async ({ settings }) => {
+    }, { "idempotentHint": true, "openWorldHint": false }, async ({ settings }) => {
         const invalid = Object.keys(settings).filter((k) => !VALID_REPORT_SETTINGS.has(k));
         if (invalid.length > 0) {
-            return {
-                content: [{ type: "text", text: JSON.stringify({ success: false, error: `Invalid setting keys: ${invalid.join(", ")}. Valid keys: ${[...VALID_REPORT_SETTINGS].join(", ")}` }) }],
-            };
+            return (0, mcpResult_js_1.fail)(`Invalid setting keys: ${invalid.join(", ")}. Valid keys: ${[...VALID_REPORT_SETTINGS].join(", ")}`);
         }
         const report = ctx.project.getReport();
         report.settings = { ...report.settings, ...settings };
@@ -348,7 +349,7 @@ function registerReportTools(server, ctx) {
         width: zod_1.z.number().optional(),
         height: zod_1.z.number().optional(),
         displayOption: zod_1.z.enum(["FitToPage", "FitToWidth", "ActualSize"]).optional(),
-    }, async ({ pageId, width, height, displayOption }) => {
+    }, { "openWorldHint": false }, async ({ pageId, width, height, displayOption }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -381,7 +382,7 @@ function registerReportTools(server, ctx) {
         padding: zod_1.z.number().optional().default(10),
         marginTop: zod_1.z.number().optional().default(10),
         marginLeft: zod_1.z.number().optional().default(10),
-    }, async ({ pageId, columns, padding, marginTop, marginLeft }) => {
+    }, { "openWorldHint": false }, async ({ pageId, columns, padding, marginTop, marginLeft }) => {
         const page = ctx.project.getPage(pageId);
         const visualIds = ctx.project.listVisualIds(pageId);
         if (visualIds.length === 0) {
@@ -429,7 +430,7 @@ function registerReportTools(server, ctx) {
             .string()
             .optional()
             .describe("Display name for the new page (defaults to 'Copy of <original>')"),
-    }, async ({ pageId, displayName }) => {
+    }, { "openWorldHint": false }, async ({ pageId, displayName }) => {
         const sourcePage = ctx.project.getPage(pageId);
         const newPageId = (0, pbir_js_1.generateId)();
         const newPage = {
@@ -482,7 +483,7 @@ function registerReportTools(server, ctx) {
             .optional()
             .default(false)
             .describe("Must be true to actually reload. When false/omitted, the tool returns a save-first warning instead of killing PBI Desktop. The agent should relay the warning, wait for user confirmation, then retry with confirm:true."),
-    }, async ({ confirm }) => {
+    }, { "destructiveHint": true, "openWorldHint": false }, async ({ confirm }) => {
         const reportPath = ctx.getReportPath();
         if (!reportPath) {
             return (0, mcpResult_js_1.fail)("No report connected. Use set_report first.");
@@ -560,7 +561,7 @@ function registerReportTools(server, ctx) {
     server.tool("set_filter_pane", "Show or hide the filter pane.", {
         visible: zod_1.z.boolean(),
         expanded: zod_1.z.boolean().optional().default(true),
-    }, async ({ visible, expanded }) => {
+    }, { "idempotentHint": true, "openWorldHint": false }, async ({ visible, expanded }) => {
         const report = ctx.project.getReport();
         if (!report.objects)
             report.objects = {};
@@ -587,7 +588,7 @@ function registerReportTools(server, ctx) {
         measureName: zod_1.z.string().optional(),
         expression: zod_1.z.string().optional().describe("DAX (for add)"),
         dataType: zod_1.z.string().optional().default("Text").describe("Text/Double/Int64/Boolean/DateTime"),
-    }, async ({ operation, tableName, measureName, expression, dataType }) => {
+    }, { "destructiveHint": true, "openWorldHint": false }, async ({ operation, tableName, measureName, expression, dataType }) => {
         if (operation === "list") {
             const ext = ctx.project.getReportExtensions();
             if (!ext?.entities?.length) {
@@ -598,7 +599,7 @@ function registerReportTools(server, ctx) {
         }
         if (operation === "add") {
             if (!measureName || !expression) {
-                return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "add requires: measureName, expression" }) }] };
+                return (0, mcpResult_js_1.fail)("add requires: measureName, expression");
             }
             let ext = ctx.project.getReportExtensions();
             if (!ext) {
@@ -628,11 +629,11 @@ function registerReportTools(server, ctx) {
         }
         if (operation === "remove") {
             if (!measureName) {
-                return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "remove requires: measureName" }) }] };
+                return (0, mcpResult_js_1.fail)("remove requires: measureName");
             }
             const ext = ctx.project.getReportExtensions();
             if (!ext?.entities?.length) {
-                return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "No extension measures exist" }) }] };
+                return (0, mcpResult_js_1.fail)("No extension measures exist");
             }
             let removed = false;
             for (const entity of ext.entities) {
@@ -649,7 +650,7 @@ function registerReportTools(server, ctx) {
             ctx.project.saveReportExtensions(ext);
             return { content: [{ type: "text", text: JSON.stringify({ success: true, operation: "remove", measure: measureName, removed }) }] };
         }
-        return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "Unknown operation" }) }] };
+        return (0, mcpResult_js_1.fail)("Unknown operation");
     });
     // ============================================================
     // TOOL: set_page_background
@@ -661,7 +662,7 @@ function registerReportTools(server, ctx) {
         wallpaperColor: zod_1.z.string().optional().describe("Color behind the canvas"),
         wallpaperTransparency: zod_1.z.number().min(0).max(100).optional().default(0),
         clear: zod_1.z.boolean().optional().describe("Remove all background/wallpaper settings"),
-    }, async ({ pageId, color, transparency, wallpaperColor, wallpaperTransparency, clear }) => {
+    }, { "idempotentHint": true, "openWorldHint": false }, async ({ pageId, color, transparency, wallpaperColor, wallpaperTransparency, clear }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -727,7 +728,7 @@ function registerReportTools(server, ctx) {
         source: zod_1.z.string(),
         target: zod_1.z.string(),
         type: zod_1.z.enum(["Filter", "Highlight", "NoFilter"]),
-    }, async ({ pageId, source, target, type }) => {
+    }, { "idempotentHint": true, "openWorldHint": false }, async ({ pageId, source, target, type }) => {
         const page = ctx.project.getPage(pageId);
         // Initialize visualInteractions array if not present
         if (!page.visualInteractions) {

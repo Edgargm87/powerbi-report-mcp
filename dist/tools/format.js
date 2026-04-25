@@ -26,7 +26,7 @@ function registerFormatTools(server, ctx) {
         fontFamily: zod_1.z.string().optional().describe("PBI font stack"),
         alignment: zod_1.z.enum(["left", "center", "right"]).optional(),
         titleWrap: zod_1.z.boolean().optional(),
-    }, async ({ pageId, visualId, title, show, fontSize, fontFamily, alignment, titleWrap }) => {
+    }, { "idempotentHint": true, "openWorldHint": false }, async ({ pageId, visualId, title, show, fontSize, fontFamily, alignment, titleWrap }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -91,7 +91,7 @@ function registerFormatTools(server, ctx) {
             .optional()
             .default("auto")
             .describe("'auto' (default) routes container categories (title/background/border/padding/dropShadow/visualHeader) to visualContainerObjects and everything else to objects. Use 'visual' or 'container' to force."),
-    }, async ({ pageId, visualId, formatting, target }) => {
+    }, { "openWorldHint": false }, async ({ pageId, visualId, formatting, target }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -163,7 +163,7 @@ function registerFormatTools(server, ctx) {
         categoryEntity: zod_1.z.string().optional().describe("Required for category-based charts"),
         categoryProperty: zod_1.z.string().optional().describe("Required for category-based charts"),
         defaultTransparency: zod_1.z.number().optional(),
-    }, async ({ pageId, visualId, colors, categoryEntity, categoryProperty, defaultTransparency }) => {
+    }, { "openWorldHint": false }, async ({ pageId, visualId, colors, categoryEntity, categoryProperty, defaultTransparency }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -204,7 +204,7 @@ function registerFormatTools(server, ctx) {
         minColor: zod_1.z.string().optional().describe("gradient"),
         maxColor: zod_1.z.string().optional().describe("gradient"),
         midColor: zod_1.z.string().optional().describe("gradient (optional 3-stop)"),
-    }, async ({ pageId, visualId, property, formatType, entity, property2, isMeasure, rules, defaultColor, minColor, maxColor, midColor, }) => {
+    }, { "openWorldHint": false }, async ({ pageId, visualId, property, formatType, entity, property2, isMeasure, rules, defaultColor, minColor, maxColor, midColor, }) => {
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)
             return rp.errorResponse;
@@ -344,7 +344,7 @@ function registerFormatTools(server, ctx) {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         theme: zod_1.z.enum(["dark", "light", "corporate", "blue-purple"]),
         applyDataColors: zod_1.z.boolean().optional().default(true),
-    }, async ({ pageId, theme, applyDataColors: applyColors }) => {
+    }, { "openWorldHint": false }, async ({ pageId, theme, applyDataColors: applyColors }) => {
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)
             return rp.errorResponse;
@@ -417,7 +417,7 @@ function registerFormatTools(server, ctx) {
             direction: zod_1.z.enum(["Ascending", "Descending"]).default("Descending"),
         })).describe("Priority order"),
         isDefaultSort: zod_1.z.boolean().optional().default(false).describe("true=user can override"),
-    }, async ({ pageId, visualId, sort, isDefaultSort }) => {
+    }, { "openWorldHint": false }, async ({ pageId, visualId, sort, isDefaultSort }) => {
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)
             return rp.errorResponse;

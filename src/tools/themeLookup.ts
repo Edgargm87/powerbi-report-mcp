@@ -31,6 +31,7 @@ export function registerThemeLookupTool(server: McpServer): void {
         .optional()
         .describe("Case-insensitive substring filter on property name."),
     },
+    {"readOnlyHint":true,"openWorldHint":false},
     async ({ visualType, category, propertyFilter }) => {
       const { schema, file } = loadSchema();
       const schemaFilename = path.basename(file);

@@ -275,6 +275,7 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
       visualId: z.string().optional().describe("Visual ID — omit for page-level"),
       slim: z.boolean().optional().default(true),
     },
+    {"readOnlyHint":true,"openWorldHint":false},
     async ({ pageId, visualId, slim }) => {
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
@@ -334,6 +335,7 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
       operator2: z.string().optional(),
       value2: z.union([z.string(), z.number()]).optional(),
     },
+    {"openWorldHint":false},
     async ({
       pageId, visualId, filterType, entity, property, values,
       n, topNDirection, orderByEntity, orderByProperty, orderByIsMeasure,
@@ -410,6 +412,7 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
       filterName: z.string().describe("The filter name/ID to remove (from list_filters)"),
       visualId: z.string().optional().describe("Visual ID — omit to remove from page-level filters"),
     },
+    {"destructiveHint":true,"openWorldHint":false},
     async ({ pageId, filterName, visualId }) => {
       try {
       if (visualId) {
@@ -451,6 +454,7 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
       pageId: z.string().describe("The page ID"),
       visualId: z.string().optional().describe("Visual ID — omit to clear all page-level filters"),
     },
+    {"destructiveHint":true,"openWorldHint":false},
     async ({ pageId, visualId }) => {
       try {
       if (visualId) {

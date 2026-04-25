@@ -16,6 +16,7 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
     "list_bookmarks",
     "List all bookmarks defined in the report.",
     {},
+    {"readOnlyHint":true,"openWorldHint":false},
     async () =>
       cachedRead("list_bookmarks", {}, ["bookmarks"], () => {
         const meta = ctx.project.getBookmarksMetadata();
@@ -44,6 +45,7 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
         .optional()
         .describe("Page ID that this bookmark should navigate to when activated"),
     },
+    {"openWorldHint":false},
     async ({ displayName, activePageId }) => {
       const bookmarkId = generateId();
 
@@ -86,6 +88,7 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
     {
       bookmarkId: z.string().describe("The bookmark ID to delete (from list_bookmarks)"),
     },
+    {"destructiveHint":true,"openWorldHint":false},
     async ({ bookmarkId }) => {
       const meta = ctx.project.getBookmarksMetadata();
       const before = meta.bookmarkOrder.length;
@@ -115,6 +118,7 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
       bookmarkId: z.string().describe("The bookmark ID to rename"),
       displayName: z.string().describe("New display name"),
     },
+    {"openWorldHint":false},
     async ({ bookmarkId, displayName }) => {
       const bookmark = ctx.project.getBookmark(bookmarkId);
       bookmark.displayName = displayName;

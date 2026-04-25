@@ -222,7 +222,7 @@ function registerLayoutGridTool(server, ctx) {
             .boolean()
             .optional()
             .describe("Return full {visualId,visualType,slotRef,x,y,width,height} per cell instead of slim ids."),
-    }, async (params) => {
+    }, { "openWorldHint": false }, async (params) => {
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, params.pageId);
         if (!rp.resolved)
             return rp.errorResponse;

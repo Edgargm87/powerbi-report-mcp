@@ -150,6 +150,7 @@ export function registerGuideTool(server: McpServer, _ctx: ServerContext): void 
           `Topic to get guidance on. Available: ${topicList}. Omit or pass "list" to see the current topic list.`
         ),
     },
+    {"readOnlyHint":true,"openWorldHint":false},
     async ({ topic }) => {
       const key = topic.toLowerCase().trim().replace(/\s+/g, "-");
 

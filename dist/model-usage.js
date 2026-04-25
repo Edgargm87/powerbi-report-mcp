@@ -2274,7 +2274,7 @@ function registerModelUsageTool(server, ctx) {
     server.tool("model_usage", "Cross-reference the semantic model with the report — shows where every measure and column is used, DAX dependencies, unused fields, and per-page coverage. Also generates an HTML dashboard for visual inspection.", {
         reportPath: zod_1.z.string().optional().describe("Path to the .Report folder. Uses current connected report if omitted."),
         slim: zod_1.z.boolean().optional().default(true).describe("Slim mode returns usage counts only. Set false for full visual-level detail."),
-    }, async ({ reportPath: rp, slim }) => {
+    }, { "readOnlyHint": true, "openWorldHint": false }, async ({ reportPath: rp, slim }) => {
         const effectivePath = rp || ctx.getReportPath();
         if (!effectivePath) {
             return { content: [{ type: "text", text: JSON.stringify({ success: false, error: "No report connected. Use set_report first." }) }], isError: true };

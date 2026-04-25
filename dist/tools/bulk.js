@@ -75,7 +75,7 @@ function registerBulkTools(server, ctx) {
         visualIds: parseArray(zod_1.z.string()),
         confirmBulk: zod_1.z.coerce.boolean().optional().default(false)
             .describe(`Required when >${BULK_CONFIRM_THRESHOLD}.`),
-    }, async ({ pageId, visualIds, confirmBulk }) => {
+    }, { "destructiveHint": true, "openWorldHint": false }, async ({ pageId, visualIds, confirmBulk }) => {
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)
             return rp.errorResponse;
@@ -118,7 +118,7 @@ function registerBulkTools(server, ctx) {
         target: zod_1.z.enum(["visual", "container"]).optional().default("visual"),
         confirmBulk: zod_1.z.coerce.boolean().optional().default(false)
             .describe(`Required when >${BULK_CONFIRM_THRESHOLD}.`),
-    }, async ({ pageId, visualIds, formatting, target, confirmBulk }) => {
+    }, { "openWorldHint": false }, async ({ pageId, visualIds, formatting, target, confirmBulk }) => {
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)
             return rp.errorResponse;
@@ -170,7 +170,7 @@ function registerBulkTools(server, ctx) {
         continueOnError: zod_1.z.coerce.boolean().optional().default(false)
             .describe("Per-entry validation; bad bindings don't abort the batch."),
         strictBindings: zod_1.z.boolean().optional().describe("true=strict (default), false=warn."),
-    }, async ({ pageId, updates, autoFilters, confirmBulk, continueOnError, strictBindings }) => {
+    }, { "openWorldHint": false }, async ({ pageId, updates, autoFilters, confirmBulk, continueOnError, strictBindings }) => {
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)
             return rp.errorResponse;

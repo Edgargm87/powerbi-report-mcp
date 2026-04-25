@@ -2516,6 +2516,7 @@ export function registerModelUsageTool(server: McpServer, ctx: ServerContext): v
       reportPath: z.string().optional().describe("Path to the .Report folder. Uses current connected report if omitted."),
       slim: z.boolean().optional().default(true).describe("Slim mode returns usage counts only. Set false for full visual-level detail."),
     },
+    {"readOnlyHint":true,"openWorldHint":false},
     async ({ reportPath: rp, slim }: { reportPath?: string; slim: boolean }) => {
       const effectivePath = rp || ctx.getReportPath();
       if (!effectivePath) {

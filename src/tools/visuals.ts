@@ -25,6 +25,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
     "get_visual_types",
     "Get a list of available visual types and their data role buckets",
     {},
+    {"readOnlyHint":true,"openWorldHint":false},
     async () => {
       return { content: [{ type: "text", text: JSON.stringify(VISUAL_BUCKETS, null, 2) }] };
     }
@@ -40,6 +41,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       slim: z.boolean().optional().default(true),
     },
+    {"readOnlyHint":true,"openWorldHint":false},
     async ({ pageId, slim }) => {
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
@@ -89,6 +91,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       verbose: z.boolean().optional().describe("Full raw PBIR JSON (heavy)."),
       slim: z.boolean().optional().describe("Deprecated alias for !verbose."),
     },
+    {"readOnlyHint":true,"openWorldHint":false},
     async ({ pageId, visualId, verbose, slim }) => {
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
@@ -205,6 +208,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
         .optional()
         .describe("Return [{visualId,visualType}] instead of flat id list."),
     },
+    {"openWorldHint":false},
     async (params) => {
       const r = resolvePageId(ctx.project, params.pageId);
       if (!r.resolved) return r.errorResponse;
@@ -388,6 +392,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID to delete"),
     },
+    {"destructiveHint":true,"openWorldHint":false},
     async ({ pageId, visualId }) => {
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
@@ -416,6 +421,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       height: z.number().optional(),
       z: z.number().optional().describe("z-order"),
     },
+    {"openWorldHint":false},
     async ({ pageId, visualId, x, y, width, height, z }) => {
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
@@ -450,6 +456,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       offsetX: z.number().optional().default(20).describe("X offset for the duplicate"),
       offsetY: z.number().optional().default(20).describe("Y offset for the duplicate"),
     },
+    {"openWorldHint":false},
     async ({ pageId, visualId, targetPageId, offsetX, offsetY }) => {
       const original = ctx.project.getVisual(pageId, visualId);
       const newId = generateId();
@@ -494,6 +501,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       visualId: z.string().describe("The visual ID"),
       visualType: z.string().describe("The new visual type"),
     },
+    {"openWorldHint":false},
     async ({ pageId, visualId, visualType }) => {
       const visual = ctx.project.getVisual(pageId, visualId);
       visual.visual.visualType = visualType;

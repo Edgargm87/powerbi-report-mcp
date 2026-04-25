@@ -65,6 +65,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
       tableAccent: z.string().optional(),
       visualStyles: z.record(z.string(), z.unknown()).optional(),
     },
+    {"idempotentHint":true,"openWorldHint":false},
     async ({ name, dataColors, background, foreground, foregroundNeutralSecondary,
              backgroundLight, backgroundNeutral, tableAccent, visualStyles }) => {
       // Build theme JSON — only include provided properties
@@ -112,6 +113,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
     "get_report_theme",
     "Get the currently applied theme. Returns base theme name + custom theme JSON if any.",
     {},
+    {"readOnlyHint":true,"openWorldHint":false},
     async () =>
       cachedRead("get_report_theme", {}, ["theme"], () => {
         const report = ctx.project.getReport();
@@ -133,6 +135,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
     "remove_report_theme",
     "Remove the custom theme from the report, reverting to the default base theme. The theme file is kept in StaticResources but unlinked from report.json.",
     {},
+    {"destructiveHint":true,"openWorldHint":false},
     async () => {
       const report = ctx.project.getReport();
       const tc = report.themeCollection;
@@ -180,6 +183,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
         .record(z.string(), z.unknown())
         .describe("Proposed theme JSON object to compare against the current theme"),
     },
+    {"readOnlyHint":true,"openWorldHint":false},
     async ({ theme }) => {
       const report = ctx.project.getReport();
       const tc = report.themeCollection;
@@ -249,6 +253,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
     "list_report_themes",
     "List all theme files stored in the report's StaticResources/RegisteredResources/ folder.",
     {},
+    {"readOnlyHint":true,"openWorldHint":false},
     async () => {
       const files = ctx.project.listRegisteredResources();
       const themeFiles = files.filter((f) => f.endsWith(".json"));
@@ -275,6 +280,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
       verbose: z.boolean().optional().default(false).describe("Include override category names per visual"),
       topN: z.number().int().min(0).optional().default(20).describe("Max findings (0 = all)"),
     },
+    {"readOnlyHint":true,"openWorldHint":false},
     async ({ pageId, verbose, topN }) => {
       const visualIds = ctx.project.listVisualIds(pageId);
       const results: Array<{

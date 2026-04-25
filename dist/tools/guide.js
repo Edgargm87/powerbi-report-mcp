@@ -171,7 +171,7 @@ function registerGuideTool(server, _ctx) {
         topic: zod_1.z
             .string()
             .describe(`Topic to get guidance on. Available: ${topicList}. Omit or pass "list" to see the current topic list.`),
-    }, async ({ topic }) => {
+    }, { "readOnlyHint": true, "openWorldHint": false }, async ({ topic }) => {
         const key = topic.toLowerCase().trim().replace(/\s+/g, "-");
         // Live-list mode
         if (!key || key === "list" || key === "topics") {

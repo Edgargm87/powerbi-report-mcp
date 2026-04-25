@@ -56,7 +56,7 @@ function registerThemeLookupTool(server) {
             .string()
             .optional()
             .describe("Case-insensitive substring filter on property name."),
-    }, async ({ visualType, category, propertyFilter }) => {
+    }, { "readOnlyHint": true, "openWorldHint": false }, async ({ visualType, category, propertyFilter }) => {
         const { schema, file } = (0, themeSchema_js_1.loadSchema)();
         const schemaFilename = path.basename(file);
         if (!visualType) {

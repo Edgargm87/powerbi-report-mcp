@@ -32,6 +32,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       alignment: z.enum(["left", "center", "right"]).optional(),
       titleWrap: z.boolean().optional(),
     },
+    {"idempotentHint":true,"openWorldHint":false},
     async ({ pageId, visualId, title, show, fontSize, fontFamily, alignment, titleWrap }) => {
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
@@ -109,6 +110,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
           "'auto' (default) routes container categories (title/background/border/padding/dropShadow/visualHeader) to visualContainerObjects and everything else to objects. Use 'visual' or 'container' to force."
         ),
     },
+    {"openWorldHint":false},
     async ({ pageId, visualId, formatting, target }) => {
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
@@ -194,6 +196,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       categoryProperty: z.string().optional().describe("Required for category-based charts"),
       defaultTransparency: z.number().optional(),
     },
+    {"openWorldHint":false},
     async ({ pageId, visualId, colors, categoryEntity, categoryProperty, defaultTransparency }) => {
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
@@ -242,6 +245,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       maxColor: z.string().optional().describe("gradient"),
       midColor: z.string().optional().describe("gradient (optional 3-stop)"),
     },
+    {"openWorldHint":false},
     async ({
       pageId, visualId, property, formatType,
       entity, property2, isMeasure,
@@ -405,6 +409,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       theme: z.enum(["dark", "light", "corporate", "blue-purple"]),
       applyDataColors: z.boolean().optional().default(true),
     },
+    {"openWorldHint":false},
     async ({ pageId, theme, applyDataColors: applyColors }) => {
       const rp = resolvePageId(ctx.project, pageId);
       if (!rp.resolved) return rp.errorResponse;
@@ -498,6 +503,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       })).describe("Priority order"),
       isDefaultSort: z.boolean().optional().default(false).describe("true=user can override"),
     },
+    {"openWorldHint":false},
     async ({ pageId, visualId, sort, isDefaultSort }) => {
       const rp = resolvePageId(ctx.project, pageId);
       if (!rp.resolved) return rp.errorResponse;

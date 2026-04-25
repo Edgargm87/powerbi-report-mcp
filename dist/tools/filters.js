@@ -226,7 +226,7 @@ function registerFilterTools(server, ctx) {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().optional().describe("Visual ID — omit for page-level"),
         slim: zod_1.z.boolean().optional().default(true),
-    }, async ({ pageId, visualId, slim }) => {
+    }, { "readOnlyHint": true, "openWorldHint": false }, async ({ pageId, visualId, slim }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -276,7 +276,7 @@ function registerFilterTools(server, ctx) {
         logicalOperator: zod_1.z.enum(["And", "Or"]).optional().describe("compound"),
         operator2: zod_1.z.string().optional(),
         value2: zod_1.z.union([zod_1.z.string(), zod_1.z.number()]).optional(),
-    }, async ({ pageId, visualId, filterType, entity, property, values, n, topNDirection, orderByEntity, orderByProperty, orderByIsMeasure, period, count, dateDirection, operator, value, logicalOperator, operator2, value2, }) => {
+    }, { "openWorldHint": false }, async ({ pageId, visualId, filterType, entity, property, values, n, topNDirection, orderByEntity, orderByProperty, orderByIsMeasure, period, count, dateDirection, operator, value, logicalOperator, operator2, value2, }) => {
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)
             return rp.errorResponse;
@@ -344,7 +344,7 @@ function registerFilterTools(server, ctx) {
         pageId: zod_1.z.string().describe("The page ID"),
         filterName: zod_1.z.string().describe("The filter name/ID to remove (from list_filters)"),
         visualId: zod_1.z.string().optional().describe("Visual ID — omit to remove from page-level filters"),
-    }, async ({ pageId, filterName, visualId }) => {
+    }, { "destructiveHint": true, "openWorldHint": false }, async ({ pageId, filterName, visualId }) => {
         try {
             if (visualId) {
                 const visual = ctx.project.getVisual(pageId, visualId);
@@ -381,7 +381,7 @@ function registerFilterTools(server, ctx) {
     server.tool("clear_filters", "Remove ALL filters from a page or a specific visual.", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().optional().describe("Visual ID — omit to clear all page-level filters"),
-    }, async ({ pageId, visualId }) => {
+    }, { "destructiveHint": true, "openWorldHint": false }, async ({ pageId, visualId }) => {
         try {
             if (visualId) {
                 const visual = ctx.project.getVisual(pageId, visualId);

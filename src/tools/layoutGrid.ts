@@ -322,6 +322,7 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
         .optional()
         .describe("Return full {visualId,visualType,slotRef,x,y,width,height} per cell instead of slim ids."),
     },
+    {"openWorldHint":false},
     async (params) => {
       const rp = resolvePageId(ctx.project, params.pageId);
       if (!rp.resolved) return rp.errorResponse;

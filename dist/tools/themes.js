@@ -50,7 +50,7 @@ function registerThemeTools(server, ctx) {
         backgroundNeutral: zod_1.z.string().optional(),
         tableAccent: zod_1.z.string().optional(),
         visualStyles: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()).optional(),
-    }, async ({ name, dataColors, background, foreground, foregroundNeutralSecondary, backgroundLight, backgroundNeutral, tableAccent, visualStyles }) => {
+    }, { "idempotentHint": true, "openWorldHint": false }, async ({ name, dataColors, background, foreground, foregroundNeutralSecondary, backgroundLight, backgroundNeutral, tableAccent, visualStyles }) => {
         // Build theme JSON — only include provided properties
         const theme = { name };
         if (dataColors && dataColors.length > 0)
@@ -94,7 +94,7 @@ function registerThemeTools(server, ctx) {
     // ============================================================
     // TOOL: get_report_theme
     // ============================================================
-    server.tool("get_report_theme", "Get the currently applied theme. Returns base theme name + custom theme JSON if any.", {}, async () => (0, readCache_js_1.cachedRead)("get_report_theme", {}, ["theme"], () => {
+    server.tool("get_report_theme", "Get the currently applied theme. Returns base theme name + custom theme JSON if any.", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => (0, readCache_js_1.cachedRead)("get_report_theme", {}, ["theme"], () => {
         const report = ctx.project.getReport();
         const tc = report.themeCollection;
         const baseTheme = tc?.baseTheme?.name ?? null;
@@ -108,7 +108,7 @@ function registerThemeTools(server, ctx) {
     // ============================================================
     // TOOL: remove_report_theme
     // ============================================================
-    server.tool("remove_report_theme", "Remove the custom theme from the report, reverting to the default base theme. The theme file is kept in StaticResources but unlinked from report.json.", {}, async () => {
+    server.tool("remove_report_theme", "Remove the custom theme from the report, reverting to the default base theme. The theme file is kept in StaticResources but unlinked from report.json.", {}, { "destructiveHint": true, "openWorldHint": false }, async () => {
         const report = ctx.project.getReport();
         const tc = report.themeCollection;
         if (!tc?.customTheme) {
@@ -144,7 +144,7 @@ function registerThemeTools(server, ctx) {
         theme: zod_1.z
             .record(zod_1.z.string(), zod_1.z.unknown())
             .describe("Proposed theme JSON object to compare against the current theme"),
-    }, async ({ theme }) => {
+    }, { "readOnlyHint": true, "openWorldHint": false }, async ({ theme }) => {
         const report = ctx.project.getReport();
         const tc = report.themeCollection;
         const customThemeName = tc?.customTheme?.name ?? null;
@@ -200,7 +200,7 @@ function registerThemeTools(server, ctx) {
     // ============================================================
     // TOOL: list_report_themes
     // ============================================================
-    server.tool("list_report_themes", "List all theme files stored in the report's StaticResources/RegisteredResources/ folder.", {}, async () => {
+    server.tool("list_report_themes", "List all theme files stored in the report's StaticResources/RegisteredResources/ folder.", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => {
         const files = ctx.project.listRegisteredResources();
         const themeFiles = files.filter((f) => f.endsWith(".json"));
         const themes = themeFiles.map((f) => {
@@ -218,7 +218,7 @@ function registerThemeTools(server, ctx) {
         pageId: zod_1.z.string().describe("The page ID to audit"),
         verbose: zod_1.z.boolean().optional().default(false).describe("Include override category names per visual"),
         topN: zod_1.z.number().int().min(0).optional().default(20).describe("Max findings (0 = all)"),
-    }, async ({ pageId, verbose, topN }) => {
+    }, { "readOnlyHint": true, "openWorldHint": false }, async ({ pageId, verbose, topN }) => {
         const visualIds = ctx.project.listVisualIds(pageId);
         const results = [];
         let overrideCount = 0;

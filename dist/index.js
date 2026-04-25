@@ -239,16 +239,30 @@ async function main() {
     const loadAll = !loadMinimal;
     const activeTools = new Set(loadAll ? ALL_TOOLS : default_tools_js_1.DEFAULT_TOOLS);
     const deferredTools = new Map();
-    // Auto-wrap all tool handlers with safe() and filter by active set
+    // Auto-wrap all tool handlers with safe() and filter by active set.
+    // Accepts both 4-arg `(name, desc, schema, handler)` and 5-arg
+    // `(name, desc, schema, annotations, handler)` — the SDK supports both
+    // overloads; the 5-arg form attaches MCP tool annotations (readOnlyHint,
+    // destructiveHint, idempotentHint, openWorldHint) for clients that surface
+    // them.
     const _tool = server.tool.bind(server);
-    server.tool = (name, desc, schema, handler) => {
-        const safeHandler = safe(handler);
+    server.tool = (name, desc, schema, annotationsOrHandler, handler) => {
+        const hasAnnotations = typeof annotationsOrHandler === "object" && annotationsOrHandler !== null;
+        const realHandler = (hasAnnotations ? handler : annotationsOrHandler);
+        const annotations = hasAnnotations ? annotationsOrHandler : undefined;
+        const safeHandler = safe(realHandler);
         if (activeTools.has(name)) {
-            _tool(name, desc, schema, safeHandler);
+            if (annotations) {
+                _tool(name, desc, schema, annotations, safeHandler);
+            }
+            else {
+                _tool(name, desc, schema, safeHandler);
+            }
         }
         else {
-            // Store for on-demand activation
-            deferredTools.set(name, { desc, schema, handler: safeHandler });
+            // Store for on-demand activation. Annotations are passed when the
+            // deferred tool is later activated via load_tools.
+            deferredTools.set(name, { desc, schema, handler: safeHandler, annotations });
         }
     };
     // Build shared context
@@ -277,7 +291,7 @@ async function main() {
             .array(zod_1.z.string())
             .optional()
             .describe("Tool names to activate. Omit to list available on-demand tools."),
-    }, safe(async ({ tools }) => {
+    }, { openWorldHint: false }, safe(async ({ tools }) => {
         if (!tools || tools.length === 0) {
             // List available on-demand tools
             const available = [...deferredTools.entries()].map(([name, { desc }]) => ({
@@ -305,7 +319,12 @@ async function main() {
         for (const name of tools) {
             const entry = deferredTools.get(name);
             if (entry) {
-                _tool(name, entry.desc, entry.schema, entry.handler);
+                if (entry.annotations) {
+                    _tool(name, entry.desc, entry.schema, entry.annotations, entry.handler);
+                }
+                else {
+                    _tool(name, entry.desc, entry.schema, entry.handler);
+                }
                 activeTools.add(name);
                 deferredTools.delete(name);
                 activated.push(name);

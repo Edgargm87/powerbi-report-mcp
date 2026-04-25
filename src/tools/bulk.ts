@@ -93,6 +93,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
       confirmBulk: z.coerce.boolean().optional().default(false)
         .describe(`Required when >${BULK_CONFIRM_THRESHOLD}.`),
     },
+    {"destructiveHint":true,"openWorldHint":false},
     async ({ pageId, visualIds, confirmBulk }) => {
       const rp = resolvePageId(ctx.project, pageId);
       if (!rp.resolved) return rp.errorResponse;
@@ -143,6 +144,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
       confirmBulk: z.coerce.boolean().optional().default(false)
         .describe(`Required when >${BULK_CONFIRM_THRESHOLD}.`),
     },
+    {"openWorldHint":false},
     async ({ pageId, visualIds, formatting, target, confirmBulk }) => {
       const rp = resolvePageId(ctx.project, pageId);
       if (!rp.resolved) return rp.errorResponse;
@@ -205,6 +207,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
         .describe("Per-entry validation; bad bindings don't abort the batch."),
       strictBindings: z.boolean().optional().describe("true=strict (default), false=warn."),
     },
+    {"openWorldHint":false},
     async ({ pageId, updates, autoFilters, confirmBulk, continueOnError, strictBindings }) => {
       const rp = resolvePageId(ctx.project, pageId);
       if (!rp.resolved) return rp.errorResponse;
