@@ -26,7 +26,8 @@
     "schema:check": "node scripts/refresh-theme-schema.js --check",
     "schema:refresh": "node scripts/refresh-theme-schema.js",
     "test:all": "npm run build && npm run audit:strict && npm run test:wireframe && npm run test:binding && npm run test:extract-title && npm run test:layout && npm run test:grid && npm run test:slicer && npm run test:schema-docs",
-    "hooks:install": "node scripts/install-hooks.js"
+    "hooks:install": "node scripts/install-hooks.js",
+    "plugin:build": "node scripts/build-plugin.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
