@@ -427,10 +427,10 @@ async function main() {
   // PBIR instructions resource — read live from skills/_overview.md so prose
   // edits don't require a TypeScript rebuild. The leading underscore marks it
   // as meta (sorts to top in dir listings, hidden from guide() topic list).
+  const skillsDir = path.join(__dirname, "..", "skills");
   server.resource("pbir-instructions", "resource://pbir-instructions", () => {
     // dist/index.js → projectRoot is one level up; src/index.ts under ts-node also.
     // (guide.ts uses two levels because it's in dist/tools/.)
-    const skillsDir = path.join(__dirname, "..", "skills");
     const overviewPath = path.join(skillsDir, "_overview.md");
     let overview = "";
     try {
@@ -449,6 +449,39 @@ async function main() {
       ],
     };
   });
+
+  // Per-skill resources — one resource://pbir-skill/{topic} per non-underscore
+  // file in skills/. Lets resource-aware clients (Claude Desktop @-picker,
+  // Cowork) surface individual skills natively without going through
+  // pbir_guide(topic). Read live from disk on every request so prose edits
+  // don't require a server restart.
+  try {
+    const skillFiles = fs
+      .readdirSync(skillsDir)
+      .filter((f) => f.endsWith(".md") && !f.startsWith("_"));
+    for (const filename of skillFiles) {
+      const topic = filename.replace(/\.md$/, "");
+      const uri = `resource://pbir-skill/${topic}`;
+      server.resource(`pbir-skill-${topic}`, uri, () => {
+        const filePath = path.join(skillsDir, filename);
+        let body = "";
+        try {
+          body = fs.readFileSync(filePath, "utf8");
+        } catch (err) {
+          console.error(`[pbir-skill/${topic}] failed to read ${filename}`, err);
+          body = `(skills/${filename} not readable)`;
+        }
+        return {
+          contents: [
+            { uri, mimeType: "text/markdown", text: body },
+          ],
+        };
+      });
+    }
+    console.error(`Registered ${skillFiles.length} per-skill resources under resource://pbir-skill/{topic}`);
+  } catch (err) {
+    console.error("[pbir-skill] failed to enumerate skills/ — per-skill resources not registered", err);
+  }
 
   const transport = new StdioServerTransport();
   console.error("Power BI Report MCP Server starting...");

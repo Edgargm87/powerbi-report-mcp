@@ -38,7 +38,7 @@ function parseAllTools() {
 // ---------------------------------------------------------------------------
 // 2. Spawn the server, send tools/list, collect response
 // ---------------------------------------------------------------------------
-function listTools() {
+function listToolsAndResources() {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, [path.join(ROOT, "dist/index.js")], {
       stdio: ["pipe", "pipe", "pipe"],
@@ -46,9 +46,10 @@ function listTools() {
     let stdout = "";
     let stderr = "";
     let settled = false;
+    const collected = { tools: null, resources: null };
     const settle = (fn, val) => { if (!settled) { settled = true; fn(val); try { child.kill(); } catch {} } };
 
-    const timer = setTimeout(() => settle(reject, new Error("timeout waiting for tools/list response")), 10000);
+    const timer = setTimeout(() => settle(reject, new Error("timeout waiting for tools/list + resources/list responses")), 10000);
 
     child.stdout.on("data", (chunk) => {
       stdout += chunk.toString();
@@ -60,9 +61,11 @@ function listTools() {
         if (!line.trim()) continue;
         try {
           const msg = JSON.parse(line);
-          if (msg.id === 1 && msg.result) {
+          if (msg.id === 1 && msg.result) collected.tools = msg.result;
+          if (msg.id === 2 && msg.result) collected.resources = msg.result;
+          if (collected.tools && collected.resources) {
             clearTimeout(timer);
-            settle(resolve, msg.result);
+            settle(resolve, collected);
             return;
           }
         } catch {
@@ -76,16 +79,18 @@ function listTools() {
       if (!settled) settle(reject, new Error(`server exited prematurely (code ${code})\nstderr:\n${stderr}`));
     });
 
-    // Initialize → notifications/initialized → tools/list
+    // Initialize → notifications/initialized → tools/list + resources/list
     const init = {
       jsonrpc: "2.0", id: 0, method: "initialize",
       params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "tool-surface-test", version: "0" } },
     };
     const initialized = { jsonrpc: "2.0", method: "notifications/initialized" };
     const list = { jsonrpc: "2.0", id: 1, method: "tools/list", params: {} };
+    const listRes = { jsonrpc: "2.0", id: 2, method: "resources/list", params: {} };
     child.stdin.write(JSON.stringify(init) + "\n");
     child.stdin.write(JSON.stringify(initialized) + "\n");
     child.stdin.write(JSON.stringify(list) + "\n");
+    child.stdin.write(JSON.stringify(listRes) + "\n");
   });
 }
 
@@ -97,14 +102,16 @@ function listTools() {
   // pbir_load_tools is registered separately as a meta-tool, always active.
   expected.add("pbir_load_tools");
 
-  let result;
+  let combined;
   try {
-    result = await listTools();
+    combined = await listToolsAndResources();
   } catch (err) {
-    console.error("FAIL: could not list tools from dist/index.js");
+    console.error("FAIL: could not list tools/resources from dist/index.js");
     console.error(err.message || err);
     process.exit(1);
   }
+  const result = combined.tools;
+  const resourcesResult = combined.resources;
   if (!Array.isArray(result.tools)) {
     console.error("FAIL: tools/list response missing `tools` array");
     process.exit(1);
@@ -150,5 +157,43 @@ function listTools() {
   }
 
   console.log(`✓ Tool surface OK — ${result.tools.length} tools registered, all match source ALL_TOOLS.`);
+
+  // -------------------------------------------------------------------
+  // Resource surface — pbir-instructions + one resource per non-underscore
+  // file in skills/. Catches the case where a new skill file is added but
+  // the per-skill resource registration block in src/index.ts breaks.
+  // -------------------------------------------------------------------
+  if (!resourcesResult || !Array.isArray(resourcesResult.resources)) {
+    console.error("FAIL: resources/list response missing `resources` array");
+    process.exit(1);
+  }
+  const skillsDir = path.join(ROOT, "skills");
+  const expectedSkillTopics = fs
+    .readdirSync(skillsDir)
+    .filter((f) => f.endsWith(".md") && !f.startsWith("_"))
+    .map((f) => f.replace(/\.md$/, ""))
+    .sort();
+  const skillResourceUris = new Set(
+    resourcesResult.resources.map((r) => r.uri).filter((u) => u.startsWith("resource://pbir-skill/"))
+  );
+  const missingSkill = expectedSkillTopics.filter((t) => !skillResourceUris.has(`resource://pbir-skill/${t}`));
+  const extraSkill = [...skillResourceUris].filter((u) => !expectedSkillTopics.includes(u.replace("resource://pbir-skill/", "")));
+  if (missingSkill.length || extraSkill.length) {
+    console.error("FAIL: per-skill resource surface mismatch.");
+    if (missingSkill.length) console.error("  Missing skill resources:", missingSkill);
+    if (extraSkill.length) console.error("  Extra skill resources:", extraSkill);
+    process.exit(1);
+  }
+  if (skillResourceUris.size !== expectedSkillTopics.length) {
+    console.error(`FAIL: skill resource count mismatch — expected ${expectedSkillTopics.length}, got ${skillResourceUris.size}`);
+    process.exit(1);
+  }
+  // pbir-instructions must still be present alongside the per-skill set.
+  const hasInstructions = resourcesResult.resources.some((r) => r.uri === "resource://pbir-instructions");
+  if (!hasInstructions) {
+    console.error("FAIL: resource://pbir-instructions missing from surface");
+    process.exit(1);
+  }
+  console.log(`✓ Resource surface OK — pbir-instructions + ${skillResourceUris.size} per-skill resources match skills/*.md.`);
   process.exit(0);
 })();
