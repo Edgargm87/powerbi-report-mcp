@@ -24,9 +24,10 @@
     "test:slicer": "node scripts/test-slicer-defaults.js",
     "test:schema-docs": "node scripts/audit-skills-against-schema.js",
     "test:surface": "node scripts/test-tool-surface.js",
+    "test:pagination": "node scripts/test-pagination.js",
     "schema:check": "node scripts/refresh-theme-schema.js --check",
     "schema:refresh": "node scripts/refresh-theme-schema.js",
-    "test:all": "npm run build && npm run audit:strict && npm run test:wireframe && npm run test:binding && npm run test:extract-title && npm run test:layout && npm run test:grid && npm run test:slicer && npm run test:schema-docs && npm run test:surface",
+    "test:all": "npm run build && npm run audit:strict && npm run test:wireframe && npm run test:binding && npm run test:extract-title && npm run test:layout && npm run test:grid && npm run test:slicer && npm run test:schema-docs && npm run test:surface && npm run test:pagination",
     "hooks:install": "node scripts/install-hooks.js",
     "plugin:build": "node scripts/build-plugin.js"
   },

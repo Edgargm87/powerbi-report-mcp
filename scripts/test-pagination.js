@@ -1,0 +1,182 @@
+#!/usr/bin/env node
+// Smoke test for pbir_list_visuals + pbir_list_pages pagination.
+//
+// Builds a synthetic in-memory page with 200 fake visuals, captures the
+// registered handler by intercepting server.tool() during registerVisualTools()
+// and registerReportTools(), then exercises the limit/offset boundary cases.
+
+const path = require("path");
+
+const { registerVisualTools } = require("../dist/tools/visuals.js");
+const { registerReportTools } = require("../dist/tools/report.js");
+const { invalidateAll } = require("../dist/helpers/readCache.js");
+
+// ---------------------------------------------------------------------------
+// Mocks — the minimum surface area visuals/report.ts touches via ctx.project.
+// ---------------------------------------------------------------------------
+function buildFakeVisuals(n) {
+  const out = {};
+  for (let i = 0; i < n; i++) {
+    const id = `v${String(i).padStart(4, "0")}`;
+    out[id] = {
+      name: id,
+      visual: {
+        visualType: "card",
+        visualContainerObjects: undefined,
+      },
+      position: { x: 0, y: 0, width: 100, height: 60, z: i, tabOrder: i },
+      filterConfig: { filters: [] },
+    };
+  }
+  return out;
+}
+
+function buildMockProject({ pageId, visuals, pages = [] }) {
+  return {
+    listVisualIds: (pid) => (pid === pageId ? Object.keys(visuals) : []),
+    getVisual: (pid, vid) => visuals[vid],
+    getPagesMetadata: () => ({
+      pageOrder: pages.map((p) => p.id),
+      activePageName: pages[0]?.id,
+    }),
+    getPage: (pid) => pages.find((p) => p.id === pid),
+  };
+}
+
+// Capture the handler registered for a given tool name by stubbing server.tool.
+function captureHandler(register, toolName, ctx) {
+  let captured = null;
+  const fakeServer = {
+    tool: (name, _desc, _schema, _annOrHandler, handler) => {
+      const realHandler = handler ?? _annOrHandler;
+      if (name === toolName) captured = realHandler;
+    },
+  };
+  register(fakeServer, ctx);
+  if (!captured) throw new Error(`handler for ${toolName} not captured`);
+  return captured;
+}
+
+function parseEnvelope(env) {
+  if (!env || !Array.isArray(env.content) || !env.content[0]) {
+    throw new Error("envelope missing content");
+  }
+  return JSON.parse(env.content[0].text);
+}
+
+let pass = 0;
+let fail = 0;
+function assertEq(label, got, expected) {
+  const ok = JSON.stringify(got) === JSON.stringify(expected);
+  if (ok) {
+    console.log(`  ✓ ${label}`);
+    pass++;
+  } else {
+    console.log(`  ✗ ${label}\n      expected ${JSON.stringify(expected)}\n      got      ${JSON.stringify(got)}`);
+    fail++;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Test 1 — pbir_list_visuals pagination across 200 fake visuals
+// ---------------------------------------------------------------------------
+console.log("\n═══════════════════════════════════════════════════════════════════");
+console.log("  pagination — pbir_list_visuals");
+console.log("═══════════════════════════════════════════════════════════════════");
+
+(async () => {
+  const PAGE_ID = "pageA";
+  const visuals = buildFakeVisuals(200);
+  const project = buildMockProject({ pageId: PAGE_ID, visuals });
+  const ctx = { getReportPath: () => "/fake/report", connectReport: () => ({ success: true }), project };
+
+  // Visuals — fresh handler + fresh cache for each call to avoid hits.
+  invalidateAll();
+  const visualsHandler = captureHandler(registerVisualTools, "pbir_list_visuals", ctx);
+
+  invalidateAll();
+  let env = await visualsHandler({ pageId: PAGE_ID, slim: true, limit: 100, offset: 0 });
+  let body = parseEnvelope(env);
+  assertEq("list_visuals offset:0 returns 100 items", body.visuals.length, 100);
+  assertEq("list_visuals offset:0 total=200", body.total, 200);
+  assertEq("list_visuals offset:0 truncated=true", body.truncated, true);
+  assertEq("list_visuals offset:0 nextOffset=100", body.nextOffset, 100);
+  assertEq("list_visuals offset:0 first id v0000", body.visuals[0].id, "v0000");
+
+  invalidateAll();
+  env = await visualsHandler({ pageId: PAGE_ID, slim: true, limit: 100, offset: 100 });
+  body = parseEnvelope(env);
+  assertEq("list_visuals offset:100 returns 100 items", body.visuals.length, 100);
+  assertEq("list_visuals offset:100 total=200", body.total, 200);
+  assertEq("list_visuals offset:100 truncated=false", body.truncated, false);
+  assertEq("list_visuals offset:100 nextOffset=null", body.nextOffset, null);
+  assertEq("list_visuals offset:100 first id v0100", body.visuals[0].id, "v0100");
+
+  invalidateAll();
+  env = await visualsHandler({ pageId: PAGE_ID, slim: true, limit: 100, offset: 200 });
+  body = parseEnvelope(env);
+  assertEq("list_visuals offset:200 returns 0 items", body.visuals.length, 0);
+  assertEq("list_visuals offset:200 truncated=false", body.truncated, false);
+  assertEq("list_visuals offset:200 total=200", body.total, 200);
+
+  // ------------------------------------------------------------------
+  // Test 2 — pbir_list_pages pagination + pageId-shortcut bypass
+  // ------------------------------------------------------------------
+  console.log("\n═══════════════════════════════════════════════════════════════════");
+  console.log("  pagination — pbir_list_pages");
+  console.log("═══════════════════════════════════════════════════════════════════");
+
+  // Build 25 fake pages, no visuals on each — exercises pages-array slicing.
+  const pages = [];
+  for (let i = 0; i < 25; i++) {
+    pages.push({
+      id: `p${String(i).padStart(3, "0")}`,
+      displayName: `Page ${i}`,
+      width: 1280,
+      height: 720,
+      displayOption: "FitToPage",
+    });
+  }
+  const pagesProject = {
+    listVisualIds: () => [],
+    getVisual: () => undefined,
+    getPagesMetadata: () => ({ pageOrder: pages.map((p) => p.id), activePageName: pages[0].id }),
+    getPage: (pid) => pages.find((p) => p.id === pid),
+  };
+  const pagesCtx = { getReportPath: () => "/fake/report", connectReport: () => ({ success: true }), project: pagesProject };
+
+  invalidateAll();
+  const pagesHandler = captureHandler(registerReportTools, "pbir_list_pages", pagesCtx);
+
+  invalidateAll();
+  env = await pagesHandler({ slim: true, includeVisuals: false, limit: 10, offset: 0 });
+  body = parseEnvelope(env);
+  assertEq("list_pages offset:0 returns 10 pages", body.pages.length, 10);
+  assertEq("list_pages offset:0 total=25", body.total, 25);
+  assertEq("list_pages offset:0 truncated=true", body.truncated, true);
+  assertEq("list_pages offset:0 nextOffset=10", body.nextOffset, 10);
+
+  invalidateAll();
+  env = await pagesHandler({ slim: true, includeVisuals: false, limit: 10, offset: 20 });
+  body = parseEnvelope(env);
+  assertEq("list_pages offset:20 returns 5 pages", body.pages.length, 5);
+  assertEq("list_pages offset:20 truncated=false", body.truncated, false);
+  assertEq("list_pages offset:20 nextOffset=null", body.nextOffset, null);
+
+  // pageId shortcut — pagination should be ignored.
+  invalidateAll();
+  env = await pagesHandler({ slim: true, includeVisuals: false, pageId: "p005", limit: 10, offset: 999 });
+  body = parseEnvelope(env);
+  assertEq("list_pages pageId-shortcut returns 1 page", body.pages.length, 1);
+  assertEq("list_pages pageId-shortcut total=1", body.total, 1);
+  assertEq("list_pages pageId-shortcut truncated=false", body.truncated, false);
+  assertEq("list_pages pageId-shortcut nextOffset=null", body.nextOffset, null);
+
+  console.log("\n═══════════════════════════════════════════════════════════════════");
+  console.log(`  ${pass} passed, ${fail} failed`);
+  console.log("═══════════════════════════════════════════════════════════════════");
+  process.exit(fail === 0 ? 0 : 1);
+})().catch((err) => {
+  console.error("FAIL:", err);
+  process.exit(1);
+});

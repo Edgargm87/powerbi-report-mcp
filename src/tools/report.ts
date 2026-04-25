@@ -64,24 +64,28 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_list_pages",
-    "List all pages in the report. Slim mode (default) returns id, displayName, visualCount, isActive, hidden. Set slim=false for width/height/displayOption. Set includeVisuals=true (or pass pageId) to include a per-visual summary (id, type, x, y, w, h, title) — replaces the old get_page_summary tool.",
+    "List pages in the report (paginated). Slim mode (default) returns id, displayName, visualCount, isActive, hidden. Set slim=false for width/height/displayOption. Set includeVisuals=true (or pass pageId) to include a per-visual summary. Pagination is skipped when pageId is supplied.",
     {
       slim: z.boolean().optional().default(true).describe("Slim mode (default true) — omits width/height/displayOption to reduce token usage"),
       includeVisuals: z.boolean().optional().default(false).describe("When true, each page also includes a `visuals` array with slim per-visual entries."),
-      pageId: z.string().optional().describe("Scope to a single page (implies includeVisuals)."),
+      pageId: z.string().optional().describe("Scope to a single page (implies includeVisuals). When set, limit/offset are ignored."),
+      limit: z.number().int().min(1).max(500).default(100).describe("Max items to return. Default 100."),
+      offset: z.number().int().min(0).default(0).describe("Items to skip. Use with limit for paging."),
     },
     {"readOnlyHint":true,"openWorldHint":false},
-    async ({ slim, includeVisuals, pageId }) => {
+    async ({ slim, includeVisuals, pageId, limit, offset }) => {
       const _g = requireProject(ctx); if (_g) return _g;
       const scopes: string[] = ["report"];
       if (pageId) scopes.push(`page:${pageId}`);
       else scopes.push("pages");
-      return cachedRead("pbir_list_pages", { slim, includeVisuals, pageId }, scopes, () => {
+      const finalLimit = limit ?? 100;
+      const finalOffset = offset ?? 0;
+      return cachedRead("pbir_list_pages", { slim, includeVisuals, pageId, limit: finalLimit, offset: finalOffset }, scopes, () => {
       const meta = ctx.project.getPagesMetadata();
       const ids = pageId ? [pageId] : meta.pageOrder;
       const withVisuals = includeVisuals || !!pageId;
 
-      const pages = ids.map((id) => {
+      const allPages = ids.map((id) => {
         const page = ctx.project.getPage(id);
         const visualIds = ctx.project.listVisualIds(id);
         const base: Record<string, unknown> = {
@@ -114,11 +118,27 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         }
         return base;
       });
+
+      // Single-page lookup — pagination is irrelevant. Return that one page
+      // regardless of limit/offset.
+      if (pageId) {
+        return {
+          pageCount: allPages.length,
+          pages: allPages,
+          total: 1,
+          truncated: false,
+          nextOffset: null,
+          canvas: getCanvasSummary(),
+        };
+      }
+
+      const total = allPages.length;
+      const sliced = allPages.slice(finalOffset, finalOffset + finalLimit);
+      const truncated = total > finalOffset + sliced.length;
+      const nextOffset = truncated ? finalOffset + sliced.length : null;
       // Canvas constants help the LLM place visuals without guessing —
       // cheap to include, enormous payoff on layout accuracy.
-      return pageId
-        ? { pageCount: pages.length, pages, canvas: getCanvasSummary() }
-        : { pages, canvas: getCanvasSummary() };
+      return { pages: sliced, total, truncated, nextOffset, canvas: getCanvasSummary() };
       });
     }
   );
