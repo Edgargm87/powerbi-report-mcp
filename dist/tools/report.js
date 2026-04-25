@@ -321,10 +321,8 @@ function registerReportTools(server, ctx) {
         "persistentFilters",
         "keyboardNavigationEnabled",
     ]);
-    server.tool("update_report_settings", "Update report-level settings (merges with existing settings). Valid keys: useStylableVisualContainerHeader (boolean, modern visual headers), useEnhancedTooltips (boolean), exportDataMode (0=summarized, 1=summarized+underlying), persistentFilters (boolean, save filter selections), keyboardNavigationEnabled (boolean), defaultDrillFilterOtherVisuals, allowChangeFilterTypes, useDefaultAggregateDisplayName.", {
-        settings: zod_1.z
-            .record(zod_1.z.string(), zod_1.z.unknown())
-            .describe("Settings key-value pairs to merge into report.settings"),
+    server.tool("update_report_settings", "Merge report-level settings. Keys: useStylableVisualContainerHeader, useEnhancedTooltips, exportDataMode (0|1), persistentFilters, keyboardNavigationEnabled, defaultDrillFilterOtherVisuals, allowChangeFilterTypes, useDefaultAggregateDisplayName.", {
+        settings: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()),
     }, async ({ settings }) => {
         const invalid = Object.keys(settings).filter((k) => !VALID_REPORT_SETTINGS.has(k));
         if (invalid.length > 0) {
@@ -377,12 +375,12 @@ function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: auto_layout
     // ============================================================
-    server.tool("auto_layout", "Automatically arrange all visuals on a page in a grid layout", {
+    server.tool("auto_layout", "Auto-arrange all visuals on a page in a grid.", {
         pageId: zod_1.z.string().describe("The page ID"),
-        columns: zod_1.z.number().optional().default(3).describe("Number of columns in the grid"),
-        padding: zod_1.z.number().optional().default(10).describe("Padding between visuals"),
-        marginTop: zod_1.z.number().optional().default(10).describe("Top margin"),
-        marginLeft: zod_1.z.number().optional().default(10).describe("Left margin"),
+        columns: zod_1.z.number().optional().default(3),
+        padding: zod_1.z.number().optional().default(10),
+        marginTop: zod_1.z.number().optional().default(10),
+        marginLeft: zod_1.z.number().optional().default(10),
     }, async ({ pageId, columns, padding, marginTop, marginLeft }) => {
         const page = ctx.project.getPage(pageId);
         const visualIds = ctx.project.listVisualIds(pageId);
@@ -559,9 +557,9 @@ function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: set_filter_pane
     // ============================================================
-    server.tool("set_filter_pane", "Show or hide the filter pane in the report. Controls whether the filter pane is visible and/or expanded when users view the report.", {
-        visible: zod_1.z.boolean().describe("Whether the filter pane is visible"),
-        expanded: zod_1.z.boolean().optional().default(true).describe("Whether the filter pane is expanded (default true)"),
+    server.tool("set_filter_pane", "Show or hide the filter pane.", {
+        visible: zod_1.z.boolean(),
+        expanded: zod_1.z.boolean().optional().default(true),
     }, async ({ visible, expanded }) => {
         const report = ctx.project.getReport();
         if (!report.objects)
@@ -583,14 +581,12 @@ function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: manage_extension_measures
     // ============================================================
-    server.tool("manage_extension_measures", "Add, list, or remove extension measures (report-level DAX). Extension measures allow thin reports to define DAX calculations without modifying the semantic model. WARNING: empty reportExtensions.json crashes PBI Desktop — this tool auto-deletes the file when empty.", {
-        operation: zod_1.z.enum(["list", "add", "remove"]).describe("Operation to perform"),
-        // For add
-        tableName: zod_1.z.string().optional().default("_Measures").describe("Extension table name (default '_Measures')"),
-        measureName: zod_1.z.string().optional().describe("add/remove: measure name"),
-        expression: zod_1.z.string().optional().describe("add: DAX expression"),
-        dataType: zod_1.z.string().optional().default("Text").describe("add: data type (Text, Double, Int64, Boolean, DateTime)"),
-        // For remove
+    server.tool("manage_extension_measures", "Manage extension measures (report-level DAX in reportExtensions.json). Empty file crashes PBI Desktop — tool auto-deletes when empty.", {
+        operation: zod_1.z.enum(["list", "add", "remove"]),
+        tableName: zod_1.z.string().optional().default("_Measures"),
+        measureName: zod_1.z.string().optional(),
+        expression: zod_1.z.string().optional().describe("DAX (for add)"),
+        dataType: zod_1.z.string().optional().default("Text").describe("Text/Double/Int64/Boolean/DateTime"),
     }, async ({ operation, tableName, measureName, expression, dataType }) => {
         if (operation === "list") {
             const ext = ctx.project.getReportExtensions();
@@ -726,11 +722,11 @@ function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: set_visual_interaction
     // ============================================================
-    server.tool("set_visual_interaction", "Set cross-filter interaction between visuals on a page. Controls whether selecting data in one visual filters, highlights, or has no effect on another visual.", {
+    server.tool("set_visual_interaction", "Set cross-filter interaction (Filter/Highlight/NoFilter) from source visual to target visual.", {
         pageId: zod_1.z.string().describe("The page ID"),
-        source: zod_1.z.string().describe("Source visual ID (the one being clicked/selected)"),
-        target: zod_1.z.string().describe("Target visual ID (the one being affected)"),
-        type: zod_1.z.enum(["Filter", "Highlight", "NoFilter"]).describe("Interaction type: Filter (cross-filter), Highlight (cross-highlight), NoFilter (no interaction)"),
+        source: zod_1.z.string(),
+        target: zod_1.z.string(),
+        type: zod_1.z.enum(["Filter", "Highlight", "NoFilter"]),
     }, async ({ pageId, source, target, type }) => {
         const page = ctx.project.getPage(pageId);
         // Initialize visualInteractions array if not present

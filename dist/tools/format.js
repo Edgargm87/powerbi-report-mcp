@@ -20,15 +20,12 @@ function registerFormatTools(server, ctx) {
     server.tool("set_visual_title", "Set or update the title of a visual. Can set text, visibility, font, size, alignment.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
-        title: zod_1.z.string().optional().describe("The title text to display"),
-        show: zod_1.z.boolean().optional().describe("Whether to show the title (default true)"),
-        fontSize: zod_1.z.number().optional().describe("Font size (e.g. 8, 12, 14)"),
-        fontFamily: zod_1.z
-            .string()
-            .optional()
-            .describe("Font family (e.g. \"'Segoe UI', wf_segoe-ui_normal, helvetica, arial, sans-serif\")"),
-        alignment: zod_1.z.enum(["left", "center", "right"]).optional().describe("Title alignment"),
-        titleWrap: zod_1.z.boolean().optional().describe("Whether to wrap the title text"),
+        title: zod_1.z.string().optional(),
+        show: zod_1.z.boolean().optional(),
+        fontSize: zod_1.z.number().optional(),
+        fontFamily: zod_1.z.string().optional().describe("PBI font stack"),
+        alignment: zod_1.z.enum(["left", "center", "right"]).optional(),
+        titleWrap: zod_1.z.boolean().optional(),
     }, async ({ pageId, visualId, title, show, fontSize, fontFamily, alignment, titleWrap }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
@@ -162,13 +159,10 @@ function registerFormatTools(server, ctx) {
     server.tool("set_datapoint_colors", "Set data point colors. Series-based charts use metadata mode. Category-based (no Series) requires categoryEntity+categoryProperty.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
-        colors: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(createVisual_js_1.DataColorSchema)).describe("Array of {seriesName, color} — seriesName is the category value or series name to color"),
-        categoryEntity: zod_1.z.string().optional().describe("Category table name — required for category-based charts (barChart, columnChart, pieChart etc.)"),
-        categoryProperty: zod_1.z.string().optional().describe("Category column name — required for category-based charts"),
-        defaultTransparency: zod_1.z
-            .number()
-            .optional()
-            .describe("Default transparency for all data points (0-100)"),
+        colors: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(createVisual_js_1.DataColorSchema)).describe("[{seriesName, color}]"),
+        categoryEntity: zod_1.z.string().optional().describe("Required for category-based charts"),
+        categoryProperty: zod_1.z.string().optional().describe("Required for category-based charts"),
+        defaultTransparency: zod_1.z.number().optional(),
     }, async ({ pageId, visualId, colors, categoryEntity, categoryProperty, defaultTransparency }) => {
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
@@ -193,31 +187,23 @@ function registerFormatTools(server, ctx) {
     server.tool("set_conditional_format", "Apply conditional formatting to a visual container background or title font. formatType: rules / gradient / clear. ComparisonKind: 0=Eq,1=GT,2=GTE,3=LT,4=LTE,5=NEq.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
-        property: zod_1.z
-            .enum(["background", "title"])
-            .default("background")
-            .describe("Which property to apply conditional formatting to"),
-        formatType: zod_1.z
-            .enum(["rules", "gradient", "clear"])
-            .describe("Type of conditional formatting"),
-        // Shared: measure/column driving the format
-        entity: zod_1.z.string().optional().describe("Table name of the driving field (e.g. 'Sales')"),
-        property2: zod_1.z.string().optional().describe("Column or measure name of the driving field (e.g. 'KPI Status')"),
-        isMeasure: zod_1.z.boolean().optional().default(true).describe("true if driving field is a DAX measure, false for column"),
-        // Rules
+        property: zod_1.z.enum(["background", "title"]).default("background"),
+        formatType: zod_1.z.enum(["rules", "gradient", "clear"]),
+        entity: zod_1.z.string().optional().describe("Driving table name"),
+        property2: zod_1.z.string().optional().describe("Driving column/measure name"),
+        isMeasure: zod_1.z.boolean().optional().default(true),
         rules: zod_1.z
             .array(zod_1.z.object({
-            comparisonKind: zod_1.z.number().describe("0=Equal,1=GT,2=GTE,3=LT,4=LTE,5=NotEqual"),
-            value: zod_1.z.union([zod_1.z.number(), zod_1.z.string()]).describe("Comparison value (number or string)"),
-            color: zod_1.z.string().describe("Hex color when condition is true (e.g. '#00B050')"),
+            comparisonKind: zod_1.z.number(),
+            value: zod_1.z.union([zod_1.z.number(), zod_1.z.string()]),
+            color: zod_1.z.string().describe("Hex"),
         }))
             .optional()
-            .describe("For rules: ordered list of comparison → color rules (first match wins)"),
-        defaultColor: zod_1.z.string().optional().describe("Fallback color when no rule matches (hex)"),
-        // Gradient
-        minColor: zod_1.z.string().optional().describe("For gradient: color at minimum value (hex)"),
-        maxColor: zod_1.z.string().optional().describe("For gradient: color at maximum value (hex)"),
-        midColor: zod_1.z.string().optional().describe("For gradient: optional mid-point color (hex)"),
+            .describe("Ordered list (first match wins)"),
+        defaultColor: zod_1.z.string().optional(),
+        minColor: zod_1.z.string().optional().describe("gradient"),
+        maxColor: zod_1.z.string().optional().describe("gradient"),
+        midColor: zod_1.z.string().optional().describe("gradient (optional 3-stop)"),
     }, async ({ pageId, visualId, property, formatType, entity, property2, isMeasure, rules, defaultColor, minColor, maxColor, midColor, }) => {
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)
@@ -356,14 +342,8 @@ function registerFormatTools(server, ctx) {
     // ============================================================
     server.tool("apply_theme", `Apply a named theme preset to all visuals on a page. Themes: ${Object.keys(defaults_js_1.THEME_PRESETS).join(", ")}.`, {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
-        theme: zod_1.z
-            .enum(["dark", "light", "corporate", "blue-purple"])
-            .describe("Theme preset name"),
-        applyDataColors: zod_1.z
-            .boolean()
-            .optional()
-            .default(true)
-            .describe("Whether to apply theme data colors to chart visuals"),
+        theme: zod_1.z.enum(["dark", "light", "corporate", "blue-purple"]),
+        applyDataColors: zod_1.z.boolean().optional().default(true),
     }, async ({ pageId, theme, applyDataColors: applyColors }) => {
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)
@@ -431,15 +411,12 @@ function registerFormatTools(server, ctx) {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID"),
         sort: zod_1.z.array(zod_1.z.object({
-            field: zod_1.z.string().describe("Field to sort by in Table[Column] format (e.g. 'Sales[Revenue]')"),
-            type: zod_1.z.enum(["column", "measure", "aggregation"]).default("column")
-                .describe("Field type: column, measure, or aggregation"),
-            aggregation: zod_1.z.string().optional().describe("Aggregation function if type=aggregation (Sum, Avg, Count, Min, Max)"),
-            direction: zod_1.z.enum(["Ascending", "Descending"]).default("Descending")
-                .describe("Sort direction"),
-        })).describe("Sort fields in priority order"),
-        isDefaultSort: zod_1.z.boolean().optional().default(false)
-            .describe("Whether this is the default sort (true = can be overridden by user)"),
+            field: zod_1.z.string().describe("Table[Column]"),
+            type: zod_1.z.enum(["column", "measure", "aggregation"]).default("column"),
+            aggregation: zod_1.z.string().optional().describe("Sum/Avg/Count/Min/Max if type=aggregation"),
+            direction: zod_1.z.enum(["Ascending", "Descending"]).default("Descending"),
+        })).describe("Priority order"),
+        isDefaultSort: zod_1.z.boolean().optional().default(false).describe("true=user can override"),
     }, async ({ pageId, visualId, sort, isDefaultSort }) => {
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)

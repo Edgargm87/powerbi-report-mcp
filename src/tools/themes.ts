@@ -53,7 +53,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
   // ============================================================
   server.tool(
     "set_report_theme",
-    "Apply a custom JSON theme to the report. Saved to StaticResources, wired into report.json, affects all visuals globally. Colors are hex (#RRGGBB). dataColors: 6-12 values. visualStyles: per-visual-type overrides keyed by visualType or '*'.",
+    "Apply a custom JSON theme. Hex colors. dataColors 6-12 values. visualStyles keyed by visualType or '*'.",
     {
       name: z.string(),
       dataColors: z.array(z.string()).optional(),

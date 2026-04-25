@@ -40,7 +40,7 @@ function registerThemeTools(server, ctx) {
     // ============================================================
     // TOOL: set_report_theme
     // ============================================================
-    server.tool("set_report_theme", "Apply a custom JSON theme to the report. Saved to StaticResources, wired into report.json, affects all visuals globally. Colors are hex (#RRGGBB). dataColors: 6-12 values. visualStyles: per-visual-type overrides keyed by visualType or '*'.", {
+    server.tool("set_report_theme", "Apply a custom JSON theme. Hex colors. dataColors 6-12 values. visualStyles keyed by visualType or '*'.", {
         name: zod_1.z.string(),
         dataColors: zod_1.z.array(zod_1.z.string()).optional(),
         background: zod_1.z.string().optional(),

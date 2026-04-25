@@ -72,9 +72,9 @@ function registerBulkTools(server, ctx) {
     // ============================================================
     server.tool("bulk_delete_visuals", "Delete multiple visuals from a page. Set confirmBulk:true when >5.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
-        visualIds: parseArray(zod_1.z.string()).describe("Visual IDs to delete"),
+        visualIds: parseArray(zod_1.z.string()),
         confirmBulk: zod_1.z.coerce.boolean().optional().default(false)
-            .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals. Guards against accidental page wipes.`),
+            .describe(`Required when >${BULK_CONFIRM_THRESHOLD}.`),
     }, async ({ pageId, visualIds, confirmBulk }) => {
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)
@@ -113,15 +113,11 @@ function registerBulkTools(server, ctx) {
     // ============================================================
     server.tool("bulk_update_format", "Apply the same formatting to multiple visuals. target='container' (title/background/border) or 'visual' (axes/legend/labels). Set confirmBulk:true when >5.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
-        visualIds: parseArray(zod_1.z.string()).describe("Visual IDs to format"),
-        formatting: parseArray(createVisual_js_1.FormatCategorySchema).describe("Formatting to apply to all visuals"),
-        target: zod_1.z
-            .enum(["visual", "container"])
-            .optional()
-            .default("visual")
-            .describe("'container' = title/background/border, 'visual' = axes/labels/legend"),
+        visualIds: parseArray(zod_1.z.string()),
+        formatting: parseArray(createVisual_js_1.FormatCategorySchema),
+        target: zod_1.z.enum(["visual", "container"]).optional().default("visual"),
         confirmBulk: zod_1.z.coerce.boolean().optional().default(false)
-            .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
+            .describe(`Required when >${BULK_CONFIRM_THRESHOLD}.`),
     }, async ({ pageId, visualIds, formatting, target, confirmBulk }) => {
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)
@@ -165,22 +161,15 @@ function registerBulkTools(server, ctx) {
     server.tool("bulk_bind", "Rebind multiple visuals in one call. Replaces existing bindings. Set confirmBulk:true when >5. continueOnError:true validates per-entry — bad bindings don't abort the batch.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         updates: parseArray(zod_1.z.object({
-            visualId: zod_1.z.string().describe("Visual ID to rebind"),
-            bindings: parseArray(createVisual_js_1.BucketBindingSchema).describe("New bindings"),
-        })).describe("Array of {visualId, bindings} pairs"),
-        autoFilters: zod_1.z
-            .boolean()
-            .optional()
-            .default(true)
-            .describe("Rebuild auto-filters for each visual"),
+            visualId: zod_1.z.string(),
+            bindings: parseArray(createVisual_js_1.BucketBindingSchema),
+        })).describe("[{visualId, bindings}]"),
+        autoFilters: zod_1.z.boolean().optional().default(true),
         confirmBulk: zod_1.z.coerce.boolean().optional().default(false)
-            .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
+            .describe(`Required when >${BULK_CONFIRM_THRESHOLD}.`),
         continueOnError: zod_1.z.coerce.boolean().optional().default(false)
-            .describe("When true, validate & write each entry independently — a bad binding on one visual is reported per-entry and does not abort the batch."),
-        strictBindings: zod_1.z
-            .boolean()
-            .optional()
-            .describe("Binding validation: true=strict (default, fail on unknown field), false=warn (proceed with warnings). Omit for env default."),
+            .describe("Per-entry validation; bad bindings don't abort the batch."),
+        strictBindings: zod_1.z.boolean().optional().describe("true=strict (default), false=warn."),
     }, async ({ pageId, updates, autoFilters, confirmBulk, continueOnError, strictBindings }) => {
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)

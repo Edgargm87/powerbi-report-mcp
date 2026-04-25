@@ -316,48 +316,23 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().optional().describe("Visual ID — omit for page-level, required for topN"),
-      filterType: z
-        .enum(["categorical", "topN", "relativeDate", "advanced"])
-        .describe("Type of filter to add. topN requires visualId."),
-      // Field to filter
-      entity: z.string().describe("Table name of the filter field"),
-      property: z.string().describe("Column to filter on"),
-      // Categorical options
-      values: z
-        .array(z.string())
-        .optional()
-        .describe("categorical: values to include"),
-      // TopN options
-      n: z.number().optional().describe("topN: number of items"),
-      topNDirection: z
-        .enum(["Top", "Bottom"])
-        .optional()
-        .default("Top")
-        .describe("topN: Top or Bottom"),
-      orderByEntity: z.string().optional().describe("topN: table of ranking field"),
-      orderByProperty: z.string().optional().describe("topN: column/measure to rank by"),
-      orderByIsMeasure: z
-        .boolean()
-        .optional()
-        .default(false)
-        .describe("topN: true if ranking field is a measure"),
-      // RelativeDate options
-      period: z
-        .enum(["days", "weeks", "months", "quarters", "years"])
-        .optional()
-        .describe("relativeDate: time unit"),
-      count: z.number().optional().describe("relativeDate: number of periods"),
-      dateDirection: z
-        .enum(["last", "next"])
-        .optional()
-        .default("last")
-        .describe("relativeDate: last (past) or next (future)"),
-      // Advanced options
-      operator: z.string().optional().describe("advanced: comparison operator (Equals, NotEquals, GreaterThan, GreaterThanOrEqual, LessThan, LessThanOrEqual, Contains, DoesNotContain, StartsWith, DoesNotStartWith, IsBlank, IsNotBlank)"),
-      value: z.union([z.string(), z.number()]).optional().describe("advanced: comparison value"),
-      logicalOperator: z.enum(["And", "Or"]).optional().describe("advanced: compound condition connector"),
-      operator2: z.string().optional().describe("advanced: second operator for compound conditions"),
-      value2: z.union([z.string(), z.number()]).optional().describe("advanced: second comparison value"),
+      filterType: z.enum(["categorical", "topN", "relativeDate", "advanced"]),
+      entity: z.string().describe("Table name"),
+      property: z.string().describe("Column name"),
+      values: z.array(z.string()).optional().describe("categorical"),
+      n: z.number().optional().describe("topN"),
+      topNDirection: z.enum(["Top", "Bottom"]).optional().default("Top"),
+      orderByEntity: z.string().optional().describe("topN"),
+      orderByProperty: z.string().optional().describe("topN"),
+      orderByIsMeasure: z.boolean().optional().default(false),
+      period: z.enum(["days", "weeks", "months", "quarters", "years"]).optional(),
+      count: z.number().optional().describe("relativeDate"),
+      dateDirection: z.enum(["last", "next"]).optional().default("last"),
+      operator: z.string().optional().describe("Equals/NotEquals/GreaterThan(OrEqual)/LessThan(OrEqual)/Contains/DoesNotContain/StartsWith/DoesNotStartWith/IsBlank/IsNotBlank"),
+      value: z.union([z.string(), z.number()]).optional(),
+      logicalOperator: z.enum(["And", "Or"]).optional().describe("compound"),
+      operator2: z.string().optional(),
+      value2: z.union([z.string(), z.number()]).optional(),
     },
     async ({
       pageId, visualId, filterType, entity, property, values,

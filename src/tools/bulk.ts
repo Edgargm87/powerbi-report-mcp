@@ -89,9 +89,9 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
     "Delete multiple visuals from a page. Set confirmBulk:true when >5.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
-      visualIds: parseArray(z.string()).describe("Visual IDs to delete"),
+      visualIds: parseArray(z.string()),
       confirmBulk: z.coerce.boolean().optional().default(false)
-        .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals. Guards against accidental page wipes.`),
+        .describe(`Required when >${BULK_CONFIRM_THRESHOLD}.`),
     },
     async ({ pageId, visualIds, confirmBulk }) => {
       const rp = resolvePageId(ctx.project, pageId);
@@ -137,15 +137,11 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
     "Apply the same formatting to multiple visuals. target='container' (title/background/border) or 'visual' (axes/legend/labels). Set confirmBulk:true when >5.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
-      visualIds: parseArray(z.string()).describe("Visual IDs to format"),
-      formatting: parseArray(FormatCategorySchema).describe("Formatting to apply to all visuals"),
-      target: z
-        .enum(["visual", "container"])
-        .optional()
-        .default("visual")
-        .describe("'container' = title/background/border, 'visual' = axes/labels/legend"),
+      visualIds: parseArray(z.string()),
+      formatting: parseArray(FormatCategorySchema),
+      target: z.enum(["visual", "container"]).optional().default("visual"),
       confirmBulk: z.coerce.boolean().optional().default(false)
-        .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
+        .describe(`Required when >${BULK_CONFIRM_THRESHOLD}.`),
     },
     async ({ pageId, visualIds, formatting, target, confirmBulk }) => {
       const rp = resolvePageId(ctx.project, pageId);
@@ -198,25 +194,16 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       updates: parseArray(
         z.object({
-          visualId: z.string().describe("Visual ID to rebind"),
-          bindings: parseArray(BucketBindingSchema).describe("New bindings"),
+          visualId: z.string(),
+          bindings: parseArray(BucketBindingSchema),
         })
-      ).describe("Array of {visualId, bindings} pairs"),
-      autoFilters: z
-        .boolean()
-        .optional()
-        .default(true)
-        .describe("Rebuild auto-filters for each visual"),
+      ).describe("[{visualId, bindings}]"),
+      autoFilters: z.boolean().optional().default(true),
       confirmBulk: z.coerce.boolean().optional().default(false)
-        .describe(`Required acknowledgment when the operation would affect more than ${BULK_CONFIRM_THRESHOLD} visuals.`),
+        .describe(`Required when >${BULK_CONFIRM_THRESHOLD}.`),
       continueOnError: z.coerce.boolean().optional().default(false)
-        .describe("When true, validate & write each entry independently — a bad binding on one visual is reported per-entry and does not abort the batch."),
-      strictBindings: z
-        .boolean()
-        .optional()
-        .describe(
-          "Binding validation: true=strict (default, fail on unknown field), false=warn (proceed with warnings). Omit for env default."
-        ),
+        .describe("Per-entry validation; bad bindings don't abort the batch."),
+      strictBindings: z.boolean().optional().describe("true=strict (default), false=warn."),
     },
     async ({ pageId, updates, autoFilters, confirmBulk, continueOnError, strictBindings }) => {
       const rp = resolvePageId(ctx.project, pageId);

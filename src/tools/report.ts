@@ -356,11 +356,9 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
 
   server.tool(
     "update_report_settings",
-    "Update report-level settings (merges with existing settings). Valid keys: useStylableVisualContainerHeader (boolean, modern visual headers), useEnhancedTooltips (boolean), exportDataMode (0=summarized, 1=summarized+underlying), persistentFilters (boolean, save filter selections), keyboardNavigationEnabled (boolean), defaultDrillFilterOtherVisuals, allowChangeFilterTypes, useDefaultAggregateDisplayName.",
+    "Merge report-level settings. Keys: useStylableVisualContainerHeader, useEnhancedTooltips, exportDataMode (0|1), persistentFilters, keyboardNavigationEnabled, defaultDrillFilterOtherVisuals, allowChangeFilterTypes, useDefaultAggregateDisplayName.",
     {
-      settings: z
-        .record(z.string(), z.unknown())
-        .describe("Settings key-value pairs to merge into report.settings"),
+      settings: z.record(z.string(), z.unknown()),
     },
     async ({ settings }) => {
       const invalid = Object.keys(settings).filter((k) => !VALID_REPORT_SETTINGS.has(k));
@@ -420,13 +418,13 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "auto_layout",
-    "Automatically arrange all visuals on a page in a grid layout",
+    "Auto-arrange all visuals on a page in a grid.",
     {
       pageId: z.string().describe("The page ID"),
-      columns: z.number().optional().default(3).describe("Number of columns in the grid"),
-      padding: z.number().optional().default(10).describe("Padding between visuals"),
-      marginTop: z.number().optional().default(10).describe("Top margin"),
-      marginLeft: z.number().optional().default(10).describe("Left margin"),
+      columns: z.number().optional().default(3),
+      padding: z.number().optional().default(10),
+      marginTop: z.number().optional().default(10),
+      marginLeft: z.number().optional().default(10),
     },
     async ({ pageId, columns, padding, marginTop, marginLeft }) => {
       const page = ctx.project.getPage(pageId);
@@ -637,10 +635,10 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "set_filter_pane",
-    "Show or hide the filter pane in the report. Controls whether the filter pane is visible and/or expanded when users view the report.",
+    "Show or hide the filter pane.",
     {
-      visible: z.boolean().describe("Whether the filter pane is visible"),
-      expanded: z.boolean().optional().default(true).describe("Whether the filter pane is expanded (default true)"),
+      visible: z.boolean(),
+      expanded: z.boolean().optional().default(true),
     },
     async ({ visible, expanded }) => {
       const report = ctx.project.getReport();
@@ -668,15 +666,13 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "manage_extension_measures",
-    "Add, list, or remove extension measures (report-level DAX). Extension measures allow thin reports to define DAX calculations without modifying the semantic model. WARNING: empty reportExtensions.json crashes PBI Desktop — this tool auto-deletes the file when empty.",
+    "Manage extension measures (report-level DAX in reportExtensions.json). Empty file crashes PBI Desktop — tool auto-deletes when empty.",
     {
-      operation: z.enum(["list", "add", "remove"]).describe("Operation to perform"),
-      // For add
-      tableName: z.string().optional().default("_Measures").describe("Extension table name (default '_Measures')"),
-      measureName: z.string().optional().describe("add/remove: measure name"),
-      expression: z.string().optional().describe("add: DAX expression"),
-      dataType: z.string().optional().default("Text").describe("add: data type (Text, Double, Int64, Boolean, DateTime)"),
-      // For remove
+      operation: z.enum(["list", "add", "remove"]),
+      tableName: z.string().optional().default("_Measures"),
+      measureName: z.string().optional(),
+      expression: z.string().optional().describe("DAX (for add)"),
+      dataType: z.string().optional().default("Text").describe("Text/Double/Int64/Boolean/DateTime"),
     },
     async ({ operation, tableName, measureName, expression, dataType }) => {
       if (operation === "list") {
@@ -837,12 +833,12 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "set_visual_interaction",
-    "Set cross-filter interaction between visuals on a page. Controls whether selecting data in one visual filters, highlights, or has no effect on another visual.",
+    "Set cross-filter interaction (Filter/Highlight/NoFilter) from source visual to target visual.",
     {
       pageId: z.string().describe("The page ID"),
-      source: z.string().describe("Source visual ID (the one being clicked/selected)"),
-      target: z.string().describe("Target visual ID (the one being affected)"),
-      type: z.enum(["Filter", "Highlight", "NoFilter"]).describe("Interaction type: Filter (cross-filter), Highlight (cross-highlight), NoFilter (no interaction)"),
+      source: z.string(),
+      target: z.string(),
+      type: z.enum(["Filter", "Highlight", "NoFilter"]),
     },
     async ({ pageId, source, target, type }) => {
       const page = ctx.project.getPage(pageId);

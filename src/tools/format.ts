@@ -25,17 +25,12 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID"),
-      title: z.string().optional().describe("The title text to display"),
-      show: z.boolean().optional().describe("Whether to show the title (default true)"),
-      fontSize: z.number().optional().describe("Font size (e.g. 8, 12, 14)"),
-      fontFamily: z
-        .string()
-        .optional()
-        .describe(
-          "Font family (e.g. \"'Segoe UI', wf_segoe-ui_normal, helvetica, arial, sans-serif\")"
-        ),
-      alignment: z.enum(["left", "center", "right"]).optional().describe("Title alignment"),
-      titleWrap: z.boolean().optional().describe("Whether to wrap the title text"),
+      title: z.string().optional(),
+      show: z.boolean().optional(),
+      fontSize: z.number().optional(),
+      fontFamily: z.string().optional().describe("PBI font stack"),
+      alignment: z.enum(["left", "center", "right"]).optional(),
+      titleWrap: z.boolean().optional(),
     },
     async ({ pageId, visualId, title, show, fontSize, fontFamily, alignment, titleWrap }) => {
       const r = resolvePageId(ctx.project, pageId);
@@ -194,13 +189,10 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID"),
-      colors: z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, z.array(DataColorSchema)).describe("Array of {seriesName, color} — seriesName is the category value or series name to color"),
-      categoryEntity: z.string().optional().describe("Category table name — required for category-based charts (barChart, columnChart, pieChart etc.)"),
-      categoryProperty: z.string().optional().describe("Category column name — required for category-based charts"),
-      defaultTransparency: z
-        .number()
-        .optional()
-        .describe("Default transparency for all data points (0-100)"),
+      colors: z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, z.array(DataColorSchema)).describe("[{seriesName, color}]"),
+      categoryEntity: z.string().optional().describe("Required for category-based charts"),
+      categoryProperty: z.string().optional().describe("Required for category-based charts"),
+      defaultTransparency: z.number().optional(),
     },
     async ({ pageId, visualId, colors, categoryEntity, categoryProperty, defaultTransparency }) => {
       const r = resolvePageId(ctx.project, pageId);
@@ -230,33 +222,25 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID"),
-      property: z
-        .enum(["background", "title"])
-        .default("background")
-        .describe("Which property to apply conditional formatting to"),
-      formatType: z
-        .enum(["rules", "gradient", "clear"])
-        .describe("Type of conditional formatting"),
-      // Shared: measure/column driving the format
-      entity: z.string().optional().describe("Table name of the driving field (e.g. 'Sales')"),
-      property2: z.string().optional().describe("Column or measure name of the driving field (e.g. 'KPI Status')"),
-      isMeasure: z.boolean().optional().default(true).describe("true if driving field is a DAX measure, false for column"),
-      // Rules
+      property: z.enum(["background", "title"]).default("background"),
+      formatType: z.enum(["rules", "gradient", "clear"]),
+      entity: z.string().optional().describe("Driving table name"),
+      property2: z.string().optional().describe("Driving column/measure name"),
+      isMeasure: z.boolean().optional().default(true),
       rules: z
         .array(
           z.object({
-            comparisonKind: z.number().describe("0=Equal,1=GT,2=GTE,3=LT,4=LTE,5=NotEqual"),
-            value: z.union([z.number(), z.string()]).describe("Comparison value (number or string)"),
-            color: z.string().describe("Hex color when condition is true (e.g. '#00B050')"),
+            comparisonKind: z.number(),
+            value: z.union([z.number(), z.string()]),
+            color: z.string().describe("Hex"),
           })
         )
         .optional()
-        .describe("For rules: ordered list of comparison → color rules (first match wins)"),
-      defaultColor: z.string().optional().describe("Fallback color when no rule matches (hex)"),
-      // Gradient
-      minColor: z.string().optional().describe("For gradient: color at minimum value (hex)"),
-      maxColor: z.string().optional().describe("For gradient: color at maximum value (hex)"),
-      midColor: z.string().optional().describe("For gradient: optional mid-point color (hex)"),
+        .describe("Ordered list (first match wins)"),
+      defaultColor: z.string().optional(),
+      minColor: z.string().optional().describe("gradient"),
+      maxColor: z.string().optional().describe("gradient"),
+      midColor: z.string().optional().describe("gradient (optional 3-stop)"),
     },
     async ({
       pageId, visualId, property, formatType,
@@ -418,14 +402,8 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
     `Apply a named theme preset to all visuals on a page. Themes: ${Object.keys(THEME_PRESETS).join(", ")}.`,
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
-      theme: z
-        .enum(["dark", "light", "corporate", "blue-purple"])
-        .describe("Theme preset name"),
-      applyDataColors: z
-        .boolean()
-        .optional()
-        .default(true)
-        .describe("Whether to apply theme data colors to chart visuals"),
+      theme: z.enum(["dark", "light", "corporate", "blue-purple"]),
+      applyDataColors: z.boolean().optional().default(true),
     },
     async ({ pageId, theme, applyDataColors: applyColors }) => {
       const rp = resolvePageId(ctx.project, pageId);
@@ -513,15 +491,12 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID"),
       sort: z.array(z.object({
-        field: z.string().describe("Field to sort by in Table[Column] format (e.g. 'Sales[Revenue]')"),
-        type: z.enum(["column", "measure", "aggregation"]).default("column")
-          .describe("Field type: column, measure, or aggregation"),
-        aggregation: z.string().optional().describe("Aggregation function if type=aggregation (Sum, Avg, Count, Min, Max)"),
-        direction: z.enum(["Ascending", "Descending"]).default("Descending")
-          .describe("Sort direction"),
-      })).describe("Sort fields in priority order"),
-      isDefaultSort: z.boolean().optional().default(false)
-        .describe("Whether this is the default sort (true = can be overridden by user)"),
+        field: z.string().describe("Table[Column]"),
+        type: z.enum(["column", "measure", "aggregation"]).default("column"),
+        aggregation: z.string().optional().describe("Sum/Avg/Count/Min/Max if type=aggregation"),
+        direction: z.enum(["Ascending", "Descending"]).default("Descending"),
+      })).describe("Priority order"),
+      isDefaultSort: z.boolean().optional().default(false).describe("true=user can override"),
     },
     async ({ pageId, visualId, sort, isDefaultSort }) => {
       const rp = resolvePageId(ctx.project, pageId);
