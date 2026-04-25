@@ -79,11 +79,13 @@ function registerReportTools(server, ctx) {
     // ============================================================
     // TOOL: pbir_list_pages
     // ============================================================
-    server.tool("pbir_list_pages", "List all pages in the report. Slim mode (default) returns id, displayName, visualCount, isActive, hidden. Set slim=false for width/height/displayOption. Set includeVisuals=true (or pass pageId) to include a per-visual summary (id, type, x, y, w, h, title) — replaces the old get_page_summary tool.", {
+    server.tool("pbir_list_pages", "List pages in the report (paginated). Slim mode (default) returns id, displayName, visualCount, isActive, hidden. Set slim=false for width/height/displayOption. Set includeVisuals=true (or pass pageId) to include a per-visual summary. Pagination is skipped when pageId is supplied.", {
         slim: zod_1.z.boolean().optional().default(true).describe("Slim mode (default true) — omits width/height/displayOption to reduce token usage"),
         includeVisuals: zod_1.z.boolean().optional().default(false).describe("When true, each page also includes a `visuals` array with slim per-visual entries."),
-        pageId: zod_1.z.string().optional().describe("Scope to a single page (implies includeVisuals)."),
-    }, { "readOnlyHint": true, "openWorldHint": false }, async ({ slim, includeVisuals, pageId }) => {
+        pageId: zod_1.z.string().optional().describe("Scope to a single page (implies includeVisuals). When set, limit/offset are ignored."),
+        limit: zod_1.z.number().int().min(1).max(500).default(100).describe("Max items to return. Default 100."),
+        offset: zod_1.z.number().int().min(0).default(0).describe("Items to skip. Use with limit for paging."),
+    }, { "readOnlyHint": true, "openWorldHint": false }, async ({ slim, includeVisuals, pageId, limit, offset }) => {
         const _g = (0, context_js_1.requireProject)(ctx);
         if (_g)
             return _g;
@@ -92,11 +94,13 @@ function registerReportTools(server, ctx) {
             scopes.push(`page:${pageId}`);
         else
             scopes.push("pages");
-        return (0, readCache_js_1.cachedRead)("pbir_list_pages", { slim, includeVisuals, pageId }, scopes, () => {
+        const finalLimit = limit ?? 100;
+        const finalOffset = offset ?? 0;
+        return (0, readCache_js_1.cachedRead)("pbir_list_pages", { slim, includeVisuals, pageId, limit: finalLimit, offset: finalOffset }, scopes, () => {
             const meta = ctx.project.getPagesMetadata();
             const ids = pageId ? [pageId] : meta.pageOrder;
             const withVisuals = includeVisuals || !!pageId;
-            const pages = ids.map((id) => {
+            const allPages = ids.map((id) => {
                 const page = ctx.project.getPage(id);
                 const visualIds = ctx.project.listVisualIds(id);
                 const base = {
@@ -130,11 +134,25 @@ function registerReportTools(server, ctx) {
                 }
                 return base;
             });
+            // Single-page lookup — pagination is irrelevant. Return that one page
+            // regardless of limit/offset.
+            if (pageId) {
+                return {
+                    pageCount: allPages.length,
+                    pages: allPages,
+                    total: 1,
+                    truncated: false,
+                    nextOffset: null,
+                    canvas: (0, layoutValidation_js_1.getCanvasSummary)(),
+                };
+            }
+            const total = allPages.length;
+            const sliced = allPages.slice(finalOffset, finalOffset + finalLimit);
+            const truncated = total > finalOffset + sliced.length;
+            const nextOffset = truncated ? finalOffset + sliced.length : null;
             // Canvas constants help the LLM place visuals without guessing —
             // cheap to include, enormous payoff on layout accuracy.
-            return pageId
-                ? { pageCount: pages.length, pages, canvas: (0, layoutValidation_js_1.getCanvasSummary)() }
-                : { pages, canvas: (0, layoutValidation_js_1.getCanvasSummary)() };
+            return { pages: sliced, total, truncated, nextOffset, canvas: (0, layoutValidation_js_1.getCanvasSummary)() };
         });
     });
     // ============================================================

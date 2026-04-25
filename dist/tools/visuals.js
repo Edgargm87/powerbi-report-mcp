@@ -22,10 +22,12 @@ function registerVisualTools(server, ctx) {
     // ============================================================
     // TOOL: pbir_list_visuals
     // ============================================================
-    server.tool("pbir_list_visuals", "List all visuals on a page. Default slim returns id/type/x/y/w/h/title. slim:false includes filterCount.", {
+    server.tool("pbir_list_visuals", "List visuals on a page (paginated). Default slim returns id/type/x/y/w/h/title. slim:false includes filterCount. Use limit/offset to page through large pages.", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         slim: zod_1.z.boolean().optional().default(true),
-    }, { "readOnlyHint": true, "openWorldHint": false }, async ({ pageId, slim }) => {
+        limit: zod_1.z.number().int().min(1).max(500).default(100).describe("Max items to return. Default 100."),
+        offset: zod_1.z.number().int().min(0).default(0).describe("Items to skip. Use with limit for paging."),
+    }, { "readOnlyHint": true, "openWorldHint": false }, async ({ pageId, slim, limit, offset }) => {
         const _g = (0, context_js_1.requireProject)(ctx);
         if (_g)
             return _g;
@@ -34,9 +36,11 @@ function registerVisualTools(server, ctx) {
             return r.errorResponse;
         pageId = r.pageId;
         const finalPageId = pageId;
-        return (0, readCache_js_1.cachedRead)("pbir_list_visuals", { pageId: finalPageId, slim }, [`page:${finalPageId}`], () => {
+        const finalLimit = limit ?? 100;
+        const finalOffset = offset ?? 0;
+        return (0, readCache_js_1.cachedRead)("pbir_list_visuals", { pageId: finalPageId, slim, limit: finalLimit, offset: finalOffset }, [`page:${finalPageId}`], () => {
             const visualIds = ctx.project.listVisualIds(finalPageId);
-            const visuals = visualIds.map((id) => {
+            const allVisuals = visualIds.map((id) => {
                 const v = ctx.project.getVisual(finalPageId, id);
                 const titleValue = (0, extractTitle_js_1.extractVisualTitle)(v.visual.visualContainerObjects);
                 if (slim) {
@@ -60,7 +64,11 @@ function registerVisualTools(server, ctx) {
                     filterCount: v.filterConfig?.filters?.length ?? 0,
                 };
             });
-            return visuals;
+            const total = allVisuals.length;
+            const sliced = allVisuals.slice(finalOffset, finalOffset + finalLimit);
+            const truncated = total > finalOffset + sliced.length;
+            const nextOffset = truncated ? finalOffset + sliced.length : null;
+            return { visuals: sliced, total, truncated, nextOffset };
         });
     });
     // ============================================================
