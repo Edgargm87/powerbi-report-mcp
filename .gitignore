@@ -3,6 +3,17 @@ node_modules/
 .usage/
 pbi report/
 
+# Build artifacts (rebuilt by `npm install` via prepare script, or `npm run build`)
+dist/
+
+# Personal IDE / editor configs
+.claude/
+.vscode/
+.idea/
+
+# Local notes / audit docs not for public consumption
+IMPROVEMENTS-FOR-CLAUDE-CODE.md
+
 # Cowork plugin build outputs (rebuild with `npm run plugin:build`)
 cowork-plugin-build/
 *.plugin

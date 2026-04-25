@@ -6,7 +6,16 @@
   "bin": {
     "powerbi-report-mcp": "dist/index.js"
   },
+  "files": [
+    "dist",
+    "schemas",
+    "skills",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "scripts": {
+    "prepare": "npm run build",
     "build": "tsc && node -e \"const fs=require('fs');const f='dist/index.js';const c=fs.readFileSync(f,'utf8');if(!c.startsWith('#!/'))fs.writeFileSync(f,'#!/usr/bin/env node\\n'+c);\"",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
