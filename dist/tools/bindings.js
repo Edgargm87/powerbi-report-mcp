@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerBindingTools = registerBindingTools;
 const zod_1 = require("zod");
 const createVisual_js_1 = require("../helpers/createVisual.js");
+const context_js_1 = require("../context.js");
 const model_usage_js_1 = require("../model-usage.js");
 const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
 const bindingApply_js_1 = require("../helpers/bindingApply.js");
@@ -21,6 +22,9 @@ function registerBindingTools(server, ctx) {
             .optional()
             .describe("Binding validation: true=strict (default, fail on unknown field), false=warn (proceed with warnings). Omit for env default."),
     }, { "openWorldHint": false }, async ({ pageId, visualId, bindings, autoFilters, strictBindings }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         // Binding validation — before any write.
         const validationBindings = bindings.map((b) => ({
             bucket: b.bucket,

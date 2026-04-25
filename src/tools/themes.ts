@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ServerContext } from "../context.js";
+import { requireProject } from "../context.js";
 import type { ReportDefinition, ResourcePackage } from "../pbir.js";
 import { extractVisualTitle } from "../helpers/extractTitle.js";
 import { cachedRead, invalidateScope } from "../helpers/readCache.js";
@@ -68,6 +69,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
     {"idempotentHint":true,"openWorldHint":false},
     async ({ name, dataColors, background, foreground, foregroundNeutralSecondary,
              backgroundLight, backgroundNeutral, tableAccent, visualStyles }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       // Build theme JSON — only include provided properties
       const theme: Record<string, unknown> = { name };
       if (dataColors && dataColors.length > 0) theme.dataColors = dataColors;
@@ -116,6 +118,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
     {"readOnlyHint":true,"openWorldHint":false},
     async () =>
       cachedRead("get_report_theme", {}, ["theme"], () => {
+        const _g = requireProject(ctx); if (_g) return _g;
         const report = ctx.project.getReport();
         const tc = report.themeCollection;
         const baseTheme = tc?.baseTheme?.name ?? null;
@@ -137,6 +140,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
     {},
     {"destructiveHint":true,"openWorldHint":false},
     async () => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const report = ctx.project.getReport();
       const tc = report.themeCollection;
 
@@ -185,6 +189,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
     },
     {"readOnlyHint":true,"openWorldHint":false},
     async ({ theme }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const report = ctx.project.getReport();
       const tc = report.themeCollection;
       const customThemeName = tc?.customTheme?.name ?? null;
@@ -255,6 +260,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
     {},
     {"readOnlyHint":true,"openWorldHint":false},
     async () => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const files = ctx.project.listRegisteredResources();
       const themeFiles = files.filter((f) => f.endsWith(".json"));
 
@@ -282,6 +288,7 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
     },
     {"readOnlyHint":true,"openWorldHint":false},
     async ({ pageId, verbose, topN }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const visualIds = ctx.project.listVisualIds(pageId);
       const results: Array<{
         visualId: string;

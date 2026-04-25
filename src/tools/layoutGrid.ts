@@ -34,6 +34,7 @@ import { createAndSaveVisual } from "../helpers/createVisual.js";
 import type { VisualSpec, FieldSpecInput } from "../helpers/createVisual.js";
 import { invalidateCache } from "../model-usage.js";
 import type { ServerContext } from "../context.js";
+import { requireProject } from "../context.js";
 import { resolvePageId } from "../helpers/resolvePage.js";
 import { invalidateScope } from "../helpers/readCache.js";
 
@@ -324,6 +325,7 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
     },
     {"openWorldHint":false},
     async (params) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const rp = resolvePageId(ctx.project, params.pageId);
       if (!rp.resolved) return rp.errorResponse;
       const pageId = rp.pageId;

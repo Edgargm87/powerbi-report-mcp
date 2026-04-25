@@ -35,6 +35,7 @@ const layoutValidation_js_1 = require("../helpers/layoutValidation.js");
 const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
 const model_usage_js_1 = require("../model-usage.js");
+const context_js_1 = require("../context.js");
 const resolvePage_js_1 = require("../helpers/resolvePage.js");
 const readCache_js_1 = require("../helpers/readCache.js");
 /**
@@ -223,6 +224,9 @@ function registerLayoutGridTool(server, ctx) {
             .optional()
             .describe("Return full {visualId,visualType,slotRef,x,y,width,height} per cell instead of slim ids."),
     }, { "openWorldHint": false }, async (params) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, params.pageId);
         if (!rp.resolved)
             return rp.errorResponse;

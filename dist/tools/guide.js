@@ -164,15 +164,13 @@ function readTopic(key) {
 // Tool registration
 // ---------------------------------------------------------------------------
 function registerGuideTool(server, _ctx) {
-    // Snapshot topics at registration time for the static description.
-    // (Topics are still read live from disk on every call, so editing skills/
-    // doesn't require a server restart for the content — only the description.)
-    const initialTopics = listTopics();
-    const topicList = initialTopics.length > 0 ? initialTopics.join(", ") : "(none — skills/ is empty)";
-    server.tool("guide", `Domain knowledge for Power BI report development. Returns focused guidance and patterns for a topic, read live from skills/*.md. Available topics: ${topicList}`, {
+    // Description no longer hardcodes the topic list — it drifted from disk
+    // when files were added (e.g. errors.md). Discovery is live; topic:'list'
+    // returns the current set on demand.
+    server.tool("guide", "Domain knowledge for Power BI report development. Topics discovered live from skills/*.md — call with topic:'list' to enumerate.", {
         topic: zod_1.z
             .string()
-            .describe(`Topic to get guidance on. Available: ${topicList}. Omit or pass "list" to see the current topic list.`),
+            .describe("Topic to get guidance on. Pass 'list' to enumerate available topics from skills/*.md."),
     }, { "readOnlyHint": true, "openWorldHint": false }, async ({ topic }) => {
         const key = topic.toLowerCase().trim().replace(/\s+/g, "-");
         // Live-list mode

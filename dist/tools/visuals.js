@@ -4,6 +4,7 @@ exports.registerVisualTools = registerVisualTools;
 const zod_1 = require("zod");
 const pbir_js_1 = require("../pbir.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
+const context_js_1 = require("../context.js");
 const model_usage_js_1 = require("../model-usage.js");
 const bindingValidation_js_1 = require("../helpers/bindingValidation.js");
 const extractTitle_js_1 = require("../helpers/extractTitle.js");
@@ -25,6 +26,9 @@ function registerVisualTools(server, ctx) {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         slim: zod_1.z.boolean().optional().default(true),
     }, { "readOnlyHint": true, "openWorldHint": false }, async ({ pageId, slim }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -68,6 +72,9 @@ function registerVisualTools(server, ctx) {
         verbose: zod_1.z.boolean().optional().describe("Full raw PBIR JSON (heavy)."),
         slim: zod_1.z.boolean().optional().describe("Deprecated alias for !verbose."),
     }, { "readOnlyHint": true, "openWorldHint": false }, async ({ pageId, visualId, verbose, slim }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -176,6 +183,9 @@ function registerVisualTools(server, ctx) {
             .optional()
             .describe("Return [{visualId,visualType}] instead of flat id list."),
     }, { "openWorldHint": false }, async (params) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, params.pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -335,6 +345,9 @@ function registerVisualTools(server, ctx) {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         visualId: zod_1.z.string().describe("The visual ID to delete"),
     }, { "destructiveHint": true, "openWorldHint": false }, async ({ pageId, visualId }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -358,6 +371,9 @@ function registerVisualTools(server, ctx) {
         height: zod_1.z.number().optional(),
         z: zod_1.z.number().optional().describe("z-order"),
     }, { "openWorldHint": false }, async ({ pageId, visualId, x, y, width, height, z }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -391,6 +407,9 @@ function registerVisualTools(server, ctx) {
         offsetX: zod_1.z.number().optional().default(20).describe("X offset for the duplicate"),
         offsetY: zod_1.z.number().optional().default(20).describe("Y offset for the duplicate"),
     }, { "openWorldHint": false }, async ({ pageId, visualId, targetPageId, offsetX, offsetY }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const original = ctx.project.getVisual(pageId, visualId);
         const newId = (0, pbir_js_1.generateId)();
         const target = targetPageId || pageId;
@@ -427,6 +446,9 @@ function registerVisualTools(server, ctx) {
         visualId: zod_1.z.string().describe("The visual ID"),
         visualType: zod_1.z.string().describe("The new visual type"),
     }, { "openWorldHint": false }, async ({ pageId, visualId, visualType }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const visual = ctx.project.getVisual(pageId, visualId);
         visual.visual.visualType = visualType;
         ctx.project.saveVisual(pageId, visualId, visual);

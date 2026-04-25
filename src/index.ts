@@ -141,6 +141,9 @@ function safe<T extends Record<string, unknown>>(
     try {
       return await fn(args);
     } catch (err) {
+      // Log full error (stack + cause) to stderr for local debugging.
+      // The client-facing payload stays clean — just `err.message`.
+      console.error("[tool error]", err);
       const msg = err instanceof Error ? err.message : String(err);
       return {
         content: [{ type: "text" as const, text: JSON.stringify({ success: false, error: msg }) }],

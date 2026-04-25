@@ -7,6 +7,7 @@ import {
 import type { FieldSpecInput } from "../helpers/createVisual.js";
 import { applyFormattingToTarget } from "../helpers/formatting.js";
 import type { ServerContext } from "../context.js";
+import { requireProject } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
 import { runBindingValidation, attachBindingValidationMetadata } from "../helpers/bindingValidation.js";
 import { applyBindingsToVisual } from "../helpers/bindingApply.js";
@@ -95,6 +96,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
     },
     {"destructiveHint":true,"openWorldHint":false},
     async ({ pageId, visualIds, confirmBulk }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const rp = resolvePageId(ctx.project, pageId);
       if (!rp.resolved) return rp.errorResponse;
       pageId = rp.pageId;
@@ -146,6 +148,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
     },
     {"openWorldHint":false},
     async ({ pageId, visualIds, formatting, target, confirmBulk }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const rp = resolvePageId(ctx.project, pageId);
       if (!rp.resolved) return rp.errorResponse;
       pageId = rp.pageId;
@@ -209,6 +212,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
     },
     {"openWorldHint":false},
     async ({ pageId, updates, autoFilters, confirmBulk, continueOnError, strictBindings }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const rp = resolvePageId(ctx.project, pageId);
       if (!rp.resolved) return rp.errorResponse;
       pageId = rp.pageId;

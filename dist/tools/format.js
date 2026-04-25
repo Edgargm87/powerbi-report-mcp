@@ -8,6 +8,7 @@ const resolvePage_js_1 = require("../helpers/resolvePage.js");
 const readCache_js_1 = require("../helpers/readCache.js");
 const createVisual_js_1 = require("../helpers/createVisual.js");
 const defaults_js_1 = require("../helpers/defaults.js");
+const context_js_1 = require("../context.js");
 // Categories that belong in visualContainerObjects (container chrome)
 const CONTAINER_CATEGORIES = new Set([
     "title", "subTitle", "background", "border", "padding",
@@ -27,6 +28,9 @@ function registerFormatTools(server, ctx) {
         alignment: zod_1.z.enum(["left", "center", "right"]).optional(),
         titleWrap: zod_1.z.boolean().optional(),
     }, { "idempotentHint": true, "openWorldHint": false }, async ({ pageId, visualId, title, show, fontSize, fontFamily, alignment, titleWrap }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -92,6 +96,9 @@ function registerFormatTools(server, ctx) {
             .default("auto")
             .describe("'auto' (default) routes container categories (title/background/border/padding/dropShadow/visualHeader) to visualContainerObjects and everything else to objects. Use 'visual' or 'container' to force."),
     }, { "openWorldHint": false }, async ({ pageId, visualId, formatting, target }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -164,6 +171,9 @@ function registerFormatTools(server, ctx) {
         categoryProperty: zod_1.z.string().optional().describe("Required for category-based charts"),
         defaultTransparency: zod_1.z.number().optional(),
     }, { "openWorldHint": false }, async ({ pageId, visualId, colors, categoryEntity, categoryProperty, defaultTransparency }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -205,6 +215,9 @@ function registerFormatTools(server, ctx) {
         maxColor: zod_1.z.string().optional().describe("gradient"),
         midColor: zod_1.z.string().optional().describe("gradient (optional 3-stop)"),
     }, { "openWorldHint": false }, async ({ pageId, visualId, property, formatType, entity, property2, isMeasure, rules, defaultColor, minColor, maxColor, midColor, }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)
             return rp.errorResponse;
@@ -345,6 +358,9 @@ function registerFormatTools(server, ctx) {
         theme: zod_1.z.enum(["dark", "light", "corporate", "blue-purple"]),
         applyDataColors: zod_1.z.boolean().optional().default(true),
     }, { "openWorldHint": false }, async ({ pageId, theme, applyDataColors: applyColors }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)
             return rp.errorResponse;
@@ -418,6 +434,9 @@ function registerFormatTools(server, ctx) {
         })).describe("Priority order"),
         isDefaultSort: zod_1.z.boolean().optional().default(false).describe("true=user can override"),
     }, { "openWorldHint": false }, async ({ pageId, visualId, sort, isDefaultSort }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const rp = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!rp.resolved)
             return rp.errorResponse;

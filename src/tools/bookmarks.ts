@@ -3,6 +3,7 @@ import { z } from "zod";
 import { generateId } from "../pbir.js";
 import type { BookmarkDefinition } from "../pbir.js";
 import type { ServerContext } from "../context.js";
+import { requireProject } from "../context.js";
 import { cachedRead, invalidateScope } from "../helpers/readCache.js";
 
 const BOOKMARK_SCHEMA =
@@ -19,6 +20,7 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
     {"readOnlyHint":true,"openWorldHint":false},
     async () =>
       cachedRead("list_bookmarks", {}, ["bookmarks"], () => {
+        const _g = requireProject(ctx); if (_g) return _g;
         const meta = ctx.project.getBookmarksMetadata();
         const bookmarks = meta.bookmarkOrder.map((id) => {
           try {
@@ -47,6 +49,7 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
     },
     {"openWorldHint":false},
     async ({ displayName, activePageId }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const bookmarkId = generateId();
 
       const explorationState: Record<string, unknown> = {};
@@ -90,6 +93,7 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
     },
     {"destructiveHint":true,"openWorldHint":false},
     async ({ bookmarkId }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const meta = ctx.project.getBookmarksMetadata();
       const before = meta.bookmarkOrder.length;
       meta.bookmarkOrder = meta.bookmarkOrder.filter((id) => id !== bookmarkId);
@@ -120,6 +124,7 @@ export function registerBookmarkTools(server: McpServer, ctx: ServerContext): vo
     },
     {"openWorldHint":false},
     async ({ bookmarkId, displayName }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const bookmark = ctx.project.getBookmark(bookmarkId);
       bookmark.displayName = displayName;
       ctx.project.saveBookmark(bookmarkId, bookmark);

@@ -7,6 +7,7 @@ import { invalidateScope } from "../helpers/readCache.js";
 import { FormatCategorySchema, DataColorSchema, NO_DATA_VISUAL_TYPES } from "../helpers/createVisual.js";
 import { THEME_PRESETS } from "../helpers/defaults.js";
 import type { ServerContext } from "../context.js";
+import { requireProject } from "../context.js";
 import type { FieldRef } from "../pbir.js";
 
 // Categories that belong in visualContainerObjects (container chrome)
@@ -34,6 +35,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
     },
     {"idempotentHint":true,"openWorldHint":false},
     async ({ pageId, visualId, title, show, fontSize, fontFamily, alignment, titleWrap }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
@@ -112,6 +114,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
     },
     {"openWorldHint":false},
     async ({ pageId, visualId, formatting, target }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
@@ -198,6 +201,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
     },
     {"openWorldHint":false},
     async ({ pageId, visualId, colors, categoryEntity, categoryProperty, defaultTransparency }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
@@ -252,6 +256,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       rules, defaultColor,
       minColor, maxColor, midColor,
     }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const rp = resolvePageId(ctx.project, pageId);
       if (!rp.resolved) return rp.errorResponse;
       pageId = rp.pageId;
@@ -411,6 +416,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
     },
     {"openWorldHint":false},
     async ({ pageId, theme, applyDataColors: applyColors }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const rp = resolvePageId(ctx.project, pageId);
       if (!rp.resolved) return rp.errorResponse;
       pageId = rp.pageId;
@@ -505,6 +511,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
     },
     {"openWorldHint":false},
     async ({ pageId, visualId, sort, isDefaultSort }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const rp = resolvePageId(ctx.project, pageId);
       if (!rp.resolved) return rp.errorResponse;
       pageId = rp.pageId;

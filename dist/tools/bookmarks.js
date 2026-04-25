@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerBookmarkTools = registerBookmarkTools;
 const zod_1 = require("zod");
 const pbir_js_1 = require("../pbir.js");
+const context_js_1 = require("../context.js");
 const readCache_js_1 = require("../helpers/readCache.js");
 const BOOKMARK_SCHEMA = "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/bookmark/2.0.0/schema.json";
 function registerBookmarkTools(server, ctx) {
@@ -10,6 +11,9 @@ function registerBookmarkTools(server, ctx) {
     // TOOL: list_bookmarks
     // ============================================================
     server.tool("list_bookmarks", "List all bookmarks defined in the report.", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => (0, readCache_js_1.cachedRead)("list_bookmarks", {}, ["bookmarks"], () => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const meta = ctx.project.getBookmarksMetadata();
         const bookmarks = meta.bookmarkOrder.map((id) => {
             try {
@@ -32,6 +36,9 @@ function registerBookmarkTools(server, ctx) {
             .optional()
             .describe("Page ID that this bookmark should navigate to when activated"),
     }, { "openWorldHint": false }, async ({ displayName, activePageId }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const bookmarkId = (0, pbir_js_1.generateId)();
         const explorationState = {};
         if (activePageId) {
@@ -63,6 +70,9 @@ function registerBookmarkTools(server, ctx) {
     server.tool("delete_bookmark", "Delete a bookmark by ID.", {
         bookmarkId: zod_1.z.string().describe("The bookmark ID to delete (from list_bookmarks)"),
     }, { "destructiveHint": true, "openWorldHint": false }, async ({ bookmarkId }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const meta = ctx.project.getBookmarksMetadata();
         const before = meta.bookmarkOrder.length;
         meta.bookmarkOrder = meta.bookmarkOrder.filter((id) => id !== bookmarkId);
@@ -85,6 +95,9 @@ function registerBookmarkTools(server, ctx) {
         bookmarkId: zod_1.z.string().describe("The bookmark ID to rename"),
         displayName: zod_1.z.string().describe("New display name"),
     }, { "openWorldHint": false }, async ({ bookmarkId, displayName }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const bookmark = ctx.project.getBookmark(bookmarkId);
         bookmark.displayName = displayName;
         ctx.project.saveBookmark(bookmarkId, bookmark);

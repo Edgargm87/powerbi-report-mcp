@@ -3,6 +3,7 @@ import { z } from "zod";
 import { generateId, columnRef } from "../pbir.js";
 import type { FilterItem, FieldRef } from "../pbir.js";
 import type { ServerContext } from "../context.js";
+import { requireProject } from "../context.js";
 import { resolvePageId } from "../helpers/resolvePage.js";
 import { cachedRead, invalidateScope } from "../helpers/readCache.js";
 
@@ -277,6 +278,7 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
     },
     {"readOnlyHint":true,"openWorldHint":false},
     async ({ pageId, visualId, slim }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
@@ -342,6 +344,7 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
       period, count, dateDirection,
       operator, value, logicalOperator, operator2, value2,
     }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const rp = resolvePageId(ctx.project, pageId);
       if (!rp.resolved) return rp.errorResponse;
       pageId = rp.pageId;
@@ -414,6 +417,7 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
     },
     {"destructiveHint":true,"openWorldHint":false},
     async ({ pageId, filterName, visualId }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       try {
       if (visualId) {
         const visual = ctx.project.getVisual(pageId, visualId);
@@ -456,6 +460,7 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
     },
     {"destructiveHint":true,"openWorldHint":false},
     async ({ pageId, visualId }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       try {
       if (visualId) {
         const visual = ctx.project.getVisual(pageId, visualId);

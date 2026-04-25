@@ -6,6 +6,7 @@ import { execFileSync, spawn } from "child_process";
 import { generateId, columnRef } from "../pbir.js";
 import type { PageDefinition, ExtensionEntity } from "../pbir.js";
 import type { ServerContext } from "../context.js";
+import { requireProject } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
 import { extractVisualTitle } from "../helpers/extractTitle.js";
 import { ok, fail } from "../helpers/mcpResult.js";
@@ -71,6 +72,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"readOnlyHint":true,"openWorldHint":false},
     async ({ slim, includeVisuals, pageId }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const scopes: string[] = ["report"];
       if (pageId) scopes.push(`page:${pageId}`);
       else scopes.push("pages");
@@ -144,6 +146,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"openWorldHint":false},
     async ({ displayName, type, width, height, displayOption, drillthrough }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const isTooltip = type === "tooltip";
 
       // Apply tooltip defaults when not explicitly overridden
@@ -219,6 +222,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"openWorldHint":false},
     async ({ pageId, displayName }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
@@ -244,6 +248,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"destructiveHint":true,"openWorldHint":false},
     async ({ pageId }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const meta = ctx.project.getPagesMetadata();
       meta.pageOrder = meta.pageOrder.filter((id) => id !== pageId);
       if (meta.activePageName === pageId && meta.pageOrder.length > 0) {
@@ -271,6 +276,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"openWorldHint":false},
     async ({ pageOrder }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const meta = ctx.project.getPagesMetadata();
       // Validate: supplied order must be a permutation of existing page IDs.
       // Same length + same set (no duplicates, no extras, no missing).
@@ -300,6 +306,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"idempotentHint":true,"openWorldHint":false},
     async ({ pageId }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
@@ -325,6 +332,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"idempotentHint":true,"openWorldHint":false},
     async ({ pageId, hidden }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
@@ -354,6 +362,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     {},
     {"readOnlyHint":true,"openWorldHint":false},
     async () => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const report = ctx.project.getReport();
       return { content: [{ type: "text", text: JSON.stringify(report, null, 2) }] };
     }
@@ -385,6 +394,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"idempotentHint":true,"openWorldHint":false},
     async ({ settings }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const invalid = Object.keys(settings).filter((k) => !VALID_REPORT_SETTINGS.has(k));
       if (invalid.length > 0) {
         return fail(`Invalid setting keys: ${invalid.join(", ")}. Valid keys: ${[...VALID_REPORT_SETTINGS].join(", ")}`);
@@ -415,6 +425,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"openWorldHint":false},
     async ({ pageId, width, height, displayOption }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
@@ -451,6 +462,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"openWorldHint":false},
     async ({ pageId, columns, padding, marginTop, marginLeft }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const page = ctx.project.getPage(pageId);
       const visualIds = ctx.project.listVisualIds(pageId);
 
@@ -513,6 +525,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"openWorldHint":false},
     async ({ pageId, displayName }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const sourcePage = ctx.project.getPage(pageId);
       const newPageId = generateId();
 
@@ -579,6 +592,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"destructiveHint":true,"openWorldHint":false},
     async ({ confirm }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const reportPath = ctx.getReportPath();
       if (!reportPath) {
         return fail("No report connected. Use set_report first.");
@@ -671,6 +685,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"idempotentHint":true,"openWorldHint":false},
     async ({ visible, expanded }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const report = ctx.project.getReport();
 
       if (!report.objects) report.objects = {};
@@ -707,6 +722,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"destructiveHint":true,"openWorldHint":false},
     async ({ operation, tableName, measureName, expression, dataType }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       if (operation === "list") {
         const ext = ctx.project.getReportExtensions();
         if (!ext?.entities?.length) {
@@ -800,6 +816,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"idempotentHint":true,"openWorldHint":false},
     async ({ pageId, color, transparency, wallpaperColor, wallpaperTransparency, clear }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
@@ -875,6 +892,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
     },
     {"idempotentHint":true,"openWorldHint":false},
     async ({ pageId, source, target, type }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const page = ctx.project.getPage(pageId);
 
       // Initialize visualInteractions array if not present

@@ -8,6 +8,7 @@ import {
 } from "../helpers/createVisual.js";
 import type { VisualSpec, FieldSpecInput } from "../helpers/createVisual.js";
 import type { ServerContext } from "../context.js";
+import { requireProject } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
 import { runBindingValidation, attachBindingValidationMetadata } from "../helpers/bindingValidation.js";
 import { extractVisualTitle } from "../helpers/extractTitle.js";
@@ -43,6 +44,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
     },
     {"readOnlyHint":true,"openWorldHint":false},
     async ({ pageId, slim }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
@@ -93,6 +95,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
     },
     {"readOnlyHint":true,"openWorldHint":false},
     async ({ pageId, visualId, verbose, slim }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
@@ -210,6 +213,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
     },
     {"openWorldHint":false},
     async (params) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, params.pageId);
       if (!r.resolved) return r.errorResponse;
       const pageId = r.pageId;
@@ -394,6 +398,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
     },
     {"destructiveHint":true,"openWorldHint":false},
     async ({ pageId, visualId }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
@@ -423,6 +428,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
     },
     {"openWorldHint":false},
     async ({ pageId, visualId, x, y, width, height, z }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
       pageId = r.pageId;
@@ -458,6 +464,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
     },
     {"openWorldHint":false},
     async ({ pageId, visualId, targetPageId, offsetX, offsetY }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const original = ctx.project.getVisual(pageId, visualId);
       const newId = generateId();
       const target = targetPageId || pageId;
@@ -503,6 +510,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
     },
     {"openWorldHint":false},
     async ({ pageId, visualId, visualType }) => {
+      const _g = requireProject(ctx); if (_g) return _g;
       const visual = ctx.project.getVisual(pageId, visualId);
       visual.visual.visualType = visualType;
       ctx.project.saveVisual(pageId, visualId, visual);

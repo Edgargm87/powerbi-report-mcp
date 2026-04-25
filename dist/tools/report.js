@@ -39,6 +39,7 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const child_process_1 = require("child_process");
 const pbir_js_1 = require("../pbir.js");
+const context_js_1 = require("../context.js");
 const model_usage_js_1 = require("../model-usage.js");
 const extractTitle_js_1 = require("../helpers/extractTitle.js");
 const mcpResult_js_1 = require("../helpers/mcpResult.js");
@@ -83,6 +84,9 @@ function registerReportTools(server, ctx) {
         includeVisuals: zod_1.z.boolean().optional().default(false).describe("When true, each page also includes a `visuals` array with slim per-visual entries."),
         pageId: zod_1.z.string().optional().describe("Scope to a single page (implies includeVisuals)."),
     }, { "readOnlyHint": true, "openWorldHint": false }, async ({ slim, includeVisuals, pageId }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const scopes = ["report"];
         if (pageId)
             scopes.push(`page:${pageId}`);
@@ -151,6 +155,9 @@ function registerReportTools(server, ctx) {
             property: zod_1.z.string().describe("Column name for the drillthrough field"),
         }).optional().describe("Drillthrough field — makes this a drillthrough page filtered by this field"),
     }, { "openWorldHint": false }, async ({ displayName, type, width, height, displayOption, drillthrough }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const isTooltip = type === "tooltip";
         // Apply tooltip defaults when not explicitly overridden
         const resolvedWidth = width ?? (isTooltip ? 320 : 1280);
@@ -210,6 +217,9 @@ function registerReportTools(server, ctx) {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         displayName: zod_1.z.string().describe("New display name"),
     }, { "openWorldHint": false }, async ({ pageId, displayName }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -229,6 +239,9 @@ function registerReportTools(server, ctx) {
     server.tool("delete_page", "Delete a page and all its visuals", {
         pageId: zod_1.z.string().describe("The page ID to delete"),
     }, { "destructiveHint": true, "openWorldHint": false }, async ({ pageId }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const meta = ctx.project.getPagesMetadata();
         meta.pageOrder = meta.pageOrder.filter((id) => id !== pageId);
         if (meta.activePageName === pageId && meta.pageOrder.length > 0) {
@@ -249,6 +262,9 @@ function registerReportTools(server, ctx) {
     server.tool("reorder_pages", "Set the page order", {
         pageOrder: zod_1.z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, zod_1.z.array(zod_1.z.string())).describe("Array of page IDs in desired order"),
     }, { "openWorldHint": false }, async ({ pageOrder }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const meta = ctx.project.getPagesMetadata();
         // Validate: supplied order must be a permutation of existing page IDs.
         // Same length + same set (no duplicates, no extras, no missing).
@@ -271,6 +287,9 @@ function registerReportTools(server, ctx) {
     server.tool("set_active_page", "Set which page is active (shown on open)", {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
     }, { "idempotentHint": true, "openWorldHint": false }, async ({ pageId }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -290,6 +309,9 @@ function registerReportTools(server, ctx) {
         pageId: zod_1.z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
         hidden: zod_1.z.coerce.boolean(),
     }, { "idempotentHint": true, "openWorldHint": false }, async ({ pageId, hidden }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -314,6 +336,9 @@ function registerReportTools(server, ctx) {
     // TOOL: get_report_settings
     // ============================================================
     server.tool("get_report_settings", "Get the report-level settings and theme configuration", {}, { "readOnlyHint": true, "openWorldHint": false }, async () => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const report = ctx.project.getReport();
         return { content: [{ type: "text", text: JSON.stringify(report, null, 2) }] };
     });
@@ -337,6 +362,9 @@ function registerReportTools(server, ctx) {
     server.tool("update_report_settings", "Merge report-level settings. Keys: useStylableVisualContainerHeader, useEnhancedTooltips, exportDataMode (0|1), persistentFilters, keyboardNavigationEnabled, defaultDrillFilterOtherVisuals, allowChangeFilterTypes, useDefaultAggregateDisplayName.", {
         settings: zod_1.z.record(zod_1.z.string(), zod_1.z.unknown()),
     }, { "idempotentHint": true, "openWorldHint": false }, async ({ settings }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const invalid = Object.keys(settings).filter((k) => !VALID_REPORT_SETTINGS.has(k));
         if (invalid.length > 0) {
             return (0, mcpResult_js_1.fail)(`Invalid setting keys: ${invalid.join(", ")}. Valid keys: ${[...VALID_REPORT_SETTINGS].join(", ")}`);
@@ -360,6 +388,9 @@ function registerReportTools(server, ctx) {
         height: zod_1.z.number().optional(),
         displayOption: zod_1.z.enum(["FitToPage", "FitToWidth", "ActualSize"]).optional(),
     }, { "openWorldHint": false }, async ({ pageId, width, height, displayOption }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -393,6 +424,9 @@ function registerReportTools(server, ctx) {
         marginTop: zod_1.z.number().optional().default(10),
         marginLeft: zod_1.z.number().optional().default(10),
     }, { "openWorldHint": false }, async ({ pageId, columns, padding, marginTop, marginLeft }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const page = ctx.project.getPage(pageId);
         const visualIds = ctx.project.listVisualIds(pageId);
         if (visualIds.length === 0) {
@@ -443,6 +477,9 @@ function registerReportTools(server, ctx) {
             .optional()
             .describe("Display name for the new page (defaults to 'Copy of <original>')"),
     }, { "openWorldHint": false }, async ({ pageId, displayName }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const sourcePage = ctx.project.getPage(pageId);
         const newPageId = (0, pbir_js_1.generateId)();
         const newPage = {
@@ -496,6 +533,9 @@ function registerReportTools(server, ctx) {
             .default(false)
             .describe("Must be true to actually reload. When false/omitted, the tool returns a save-first warning instead of killing PBI Desktop. The agent should relay the warning, wait for user confirmation, then retry with confirm:true."),
     }, { "destructiveHint": true, "openWorldHint": false }, async ({ confirm }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const reportPath = ctx.getReportPath();
         if (!reportPath) {
             return (0, mcpResult_js_1.fail)("No report connected. Use set_report first.");
@@ -574,6 +614,9 @@ function registerReportTools(server, ctx) {
         visible: zod_1.z.boolean(),
         expanded: zod_1.z.boolean().optional().default(true),
     }, { "idempotentHint": true, "openWorldHint": false }, async ({ visible, expanded }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const report = ctx.project.getReport();
         if (!report.objects)
             report.objects = {};
@@ -602,6 +645,9 @@ function registerReportTools(server, ctx) {
         expression: zod_1.z.string().optional().describe("DAX (for add)"),
         dataType: zod_1.z.string().optional().default("Text").describe("Text/Double/Int64/Boolean/DateTime"),
     }, { "destructiveHint": true, "openWorldHint": false }, async ({ operation, tableName, measureName, expression, dataType }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         if (operation === "list") {
             const ext = ctx.project.getReportExtensions();
             if (!ext?.entities?.length) {
@@ -676,6 +722,9 @@ function registerReportTools(server, ctx) {
         wallpaperTransparency: zod_1.z.number().min(0).max(100).optional().default(0),
         clear: zod_1.z.boolean().optional().describe("Remove all background/wallpaper settings"),
     }, { "idempotentHint": true, "openWorldHint": false }, async ({ pageId, color, transparency, wallpaperColor, wallpaperTransparency, clear }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const r = (0, resolvePage_js_1.resolvePageId)(ctx.project, pageId);
         if (!r.resolved)
             return r.errorResponse;
@@ -742,6 +791,9 @@ function registerReportTools(server, ctx) {
         target: zod_1.z.string(),
         type: zod_1.z.enum(["Filter", "Highlight", "NoFilter"]),
     }, { "idempotentHint": true, "openWorldHint": false }, async ({ pageId, source, target, type }) => {
+        const _g = (0, context_js_1.requireProject)(ctx);
+        if (_g)
+            return _g;
         const page = ctx.project.getPage(pageId);
         // Initialize visualInteractions array if not present
         if (!page.visualInteractions) {
