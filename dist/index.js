@@ -162,23 +162,62 @@ process.on("SIGINT", () => process.exit(0));
 process.on("SIGTERM", () => process.exit(0));
 process.on("uncaughtException", (err) => console.error("[uncaughtException]", err));
 process.on("unhandledRejection", (reason) => console.error("[unhandledRejection]", reason));
-// --- Tool handler wrapper — returns isError response instead of crashing ---
+// --- Tool handler wrapper — returns isError response instead of crashing,
+// and back-fills `structuredContent` for any handler that returned a legacy
+// content-only envelope. This guarantees the dual-emit contract from
+// helpers/mcpResult.ts holds across every tool, including the 100+ inline
+// `content: [{...}]` returns scattered across the tool modules.
 function safe(fn) {
     return async (args) => {
+        let result;
         try {
-            return await fn(args);
+            result = await fn(args);
         }
         catch (err) {
             // Log full error (stack + cause) to stderr for local debugging.
             // The client-facing payload stays clean — just `err.message`.
             console.error("[tool error]", err);
             const msg = err instanceof Error ? err.message : String(err);
+            const body = { success: false, error: msg };
             return {
-                content: [{ type: "text", text: JSON.stringify({ success: false, error: msg }) }],
+                content: [{ type: "text", text: JSON.stringify(body) }],
+                structuredContent: body,
                 isError: true,
             };
         }
+        return ensureStructured(result);
     };
+}
+/**
+ * Back-fill `structuredContent` from `content[0].text` when the underlying
+ * handler returned a JSON-stringified text envelope but not the modern
+ * structured form. Leaves raw-text payloads (non-JSON) alone — those are
+ * intentional (model_usage HTML, get_visual full PBIR dump).
+ */
+function ensureStructured(result) {
+    if (!result || typeof result !== "object")
+        return result;
+    if (result.structuredContent)
+        return result;
+    const content = result.content;
+    if (!Array.isArray(content) || content.length === 0)
+        return result;
+    const first = content[0];
+    if (!first || first.type !== "text" || typeof first.text !== "string")
+        return result;
+    const text = first.text.trim();
+    if (!text || (text[0] !== "{" && text[0] !== "["))
+        return result;
+    try {
+        const parsed = JSON.parse(first.text);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+            result.structuredContent = parsed;
+        }
+    }
+    catch {
+        // Not JSON — leave as-is.
+    }
+    return result;
 }
 // --- Main ---
 async function main() {
