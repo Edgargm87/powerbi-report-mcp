@@ -278,12 +278,13 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
   // ============================================================
   server.tool(
     "audit_theme_compliance",
-    "Audit visuals on a page for formatting overrides that may conflict with the report theme. Reports which visuals have visual-level objects or visualContainerObjects that override theme defaults. Use this to find stale overrides after changing themes.",
+    "Audit visuals on a page for theme overrides. Returns summary header + topN findings (default 20). topN:0 = all.",
     {
       pageId: z.string().describe("The page ID to audit"),
-      verbose: z.boolean().optional().default(false).describe("If true, list the specific override categories per visual"),
+      verbose: z.boolean().optional().default(false).describe("Include override category names per visual"),
+      topN: z.number().int().min(0).optional().default(20).describe("Max findings (0 = all)"),
     },
-    async ({ pageId, verbose }) => {
+    async ({ pageId, verbose, topN }) => {
       const visualIds = ctx.project.listVisualIds(pageId);
       const results: Array<{
         visualId: string;
@@ -332,6 +333,25 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
       const compliant = results.filter((r) => !r.hasObjectOverrides && !r.hasContainerOverrides);
       const nonCompliant = results.filter((r) => r.hasObjectOverrides || r.hasContainerOverrides);
 
+      // Roll up by override category (the "byCode" header) — quickest way for
+      // the LLM to spot which override category dominates without scanning
+      // every finding row.
+      const byCode: Record<string, number> = {};
+      const categoriesAffectedSet = new Set<string>();
+      for (const r of nonCompliant) {
+        for (const c of r.objectCategories) {
+          byCode[c] = (byCode[c] ?? 0) + 1;
+          categoriesAffectedSet.add(c);
+        }
+        for (const c of r.containerCategories) {
+          byCode[c] = (byCode[c] ?? 0) + 1;
+          categoriesAffectedSet.add(c);
+        }
+      }
+
+      const cappedFindings = topN === 0 ? nonCompliant : nonCompliant.slice(0, topN);
+      const truncated = nonCompliant.length > cappedFindings.length;
+
       return {
         content: [{
           type: "text",
@@ -341,8 +361,12 @@ export function registerThemeTools(server: McpServer, ctx: ServerContext): void 
             totalVisuals: results.length,
             compliantVisuals: compliant.length,
             overrideVisuals: overrideCount,
-            ...(verbose ? { details: nonCompliant } : {
-              summary: nonCompliant.map((r) => ({
+            totalFindings: nonCompliant.length,
+            categoriesAffected: categoriesAffectedSet.size,
+            byCode,
+            ...(truncated ? { truncated: true, returned: cappedFindings.length, hint: `Set topN:0 to return all ${nonCompliant.length} findings.` } : {}),
+            ...(verbose ? { details: cappedFindings } : {
+              summary: cappedFindings.map((r) => ({
                 visualId: r.visualId,
                 type: r.visualType,
                 title: r.title,

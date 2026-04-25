@@ -11,7 +11,7 @@ import type { ServerContext } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
 import { runBindingValidation, attachBindingValidationMetadata } from "../helpers/bindingValidation.js";
 import { extractVisualTitle } from "../helpers/extractTitle.js";
-import { runLayoutValidation, getCanvasSummary } from "../helpers/layoutValidation.js";
+import { runLayoutValidation } from "../helpers/layoutValidation.js";
 import { validateFormatTypos } from "../helpers/themeIndex.js";
 import type { WireframeVisual } from "../wireframe-validator.js";
 
@@ -74,16 +74,19 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "get_visual",
-    "Get visual details. Slim mode (default) returns type, position, bindings summary, title, filterCount. Set slim=false for the full raw PBIR JSON.",
+    "Get visual details. Default returns id/type/position/title/bindings summary. verbose:true returns full PBIR JSON.",
     {
       pageId: z.string().describe("The page ID"),
       visualId: z.string().describe("The visual ID"),
-      slim: z.boolean().optional().default(true).describe("Slim mode (default true) — summary instead of full JSON"),
+      verbose: z.boolean().optional().describe("Full raw PBIR JSON (heavy)."),
+      slim: z.boolean().optional().describe("Deprecated alias for !verbose."),
     },
-    async ({ pageId, visualId, slim }) => {
+    async ({ pageId, visualId, verbose, slim }) => {
       const visual = ctx.project.getVisual(pageId, visualId);
 
-      if (!slim) {
+      // Default = slim. verbose:true OR legacy slim:false → full JSON.
+      const wantFull = verbose === true || slim === false;
+      if (wantFull) {
         return { content: [{ type: "text", text: JSON.stringify(visual, null, 2) }] };
       }
 
@@ -179,6 +182,10 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
         .boolean()
         .optional()
         .describe("Layout validation: true=strict, false=warn. Omit for env default. Canvas 1280x720, 15px L/R and 6px bottom margins, 5px gaps."),
+      includeTypes: z
+        .boolean()
+        .optional()
+        .describe("Return [{visualId,visualType}] instead of flat id list."),
     },
     async (params) => {
       const { pageId } = params;
@@ -324,11 +331,16 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       }
 
       invalidateCache();
+      // Slim by default: ship a flat string[] of ids. The 150-token canvas
+      // object only ships when the LLM asks for it on create_page or when
+      // layout validation fails — sending it on every successful add is
+      // pure carry-forward bloat.
       const response: Record<string, unknown> = {
         success: true,
         pageId,
-        created: results,
-        canvas: getCanvasSummary(),
+        created: params.includeTypes
+          ? results
+          : results.map((r) => r.visualId),
       };
       attachBindingValidationMetadata(response, validation);
       if (layoutValidation.warnings.length > 0) {

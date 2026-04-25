@@ -53,13 +53,16 @@ function registerVisualTools(server, ctx) {
     // ============================================================
     // TOOL: get_visual
     // ============================================================
-    server.tool("get_visual", "Get visual details. Slim mode (default) returns type, position, bindings summary, title, filterCount. Set slim=false for the full raw PBIR JSON.", {
+    server.tool("get_visual", "Get visual details. Default returns id/type/position/title/bindings summary. verbose:true returns full PBIR JSON.", {
         pageId: zod_1.z.string().describe("The page ID"),
         visualId: zod_1.z.string().describe("The visual ID"),
-        slim: zod_1.z.boolean().optional().default(true).describe("Slim mode (default true) — summary instead of full JSON"),
-    }, async ({ pageId, visualId, slim }) => {
+        verbose: zod_1.z.boolean().optional().describe("Full raw PBIR JSON (heavy)."),
+        slim: zod_1.z.boolean().optional().describe("Deprecated alias for !verbose."),
+    }, async ({ pageId, visualId, verbose, slim }) => {
         const visual = ctx.project.getVisual(pageId, visualId);
-        if (!slim) {
+        // Default = slim. verbose:true OR legacy slim:false → full JSON.
+        const wantFull = verbose === true || slim === false;
+        if (wantFull) {
             return { content: [{ type: "text", text: JSON.stringify(visual, null, 2) }] };
         }
         // Extract title
@@ -152,6 +155,10 @@ function registerVisualTools(server, ctx) {
             .boolean()
             .optional()
             .describe("Layout validation: true=strict, false=warn. Omit for env default. Canvas 1280x720, 15px L/R and 6px bottom margins, 5px gaps."),
+        includeTypes: zod_1.z
+            .boolean()
+            .optional()
+            .describe("Return [{visualId,visualType}] instead of flat id list."),
     }, async (params) => {
         const { pageId } = params;
         const existingVisuals = ctx.project.listVisualIds(pageId);
@@ -277,11 +284,16 @@ function registerVisualTools(server, ctx) {
             results.push(result);
         }
         (0, model_usage_js_1.invalidateCache)();
+        // Slim by default: ship a flat string[] of ids. The 150-token canvas
+        // object only ships when the LLM asks for it on create_page or when
+        // layout validation fails — sending it on every successful add is
+        // pure carry-forward bloat.
         const response = {
             success: true,
             pageId,
-            created: results,
-            canvas: (0, layoutValidation_js_1.getCanvasSummary)(),
+            created: params.includeTypes
+                ? results
+                : results.map((r) => r.visualId),
         };
         (0, bindingValidation_js_1.attachBindingValidationMetadata)(response, validation);
         if (layoutValidation.warnings.length > 0) {

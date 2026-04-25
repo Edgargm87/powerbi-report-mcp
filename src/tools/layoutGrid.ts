@@ -315,6 +315,10 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
         .describe(
           "Binding validation for commit mode: true=strict (default), false=warn. Ignored when planOnly:true. Omit for env default (MCP_BINDING_VALIDATION)."
         ),
+      includeTypes: z
+        .boolean()
+        .optional()
+        .describe("Return full {visualId,visualType,slotRef,x,y,width,height} per cell instead of slim ids."),
     },
     async (params) => {
       const {
@@ -632,7 +636,7 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
         mode: "commit" as const,
         planOnly: false,
         ...prelude,
-        created: written,
+        created: params.includeTypes ? written : written.map((w) => w.visualId),
         validated: {
           ok: true,
           mode: outcome.mode,

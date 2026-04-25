@@ -216,6 +216,10 @@ function registerLayoutGridTool(server, ctx) {
             .boolean()
             .optional()
             .describe("Binding validation for commit mode: true=strict (default), false=warn. Ignored when planOnly:true. Omit for env default (MCP_BINDING_VALIDATION)."),
+        includeTypes: zod_1.z
+            .boolean()
+            .optional()
+            .describe("Return full {visualId,visualType,slotRef,x,y,width,height} per cell instead of slim ids."),
     }, async (params) => {
         const { pageId, rows, cols, gaps, reserveBannerRow, cells, planOnly, strictLayout, } = params;
         // Resolve margins
@@ -474,7 +478,7 @@ function registerLayoutGridTool(server, ctx) {
             mode: "commit",
             planOnly: false,
             ...prelude,
-            created: written,
+            created: params.includeTypes ? written : written.map((w) => w.visualId),
             validated: {
                 ok: true,
                 mode: outcome.mode,
