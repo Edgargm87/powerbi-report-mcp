@@ -230,12 +230,14 @@ async function main() {
     return { success: true, reportPath };
   }
 
-  // Connect to initial report if provided as CLI arg
-  const reportArg = process.argv[2];
+  // Connect to initial report if provided as CLI arg, or via PBIR_REPORT_PATH
+  // env var (headless / eval mode). CLI arg wins when both are set.
+  const reportArg = process.argv[2] ?? process.env.PBIR_REPORT_PATH;
   if (reportArg) {
+    const source = process.argv[2] ? "argv" : "PBIR_REPORT_PATH";
     const result = connectReport(reportArg);
     if (!result.success) {
-      console.error(result.error);
+      console.error(`[${source}] ${result.error}`);
       console.error("Starting without a report. Use pbir_set_report tool to connect.");
     }
   } else {

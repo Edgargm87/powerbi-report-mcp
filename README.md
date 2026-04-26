@@ -177,6 +177,16 @@ Create a page called "Overview" with 4 KPI cards and a bar chart by country
 
 Open the `.pbip` file — or if already open, press `Ctrl+Shift+F5` to refresh.
 
+### Headless / eval mode
+
+For automated/eval use you can auto-bind a report at startup with the `PBIR_REPORT_PATH` env var instead of calling `pbir_set_report`:
+
+```bash
+PBIR_REPORT_PATH=evals/fixtures/sample.Report node dist/index.js
+```
+
+If the path is invalid the server logs to stderr and continues running unbound (use `pbir_set_report` to recover). The CLI arg form (`node dist/index.js <path>`) still works and wins when both are set.
+
 ---
 
 ## Smart Tool Loading
