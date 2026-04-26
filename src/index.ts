@@ -19,6 +19,7 @@ import { registerGuideTool, buildSkillsIndexBanner } from "./tools/guide.js";
 import { registerLayoutGridTool } from "./tools/layoutGrid.js";
 import { registerThemeLookupTool } from "./tools/themeLookup.js";
 import { DEFAULT_TOOLS } from "./default-tools.js";
+import { READ_TOOL_SCHEMAS } from "./helpers/outputSchemas.js";
 // Visual calculations parked — not registering until PBI Desktop supports programmatic creation
 // import { registerCalculationTools } from "./tools/calculations.js";
 
@@ -297,11 +298,16 @@ async function main() {
   ) => void;
 
   function doRegister(name: string, desc: string, schema: unknown, annotations: Record<string, unknown> | undefined, handler: ToolHandler) {
+    // Per-tool tightened outputSchema overrides the generic envelope when
+    // present (read tools where the response shape is well-known). Mutation
+    // tools and verbose-dump tools fall back to GENERIC_OUTPUT_SCHEMA.
+    const tightened = READ_TOOL_SCHEMAS[name];
+    const outputSchema = (tightened ?? GENERIC_OUTPUT_SCHEMA) as unknown as Record<string, unknown>;
     registerToolRaw(name, {
       title: humanTitle(name),
       description: desc,
       inputSchema: (schema as Record<string, unknown>) || undefined,
-      outputSchema: GENERIC_OUTPUT_SCHEMA as unknown as Record<string, unknown>,
+      outputSchema,
       annotations,
     }, handler);
   }
