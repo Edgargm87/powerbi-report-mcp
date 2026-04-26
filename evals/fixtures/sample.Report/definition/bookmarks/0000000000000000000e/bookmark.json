@@ -1,0 +1,6 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/bookmark/2.0.0/schema.json",
+  "name": "0000000000000000000e",
+  "displayName": "Default View",
+  "explorationState": {}
+}
