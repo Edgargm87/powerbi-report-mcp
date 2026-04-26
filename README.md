@@ -1,4 +1,4 @@
-<!-- doc-version: 1.4 | Last updated: 2026-04-14 -->
+<!-- doc-version: 1.5 | Last updated: 2026-04-26 -->
 <p align="center">
   <h1 align="center">Power BI Report MCP Server</h1>
   <p align="center">
@@ -8,11 +8,11 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/version-0.5.2-green.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.8.2-green.svg" alt="Version">
   <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg" alt="Node.js">
   <img src="https://img.shields.io/badge/MCP-1.12-purple.svg" alt="MCP SDK">
   <img src="https://img.shields.io/badge/Power%20BI-PBIR-yellow.svg" alt="PBIR Format">
-  <img src="https://img.shields.io/badge/tools-54-orange.svg" alt="54 Tools">
+  <img src="https://img.shields.io/badge/tools-56-orange.svg" alt="56 Tools">
 </p>
 
 <p align="center">
@@ -24,6 +24,20 @@
 > **"Create an executive summary page with 6 KPI cards, a revenue trend line chart, and a bar chart by country"**
 >
 > One prompt. One batch call. Full page in Power BI Desktop.
+
+<!-- TODO: add hero screenshot of a generated report page in Power BI Desktop -->
+
+---
+
+### What's new in 0.8
+
+- **`pbir_` tool prefix** — every tool name now starts with `pbir_` to avoid collisions with sibling MCP servers in the same session
+- **Cowork plugin** — drop a single `.plugin` file into Claude (no terminal, no Node install) — see [Quick Start › Cowork plugin](#3b-cowork-plugin)
+- **`registerTool` migration** — modern MCP SDK entrypoint with structured `outputSchema` on every read tool
+- **Typo catcher + auto-pageId** — fewer "did you mean…" round-trips when there's only one page
+- **Tighter `outputSchema` (v0.8.2)** — 14 read tools now ship per-tool zod response schemas; mutation tools keep the loose envelope
+
+Full details: **[CHANGELOG.md](CHANGELOG.md)**.
 
 ---
 
@@ -137,6 +151,21 @@ claude mcp add powerbi-report-mcp node C:\path\to\powerbi-report-mcp\dist\index.
 
 > Each config includes both **powerbi-report-mcp** and **powerbi-modeling-mcp** for full dual-layer access. See [configs/README.md](configs/README.md) for optional settings (pre-connect to a report, load all tools at startup).
 
+### 3b. Cowork plugin
+
+Prefer to skip the `git clone`/`npm install` dance? Grab the latest **`.plugin`** bundle from [GitHub Releases](https://github.com/jonathan-pap/powerbi-report-mcp/releases) and drag it into Claude — the plugin ships the server, skills, and a default MCP wiring in one file.
+
+| Step | Action |
+|------|--------|
+| 1 | Download `powerbi-report-builder-<version>.plugin` from [the latest release](https://github.com/jonathan-pap/powerbi-report-mcp/releases/latest) |
+| 2 | Open Claude → **Settings → Plugins → Install from file** (or drag-and-drop the `.plugin` onto the Claude window) |
+| 3 | Approve the bundled MCP server when prompted |
+| 4 | In any Claude conversation: *"Connect to C:\\Projects\\Sales.Report and list pages"* |
+
+<!-- TODO: add screenshot/gif of dragging the .plugin into Claude and the install prompt -->
+
+> Cowork is a hosted Claude experience with native plugin support. The plugin bundle is a single zip; nothing leaves your machine and the MCP server still runs locally over stdio.
+
 ### 3. Connect and build
 
 ```
@@ -152,9 +181,9 @@ Open the `.pbip` file — or if already open, press `Ctrl+Shift+F5` to refresh.
 
 ## Smart Tool Loading
 
-**As of v0.6.2** all **54 tools load at startup by default** — this is the most compatible configuration, and what you want for Claude Desktop and most other MCP clients whose tool catalog is a snapshot taken at session start.
+By default all **56 tools load at startup** — this is the most compatible configuration, and what you want for Claude Desktop and most other MCP clients whose tool catalog is a snapshot taken at session start.
 
-For token-sensitive setups (e.g. Claude Code with large prompt budgets on dev machines), you can opt into the **minimal** mode — only **11 core tools** load at startup, and the LLM activates more on-demand via `pbir_load_tools`:
+For token-sensitive setups (e.g. Claude Code with large prompt budgets on dev machines), you can opt into the **minimal** mode — only **12 core tools** load at startup, and the LLM activates more on-demand via `pbir_load_tools`:
 
 ```json
 "env": { "MCP_TOOLS": "minimal" }
@@ -185,13 +214,11 @@ graph TD
 
 | Mode | Tools at Startup | Token Overhead | Use Case |
 |------|------------------|----------------|----------|
-| `default` *(v0.6.2+)* | 54 + `pbir_load_tools` | ~16,000 tokens | Claude Desktop, most clients, first-time users |
-| `MCP_TOOLS=minimal` | 11 + `pbir_load_tools` | **~3,100 tokens** | Claude Code / clients that refresh the tool list mid-session |
-| `MCP_TOOLS=all` *(legacy alias)* | 54 + `pbir_load_tools` | ~16,000 tokens | Same as default; kept for backward-compat |
+| `default` | 56 + `pbir_load_tools` | ~16,500 tokens | Claude Desktop, most clients, first-time users |
+| `MCP_TOOLS=minimal` | 12 + `pbir_load_tools` | **~3,400 tokens** | Claude Code / clients that refresh the tool list mid-session |
+| `MCP_TOOLS=all` *(legacy alias)* | 56 + `pbir_load_tools` | ~16,500 tokens | Same as default; kept for backward-compat |
 
-### Why the default flipped in v0.6.2
-
-Before v0.6.2 the default was minimal-with-`pbir_load_tools`. The problem: **Claude Desktop snapshots the MCP tool catalog at session start and never refreshes it**, so tools activated mid-session via `pbir_load_tools` were invisible to the model even though the server had registered them. New users saw "only 11 tools" and assumed the server was broken. Clients that honour `tools/list_changed` notifications (like Claude Code) can still use `MCP_TOOLS=minimal` to claw back the ~13k tokens.
+> Default is "load everything" because Claude Desktop snapshots the MCP tool catalog at session start and never refreshes it — tools activated mid-session via `pbir_load_tools` would otherwise be invisible to the model. Clients that honour `tools/list_changed` notifications (Claude Code, Cowork) can opt into `MCP_TOOLS=minimal` to claw back ~13k tokens.
 
 ---
 
@@ -372,6 +399,8 @@ Create an entire page in a single `pbir_add_visual` call:
 ```
 
 > **One call creates the banner, KPI card, and chart — with data bindings, titles, and colors.**
+
+<!-- TODO: add before/after wireframe → finished page screenshot for the batch example above -->
 
 ---
 
