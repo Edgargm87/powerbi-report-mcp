@@ -1,6 +1,6 @@
 {
   "name": "powerbi-report-mcp",
-  "version": "0.8.2",
+  "version": "0.9.0",
   "description": "MCP server for building Power BI reports (PBIR format)",
   "main": "dist/index.js",
   "bin": {
@@ -38,7 +38,9 @@
     "schema:refresh": "node scripts/refresh-theme-schema.js",
     "test:all": "npm run build && npm run audit:strict && npm run test:wireframe && npm run test:binding && npm run test:extract-title && npm run test:layout && npm run test:grid && npm run test:slicer && npm run test:schema-docs && npm run test:surface && npm run test:pagination",
     "hooks:install": "node scripts/install-hooks.js",
-    "plugin:build": "node scripts/build-plugin.js"
+    "plugin:build": "node scripts/build-plugin.js",
+    "eval:install": "pip install -r evals/requirements.txt",
+    "eval": "python evals/run.py -t stdio -c node -a dist/index.js -e PBIR_REPORT_PATH=evals/fixtures/sample.Report -o evals/last-report.md evals/questions.xml"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",

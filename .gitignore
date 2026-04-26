@@ -17,3 +17,6 @@ IMPROVEMENTS-FOR-CLAUDE-CODE.md
 # Cowork plugin build outputs (rebuild with `npm run plugin:build`)
 cowork-plugin-build/
 *.plugin
+
+# Eval per-run report (regenerated each `npm run eval`); baseline.md is committed
+evals/last-report.md
