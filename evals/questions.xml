@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  10 read-only verification questions over evals/fixtures/sample.Report.
+  Each answer is a single string verifiable by the read-only pbir_* surface
+  (pbir_get_*, pbir_list_*, pbir_lookup_*, pbir_audit_*, pbir_model_usage,
+  pbir_guide). DO NOT use pbir_set_*/pbir_add_*/pbir_delete_*/pbir_update_*.
+  All answers solved against the frozen fixture before commit.
+-->
+<evaluation>
+
+  <qa_pair>
+    <question>What is the canvas width in pixels of the page that the report opens to by default?</question>
+    <answer>1280</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>How many visuals does the report contain in total across every page?</question>
+    <answer>10</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Of every visual in the report, which visual type occupies the largest pixel area on its page? Answer with the visual type identifier.</question>
+    <answer>lineChart</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>How many slicer visuals are placed across the entire report?</question>
+    <answer>2</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>What hex color, including the leading hash, is registered as the first data series color in the report's custom theme?</question>
+    <answer>#1F77B4</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>How many distinct colors are defined in the data-color palette of the report's custom theme?</question>
+    <answer>4</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>On the page whose display name is "Products", a single page-level filter is applied to one column. What is the name of that column?</question>
+    <answer>Category</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>The report has more than one bookmark. What is the display name of the bookmark that is listed second?</question>
+    <answer>Filtered View</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>Does the report have a connected semantic model that the model-usage tool can analyse? Answer Yes or No.</question>
+    <answer>No</answer>
+  </qa_pair>
+
+  <qa_pair>
+    <question>One page in the report contains a tabular grid visual. What is the display name of that page?</question>
+    <answer>Products</answer>
+  </qa_pair>
+
+</evaluation>
