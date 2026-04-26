@@ -90,10 +90,13 @@ const manifest = JSON.parse(fs.readFileSync(path.join(BUILD_DIR, ".claude-plugin
 const outFile = path.join(ROOT, `${manifest.name}-${manifest.version}.plugin`);
 rmrf(outFile);
 
-// 8. Zip via PowerShell Compress-Archive (Windows-friendly, no zip binary needed)
+// 8. Zip via Python zipfile — emits Unix-host zips (sys=3) with forward
+// slashes and no spurious DOS dir markers. PowerShell's Compress-Archive
+// emits DOS-host zips (sys=0) that Cowork rejects with "Zip file contains
+// path with invalid characters". See scripts/dev-only/zip-plugin.py.
 step(`Packaging ${path.basename(outFile)}`);
-const psCmd = `Compress-Archive -Path "${BUILD_DIR}/*" -DestinationPath "${outFile.replace(/\\/g, "/")}.zip" -Force; Move-Item -Force "${outFile.replace(/\\/g, "/")}.zip" "${outFile.replace(/\\/g, "/")}"`;
-execSync(`powershell -NoProfile -Command "${psCmd}"`, { stdio: "inherit" });
+const zipScript = path.join(ROOT, "scripts", "dev-only", "zip-plugin.py");
+execSync(`python "${zipScript}" "${BUILD_DIR}" "${outFile}"`, { stdio: "inherit" });
 
 const stat = fs.statSync(outFile);
 step(`Done — ${path.relative(ROOT, outFile)} (${(stat.size / 1024).toFixed(1)} KB)`);
