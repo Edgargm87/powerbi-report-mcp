@@ -6,6 +6,7 @@ This script evaluates MCP servers by running test questions against them using C
 import argparse
 import asyncio
 import json
+import os
 import re
 import sys
 import time
@@ -224,6 +225,16 @@ async def run_evaluation(
 ) -> str:
     """Run evaluation with MCP server tools."""
     print("🚀 Starting Evaluation")
+
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        print(
+            "\n❌ ANTHROPIC_API_KEY is not set in the environment.\n"
+            "\nFix:\n"
+            "  Windows (persistent):  setx ANTHROPIC_API_KEY \"sk-ant-...\"  then open a NEW shell\n"
+            "  Windows (this shell):  set ANTHROPIC_API_KEY=sk-ant-...\n"
+            "  Bash / Git Bash:       export ANTHROPIC_API_KEY=sk-ant-...\n"
+        )
+        sys.exit(2)
 
     client = Anthropic()
 
