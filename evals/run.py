@@ -19,6 +19,31 @@ from anthropic import Anthropic
 
 from connections import create_connection
 
+
+class MCPEncoder(json.JSONEncoder):
+    """JSON encoder that handles MCP wire types and pydantic models.
+
+    The MCP server returns mcp.types.TextContent / ImageContent /
+    EmbeddedResource objects (the canonical wire shape — do NOT change the
+    server to pre-stringify them; that would break MCP Inspector and every
+    other compliant client). The runner has to know how to serialise them.
+    """
+
+    def default(self, obj):
+        # Pydantic v2 models (covers all mcp.types.*)
+        if hasattr(obj, "model_dump"):
+            return obj.model_dump(mode="json", exclude_none=True)
+        # Pydantic v1 fallback
+        if hasattr(obj, "dict") and callable(obj.dict):
+            try:
+                return obj.dict()
+            except TypeError:
+                pass
+        # Sets, tuples, anything else json doesn't natively know
+        if isinstance(obj, (set, frozenset)):
+            return list(obj)
+        return super().default(obj)
+
 EVALUATION_PROMPT = """You are an AI assistant with access to tools.
 
 When given a task, you MUST:
@@ -115,7 +140,7 @@ async def agent_loop(
         tool_start_ts = time.time()
         try:
             tool_result = await connection.call_tool(tool_name, tool_input)
-            tool_response = json.dumps(tool_result) if isinstance(tool_result, (dict, list)) else str(tool_result)
+            tool_response = json.dumps(tool_result, cls=MCPEncoder)
         except Exception as e:
             tool_response = f"Error executing tool {tool_name}: {str(e)}\n"
             tool_response += traceback.format_exc()
@@ -263,7 +288,7 @@ async def run_evaluation(
             actual_answer=result["actual"] or "N/A",
             correct_indicator="✅" if result["score"] else "❌",
             total_duration=result["total_duration"],
-            tool_calls=json.dumps(result["tool_calls"], indent=2),
+            tool_calls=json.dumps(result["tool_calls"], indent=2, cls=MCPEncoder),
             summary=result["summary"] or "N/A",
             feedback=result["feedback"] or "N/A",
         )
