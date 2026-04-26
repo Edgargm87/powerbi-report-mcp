@@ -380,10 +380,17 @@ Examples:
         report = await run_evaluation(args.eval_file, connection, args.model)
 
         if args.output:
-            args.output.write_text(report)
-            print(f"\n✅ Report saved to {args.output}")
+            # Force utf-8 — Windows default cp1252 chokes on ✅/❌/emoji
+            # in the per-task pass/fail markers.
+            args.output.write_text(report, encoding="utf-8")
+            print(f"\nReport saved to {args.output}")
         else:
-            print("\n" + report)
+            try:
+                print("\n" + report)
+            except UnicodeEncodeError:
+                # Console can't render the unicode markers — strip them.
+                import re as _re
+                print("\n" + _re.sub(r"[^\x00-\x7f]", "", report))
 
 
 if __name__ == "__main__":
