@@ -4,6 +4,8 @@ import * as crypto from "crypto";
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { ServerContext } from "./context.js";
+import { requireProject } from "./context.js";
+import { fail } from "./helpers/mcpResult.js";
 import { PbirProject } from "./pbir.js";
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -2518,9 +2520,16 @@ export function registerModelUsageTool(server: McpServer, ctx: ServerContext): v
     },
     {"readOnlyHint":true,"openWorldHint":false},
     async ({ reportPath: rp, slim }: { reportPath?: string; slim: boolean }) => {
+      // Honor explicit `rp` override; only gate on ctx when no override was supplied.
+      // requireProject() returns a fail() MCPResult if not connected, else null.
+      if (!rp) {
+        const guard = requireProject(ctx);
+        if (guard) return guard;
+      }
       const effectivePath = rp || ctx.getReportPath();
       if (!effectivePath) {
-        return { content: [{ type: "text" as const, text: JSON.stringify({ success: false, error: "No report connected. Use pbir_set_report first." }) }], isError: true };
+        // Defensive: rp was supplied but empty/falsy and ctx has nothing either.
+        return fail("No report connected. Use pbir_set_report first.");
       }
 
       let data: FullData;
