@@ -102,6 +102,10 @@ console.log("══════════════════════�
   assertEq("list_visuals offset:0 truncated=true", body.truncated, true);
   assertEq("list_visuals offset:0 nextOffset=100", body.nextOffset, 100);
   assertEq("list_visuals offset:0 first id v0000", body.visuals[0].id, "v0000");
+  // Canonical aliases must mirror legacy fields.
+  assertEq("list_visuals offset:0 total_count=total", body.total_count, body.total);
+  assertEq("list_visuals offset:0 has_more=truncated", body.has_more, body.truncated);
+  assertEq("list_visuals offset:0 next_offset=nextOffset", body.next_offset, body.nextOffset);
 
   invalidateAll();
   env = await visualsHandler({ pageId: PAGE_ID, slim: true, limit: 100, offset: 100 });
@@ -111,6 +115,9 @@ console.log("══════════════════════�
   assertEq("list_visuals offset:100 truncated=false", body.truncated, false);
   assertEq("list_visuals offset:100 nextOffset=null", body.nextOffset, null);
   assertEq("list_visuals offset:100 first id v0100", body.visuals[0].id, "v0100");
+  assertEq("list_visuals offset:100 total_count=total", body.total_count, body.total);
+  assertEq("list_visuals offset:100 has_more=truncated", body.has_more, body.truncated);
+  assertEq("list_visuals offset:100 next_offset=nextOffset", body.next_offset, body.nextOffset);
 
   invalidateAll();
   env = await visualsHandler({ pageId: PAGE_ID, slim: true, limit: 100, offset: 200 });
@@ -155,6 +162,9 @@ console.log("══════════════════════�
   assertEq("list_pages offset:0 total=25", body.total, 25);
   assertEq("list_pages offset:0 truncated=true", body.truncated, true);
   assertEq("list_pages offset:0 nextOffset=10", body.nextOffset, 10);
+  assertEq("list_pages offset:0 total_count=total", body.total_count, body.total);
+  assertEq("list_pages offset:0 has_more=truncated", body.has_more, body.truncated);
+  assertEq("list_pages offset:0 next_offset=nextOffset", body.next_offset, body.nextOffset);
 
   invalidateAll();
   env = await pagesHandler({ slim: true, includeVisuals: false, limit: 10, offset: 20 });
@@ -162,6 +172,9 @@ console.log("══════════════════════�
   assertEq("list_pages offset:20 returns 5 pages", body.pages.length, 5);
   assertEq("list_pages offset:20 truncated=false", body.truncated, false);
   assertEq("list_pages offset:20 nextOffset=null", body.nextOffset, null);
+  assertEq("list_pages offset:20 total_count=total", body.total_count, body.total);
+  assertEq("list_pages offset:20 has_more=truncated", body.has_more, body.truncated);
+  assertEq("list_pages offset:20 next_offset=nextOffset", body.next_offset, body.nextOffset);
 
   // pageId shortcut — pagination should be ignored.
   invalidateAll();
@@ -171,6 +184,9 @@ console.log("══════════════════════�
   assertEq("list_pages pageId-shortcut total=1", body.total, 1);
   assertEq("list_pages pageId-shortcut truncated=false", body.truncated, false);
   assertEq("list_pages pageId-shortcut nextOffset=null", body.nextOffset, null);
+  assertEq("list_pages pageId-shortcut total_count=total", body.total_count, body.total);
+  assertEq("list_pages pageId-shortcut has_more=truncated", body.has_more, body.truncated);
+  assertEq("list_pages pageId-shortcut next_offset=nextOffset", body.next_offset, body.nextOffset);
 
   console.log("\n═══════════════════════════════════════════════════════════════════");
   console.log(`  ${pass} passed, ${fail} failed`);

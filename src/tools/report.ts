@@ -126,8 +126,11 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
           pageCount: allPages.length,
           pages: allPages,
           total: 1,
+          total_count: 1,
           truncated: false,
+          has_more: false,
           nextOffset: null,
+          next_offset: null,
           canvas: getCanvasSummary(),
         };
       }
@@ -138,7 +141,18 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
       const nextOffset = truncated ? finalOffset + sliced.length : null;
       // Canvas constants help the LLM place visuals without guessing —
       // cheap to include, enormous payoff on layout accuracy.
-      return { pages: sliced, total, truncated, nextOffset, canvas: getCanvasSummary() };
+      // Canonical aliases (has_more/next_offset/total_count) ship alongside
+      // the legacy fields per MCP best-practices doc.
+      return {
+        pages: sliced,
+        total,
+        total_count: total,
+        truncated,
+        has_more: truncated,
+        nextOffset,
+        next_offset: nextOffset,
+        canvas: getCanvasSummary(),
+      };
       });
     }
   );

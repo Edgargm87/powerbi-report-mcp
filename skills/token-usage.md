@@ -17,6 +17,8 @@ Pricing reference: ~$3/M input tokens, ~$15/M output tokens.
 | Trust the dedup cache (`_cache:"hit"`) | Re-call `pbir_list_visuals` mid-turn | Server returns `_cache:"hit"` — recognise it and stop re-asking. |
 | `pbir_list_pages({includeVisuals:true})` once | `pbir_list_pages` then N×`pbir_list_visuals` | One call replaces N+1. |
 
+> Pagination response includes both `truncated`/`nextOffset` (legacy) and `has_more`/`next_offset`/`total_count` (MCP-canonical). Prefer the canonical names in new agent prompts; legacy fields will be removed in a future major.
+
 ## Why this matters
 
 Power BI report-building can be done in 5–6 well-chosen tool calls per page or in 30+ naive calls per page. The difference is roughly 5× on tokens and 3–4× on cost. This guide shows the low-cost path and what to avoid.

@@ -84,7 +84,17 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       const sliced = allVisuals.slice(finalOffset, finalOffset + finalLimit);
       const truncated = total > finalOffset + sliced.length;
       const nextOffset = truncated ? finalOffset + sliced.length : null;
-      return { visuals: sliced, total, truncated, nextOffset };
+      // Canonical aliases (has_more/next_offset/total_count) ship alongside
+      // the legacy fields per MCP best-practices doc.
+      return {
+        visuals: sliced,
+        total,
+        total_count: total,
+        truncated,
+        has_more: truncated,
+        nextOffset,
+        next_offset: nextOffset,
+      };
       });
     }
   );

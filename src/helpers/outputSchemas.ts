@@ -78,8 +78,11 @@ const listPagesSchema = z
     pages: z.array(pageEntrySchema).optional(),
     pageCount: z.number().optional(),
     total: z.number().optional(),
+    total_count: z.number().optional(),
     truncated: z.boolean().optional(),
+    has_more: z.boolean().optional(),
     nextOffset: z.number().nullable().optional(),
+    next_offset: z.number().nullable().optional(),
     canvas: canvasSchema,
   })
   .passthrough();
@@ -92,8 +95,11 @@ const listVisualsSchema = z
     visuals: z.array(visualEntrySchema).optional(),
     canvas: canvasSchema,
     total: z.number().optional(),
+    total_count: z.number().optional(),
     truncated: z.boolean().optional(),
+    has_more: z.boolean().optional(),
     nextOffset: z.number().nullable().optional(),
+    next_offset: z.number().nullable().optional(),
   })
   .passthrough();
 
