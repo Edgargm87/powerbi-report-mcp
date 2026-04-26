@@ -226,16 +226,6 @@ async def run_evaluation(
     """Run evaluation with MCP server tools."""
     print("🚀 Starting Evaluation")
 
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print(
-            "\n❌ ANTHROPIC_API_KEY is not set in the environment.\n"
-            "\nFix:\n"
-            "  Windows (persistent):  setx ANTHROPIC_API_KEY \"sk-ant-...\"  then open a NEW shell\n"
-            "  Windows (this shell):  set ANTHROPIC_API_KEY=sk-ant-...\n"
-            "  Bash / Git Bash:       export ANTHROPIC_API_KEY=sk-ant-...\n"
-        )
-        sys.exit(2)
-
     client = Anthropic()
 
     tools = await connection.list_tools()
@@ -350,6 +340,22 @@ Examples:
     if not args.eval_file.exists():
         print(f"Error: Evaluation file not found: {args.eval_file}")
         sys.exit(1)
+
+    # Check API key BEFORE opening the async MCP connection — exiting from
+    # inside the stdio_client context manager wraps the SystemExit in nested
+    # asyncio TaskGroup tracebacks that bury the friendly message.
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        sys.stderr.write(
+            "\n[error] ANTHROPIC_API_KEY is not set in the environment.\n"
+            "\nGet a key:  https://console.anthropic.com/settings/keys\n"
+            "\nSet it:\n"
+            "  PowerShell (persistent):  setx ANTHROPIC_API_KEY \"sk-ant-...\"  then OPEN A NEW SHELL\n"
+            "  PowerShell (this shell):  $env:ANTHROPIC_API_KEY = \"sk-ant-...\"\n"
+            "  cmd (this shell):         set ANTHROPIC_API_KEY=sk-ant-...\n"
+            "  bash / Git Bash:          export ANTHROPIC_API_KEY=sk-ant-...\n"
+            "\nVerify (PowerShell):  echo $env:ANTHROPIC_API_KEY\n\n"
+        )
+        sys.exit(2)
 
     headers = parse_headers(args.headers) if args.headers else None
     env_vars = parse_env_vars(args.env) if args.env else None
