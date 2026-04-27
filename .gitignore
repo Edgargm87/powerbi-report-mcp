@@ -11,8 +11,14 @@ dist/
 .vscode/
 .idea/
 
-# Local notes / audit docs not for public consumption
+# Local notes / audit / brief docs not for public consumption
 IMPROVEMENTS-FOR-CLAUDE-CODE.md
+NEXT-IMPROVEMENTS-FOR-CLAUDE-CODE.md
+WIREFRAME-SCAFFOLDER-FOR-CLAUDE-CODE.md
+
+# Python bytecode from `npm run eval`
+__pycache__/
+*.pyc
 
 # Cowork plugin build outputs (rebuild with `npm run plugin:build`)
 cowork-plugin-build/
