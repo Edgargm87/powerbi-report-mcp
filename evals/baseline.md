@@ -1,5 +1,5 @@
-<!-- doc-version: 1.0 | Last updated: 2026-04-26 -->
-# Eval Baseline — v0.9.0
+<!-- doc-version: 1.1 | Last updated: 2026-04-26 -->
+# Eval Baseline — v0.9.1
 
 Reference accuracy against `evals/fixtures/sample.Report` and `evals/questions.xml`
 (10 read-only multi-hop questions). Recorded 2026-04-26.
@@ -9,6 +9,20 @@ or Opus thresholds in this table on a future run = regression — investigate
 before merging.
 
 ## Frozen results
+
+### v0.9.1 (current — release-gate run after `pbir_set_report` outputSchema fix)
+
+| Model | Accuracy | Avg duration | Avg tool calls |
+|-------|---------:|-------------:|---------------:|
+| `claude-opus-4-5` | **10/10 (100 %)** | 82.3 s | 1.7 |
+
+Opus held 10/10 after the v0.9.1 outputSchema fix (Option C: drop generic
+outputSchema on mutation tools). +3 total tool calls vs v0.9.0 is model
+variance — the model picked parallel `pbir_list_visuals` per page over
+`pbir_list_pages({includeVisuals:true})` for Tasks 3 and 4 this run.
+Same correct answers, chattier strategy. Not a regression.
+
+### v0.9.0 (prior baseline)
 
 | Model | Accuracy | Avg duration | Avg tool calls |
 |-------|---------:|-------------:|---------------:|
