@@ -1,6 +1,6 @@
 {
   "name": "powerbi-report-mcp",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "MCP server for building Power BI reports (PBIR format)",
   "main": "dist/index.js",
   "bin": {
@@ -34,9 +34,10 @@
     "test:schema-docs": "node scripts/audit-skills-against-schema.js",
     "test:surface": "node scripts/test-tool-surface.js",
     "test:pagination": "node scripts/test-pagination.js",
+    "test:set-report": "node scripts/test-set-report.js",
     "schema:check": "node scripts/refresh-theme-schema.js --check",
     "schema:refresh": "node scripts/refresh-theme-schema.js",
-    "test:all": "npm run build && npm run audit:strict && npm run test:wireframe && npm run test:binding && npm run test:extract-title && npm run test:layout && npm run test:grid && npm run test:slicer && npm run test:schema-docs && npm run test:surface && npm run test:pagination",
+    "test:all": "npm run build && npm run audit:strict && npm run test:wireframe && npm run test:binding && npm run test:extract-title && npm run test:layout && npm run test:grid && npm run test:slicer && npm run test:schema-docs && npm run test:surface && npm run test:pagination && npm run test:set-report",
     "hooks:install": "node scripts/install-hooks.js",
     "plugin:build": "node scripts/build-plugin.js",
     "eval:install": "pip install -r evals/requirements.txt",
