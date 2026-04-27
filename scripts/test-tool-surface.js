@@ -135,13 +135,28 @@ function listToolsAndResources() {
     process.exit(1);
   }
 
-  // Schema check: every tool must have outputSchema (declared via the
-  // generic envelope in src/index.ts so structuredContent validates).
-  const noOutSchema = result.tools.filter((t) => !t.outputSchema).map((t) => t.name);
-  if (noOutSchema.length) {
-    console.error("FAIL: tools missing outputSchema:", noOutSchema);
+  // Schema check: read tools listed in READ_TOOL_SCHEMAS must publish an
+  // outputSchema (their response shape is known and clients should validate).
+  // Mutation tools and verbose-dump reads opt out — see GENERIC_OUTPUT_SCHEMA
+  // comment block in src/index.ts. We parse the keys of READ_TOOL_SCHEMAS
+  // out of the source rather than importing the TS module.
+  const outSchemaSrc = fs.readFileSync(path.join(ROOT, "src/helpers/outputSchemas.ts"), "utf8");
+  const recordMatch = outSchemaSrc.match(/READ_TOOL_SCHEMAS[^=]*=\s*\{([\s\S]*?)\};/);
+  const expectOutputSchema = new Set();
+  if (recordMatch) {
+    const re = /pbir_[a-z_]+/g;
+    let mm;
+    while ((mm = re.exec(recordMatch[1]))) expectOutputSchema.add(mm[0]);
+  }
+  const missingOutSchema = result.tools
+    .filter((t) => expectOutputSchema.has(t.name) && !t.outputSchema)
+    .map((t) => t.name);
+  if (missingOutSchema.length) {
+    console.error("FAIL: tools listed in READ_TOOL_SCHEMAS but missing outputSchema in surface:", missingOutSchema);
     process.exit(1);
   }
+  const totalOutSchema = result.tools.filter((t) => !!t.outputSchema).length;
+  console.log(`  outputSchema declared on ${totalOutSchema}/${result.tools.length} tools (read tools); ${result.tools.length - totalOutSchema} mutation/dump tools opt out.`);
 
   // Every tool should have a human title set via registerTool({title}).
   const noTitle = result.tools.filter((t) => !t.title).map((t) => t.name);

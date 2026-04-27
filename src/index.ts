@@ -246,7 +246,7 @@ async function main() {
 
   const server = new McpServer({
     name: "powerbi-report-mcp",
-    version: "0.9.0",
+    version: "0.9.1",
   });
 
   // Determine tool loading mode
@@ -262,14 +262,25 @@ async function main() {
   type ToolHandler = (args: Record<string, unknown>) => Promise<CallToolResult>;
   const deferredTools: Map<string, { desc: string; schema: unknown; handler: ToolHandler; annotations?: Record<string, unknown> }> = new Map();
 
-  // Generic outputSchema applied to every tool. The MCP spec requires
-  // structuredContent to validate against the declared outputSchema, so we
-  // intentionally keep this loose — every response carries `success: boolean`
-  // and a free-form payload (.passthrough() permits any extra keys). This
-  // satisfies the structured-output contract for every tool without forcing
-  // 55 bespoke per-tool schemas; tighter per-tool schemas can be added in
-  // follow-up work without touching the wrapper.
-  const GENERIC_OUTPUT_SCHEMA = { success: z.boolean(), error: z.string().optional() } as const;
+  // Mutation tools and verbose-dump reads opt OUT of structured-output
+  // validation by registering with no outputSchema at all.
+  //
+  // History: v0.8.0 → v0.9.0 shipped a flat `{success, error?}` ZodRawShape
+  // here as a generic fallback. The MCP SDK serialises a flat ZodRawShape
+  // into a strict JSON Schema with `additionalProperties: false`, which
+  // rejected every handler that returned extra fields (e.g. pbir_set_report's
+  // `{success, reportPath}`) with -32602 in strict clients (Claude Code).
+  // The bind side-effect never committed because the protocol error fired
+  // before the response was delivered.
+  //
+  // A "loose" generic schema is impossible at the ZodRawShape layer — the
+  // SDK always closes the top-level object. Per-tool schemas in
+  // helpers/outputSchemas.ts work because they're handcrafted and only cover
+  // read tools where the response shape is known. For everything else, the
+  // honest answer is "no declared output schema" — clients still receive
+  // structuredContent, they just don't validate it. Read tools that DO
+  // declare a schema continue to validate against the tightened shape.
+  const GENERIC_OUTPUT_SCHEMA: undefined = undefined;
 
   // snake_case tool name → human Title Case for the registerTool `title`
   // field, e.g. pbir_list_pages → "List Pages", pbir_set_report → "Set Report".
@@ -304,7 +315,7 @@ async function main() {
     // present (read tools where the response shape is well-known). Mutation
     // tools and verbose-dump tools fall back to GENERIC_OUTPUT_SCHEMA.
     const tightened = READ_TOOL_SCHEMAS[name];
-    const outputSchema = (tightened ?? GENERIC_OUTPUT_SCHEMA) as unknown as Record<string, unknown>;
+    const outputSchema = (tightened ?? GENERIC_OUTPUT_SCHEMA) as unknown as Record<string, unknown> | undefined;
     registerToolRaw(name, {
       title: humanTitle(name),
       description: desc,
