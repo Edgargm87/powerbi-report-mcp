@@ -32,11 +32,6 @@ src/
                         Exports: buildFullData(), generateHTML(), registerModelUsageTool(),
                         findSemanticModelPath(), invalidateCache(), startWatchers().
 
-  usage-cli.ts          Standalone CLI entry point for model usage.
-                        One-shot mode: generates HTML dashboard and opens in browser.
-                        Watch mode (--watch): generates + HTTP server + fs.watch with
-                        auto-regeneration on file changes.
-
   helpers/
     createVisual.ts     Visual creation logic: parseFieldSpec(), createAndSaveVisual(),
                         Zod schemas (FieldSpecSchema, VisualSpecSchema, etc.),
@@ -329,10 +324,6 @@ To reduce token overhead for LLM clients, the server loads only a default subset
 - `generateHTML(data, reportName)` -- produces self-contained HTML dashboard (dark theme, 5 tabs: Measures, Columns, Pages, Lineage, Unused)
 - `invalidateCache()` -- called by 9 visual-modifying tools to trigger background regeneration
 - `startWatchers(reportPath, modelPath)` -- `fs.watch` on both folders with 500ms debounce
-
-**Standalone CLI** (`usage-cli.ts`):
-- One-shot: `npm run usage <path>` -- generates dashboard, opens in browser
-- Watch: `npm run usage:watch <path>` -- HTTP server + file watchers with auto-regeneration
 
 ### bookmarks.ts (4 tools)
 

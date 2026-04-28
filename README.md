@@ -263,9 +263,7 @@ With `pbir_model_usage` always available, the LLM can call it first and see the 
 | User: *"is `Discount Arrow` used anywhere?"* | LLM greps the visual JSON, misses conditional formatting bindings | LLM sees it bound to `cardImage.imageData` / `referenceLabel.value` and reports exactly where |
 | User: *"which UDF functions can I drop?"* | LLM has no lineage info | LLM sees reference counts per function and flags zero-reference functions |
 
-The standalone `.bat` dashboard (`npm run usage:app`) is for **humans** to visually explore their model. The MCP tool is for **Claude** to have that same understanding *before* it mutates anything. Same parser, two front-ends — and the MCP one is what prevents "oops" deletes.
-
-The tool returns a slim JSON response (~7K tokens) by default so it's cheap to call before every destructive operation.
+The MCP tool gives **Claude** that understanding *before* it mutates anything — what prevents "oops" deletes. The tool returns a slim JSON response (~7K tokens) by default so it's cheap to call before every destructive operation.
 
 ### On-Demand Tools (43)
 
@@ -543,8 +541,6 @@ powerbi-report-mcp/
 │   ├── pbir.ts               # PbirProject — PBIR file I/O abstraction
 │   ├── context.ts            # ServerContext interface
 │   ├── model-usage.ts        # Model usage analysis — three-tier classification, UDF parsing, conditional formatting
-│   ├── usage-app.ts          # Standalone usage dashboard web app (Browse / paste / recent reports)
-│   ├── usage-cli.ts          # Standalone CLI for model usage (one-shot + watch mode)
 │   ├── tools/
 │   │   ├── report.ts         # Page & report management (20 tools)
 │   │   ├── visuals.ts        # Visual CRUD (8 tools)
@@ -697,10 +693,7 @@ Use `pbir_add_visual` batch mode + inline `title`, `dataColors`, `containerForma
 - All tools return `{ success: false, error: "..." }` on failure — the server never crashes
 - Use `pbir_model_usage` to see which measures/columns are used in visuals — it classifies fields as **direct** (on a visual), **indirect** (referenced by direct measures/relationships), or **unused** (safe to remove). It detects conditional formatting bindings (images, reference labels, colors) that other tools miss
 - **Always call `pbir_model_usage` before any delete / cleanup request** — it's the fail-safe that stops the LLM from removing indirectly-referenced measures. See [Why `pbir_model_usage` is a default tool](#why-pbir_model_usage-is-a-default-tool--the-deletion-fail-safe) for the full rationale
-- `pbir_model_usage` also parses UDF functions from TMDL/BIM, counts measure references per function, and generates an interactive HTML dashboard with DAX lineage tracing
-- The dashboard parses **calculation groups** too — each group is shown as a collapsible card with per-item DAX expressions, ordinals, descriptions, and precedence
-- The dashboard ships with both **dark and light themes** — toggle via the `☾` / `☀` button in the header; choice persists across reloads via `localStorage`
-- Run `npm run usage:app` for a standalone dashboard with native folder picker, or `npm run usage:watch <path>` for CLI mode with live file watching
+- `pbir_model_usage` also parses UDF functions and calculation groups from TMDL/BIM, counts measure references per function, and surfaces DAX lineage
 
 ---
 

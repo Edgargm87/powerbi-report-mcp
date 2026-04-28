@@ -88,7 +88,6 @@ src/
   context.ts            # ServerContext interface shared by all tool modules
   pbir.ts               # PbirProject class — reads/writes PBIR JSON files on disk
   model-usage.ts        # Model usage analysis — cross-references model ↔ report
-  usage-cli.ts          # Standalone CLI for model usage (one-shot + watch mode)
   tools/
     report.ts           # Page and report management tools
     visuals.ts          # Visual CRUD tools (add, delete, move, duplicate, etc.)

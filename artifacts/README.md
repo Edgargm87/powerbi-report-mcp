@@ -374,12 +374,18 @@ the v1 source could never have actually instantiated.
   // Note the asymmetry probed above: pbir_list_pages emits per-visual
   // entries with short keys (type/w/h), pbir_add_visual takes the full
   // names (visualType/width/height). Critical to keep straight.
+  //
+  // Cowork's mcp_tools allowlist is keyed by fully-qualified tool names
+  // (mcp__<server>__<tool>). Call sites use bare names for readability;
+  // callMcp prepends the prefix so the runtime allowlist match succeeds.
   // ─────────────────────────────────────────────────────────────────────────
+  var MCP_PREFIX = "mcp__powerbi-report-mcp__";
   async function callMcp(name, args) {
     if (!window.cowork || typeof window.cowork.callMcpTool !== "function") {
       throw new Error("Cowork MCP bridge unavailable (window.cowork.callMcpTool missing).");
     }
-    var result = await window.cowork.callMcpTool(name, args || {});
+    var fqn = name.indexOf("mcp__") === 0 ? name : MCP_PREFIX + name;
+    var result = await window.cowork.callMcpTool(fqn, args || {});
     if (result && result.isError) {
       var msg = (result.content && result.content[0] && result.content[0].text) || "MCP error";
       throw new Error(name + ": " + msg);
@@ -411,7 +417,9 @@ the v1 source could never have actually instantiated.
     toast: null,
     reportPath: null,
     reportConnected: false,
-    loading: false
+    loading: false,
+    lastRefreshedAt: null,     // Date.now() of last successful refresh
+    pagesSig: ""               // signature of last pages payload — used to flag "no changes"
   };
   var pollTimer = null;
   var toastTimer = null;
@@ -484,6 +492,13 @@ the v1 source could never have actually instantiated.
         node.appendChild(c);
       }
     }
+  }
+
+  function fmtTime(ts) {
+    if (!ts) return "—";
+    var d = new Date(ts);
+    function pad(n) { return n < 10 ? "0" + n : "" + n; }
+    return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -560,6 +575,8 @@ the v1 source could never have actually instantiated.
       refreshBtn,
       el("span", { style: { color: "var(--muted)" } }, "Auto-poll:"),
       pollSelect,
+      el("span", { style: { color: "var(--muted)", fontSize: "11px" } },
+        state.lastRefreshedAt ? "Updated " + fmtTime(state.lastRefreshedAt) : ""),
       el("span", { style: { color: "var(--muted)", marginLeft: "auto" } },
         activePage.visualCount + " visuals - " + activePage.width + "x" + activePage.height)
     ]);
@@ -862,11 +879,12 @@ the v1 source could never have actually instantiated.
   // ─────────────────────────────────────────────────────────────────────────
   // Handlers
   // ─────────────────────────────────────────────────────────────────────────
-  async function refresh() {
+  async function refresh(opts) {
+    opts = opts || {};
     setState({ loading: true });
     try {
       var rep = await callMcp("pbir_get_report", {});
-      var connected = !!(rep && rep.reportPath);
+      var connected = !!(rep && rep.reportPath && rep.reportPath !== "No report connected");
       var lp = connected
         ? await callMcp("pbir_list_pages", { includeVisuals: true, slim: false })
         : { pages: [] };
@@ -883,14 +901,23 @@ the v1 source could never have actually instantiated.
         }
         nextActive = active ? active.id : (list[0] ? list[0].id : null);
       }
+      var newSig = JSON.stringify(list);
+      var firstLoad = !state.pagesSig;
+      var changed = !firstLoad && newSig !== state.pagesSig;
       setState({
         reportConnected: connected,
-        reportPath: rep && rep.reportPath || null,
+        reportPath: connected ? rep.reportPath : null,
         pages: list,
         activePageId: nextActive,
+        lastRefreshedAt: Date.now(),
+        pagesSig: newSig,
         loading: false,
         error: null
       });
+      if (!opts.silent) {
+        var msg = firstLoad ? "Refreshed" : (changed ? "Refreshed — pages updated" : "Refreshed — no changes");
+        showToast("success", msg, 1500);
+      }
     } catch (e) {
       setState({ loading: false, error: null });
       showToast("error", e.message || String(e));
@@ -971,7 +998,7 @@ the v1 source could never have actually instantiated.
         buildProgress: [],
         building: false
       });
-      await refresh();
+      await refresh({ silent: true });
       setState({ activePageId: newPageId, tab: "inspect" });
     } catch (e) {
       var idx = -1;
@@ -992,7 +1019,7 @@ the v1 source could never have actually instantiated.
     if (state.pollMs > 0) {
       pollTimer = setInterval(function () {
         if (!document.hidden && state.reportConnected && !state.loading && !state.building) {
-          refresh();
+          refresh({ silent: true });
         }
       }, state.pollMs);
     }
@@ -1016,9 +1043,9 @@ the v1 source could never have actually instantiated.
     setState({ error: null });
     try {
       var report = await callMcp("pbir_get_report", {});
-      if (report && report.reportPath) {
+      if (report && report.reportPath && report.reportPath !== "No report connected") {
         setState({ reportConnected: true, reportPath: report.reportPath });
-        await refresh();
+        await refresh({ silent: true });
       } else {
         setState({ reportConnected: false });
       }
