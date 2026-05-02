@@ -11,7 +11,7 @@ Use these patterns when asked to add charts, tables, cards, KPIs, shapes, button
 |---|---|
 | `pbir_add_visual` | Create one or more visuals via the `visuals` array. Inline format = 0 extra calls. |
 | `pbir_get_visual` | Inspect one visual (slim by default — bindings as `Table[Field]` strings) |
-| `pbir_list_visuals` | List all visuals on a page (slim mode = id, type, x, y, w, h, title) |
+| `pbir_list_visuals` | List all visuals on a page (slim mode = id, type, x, y, w, h, title). Optional `visualType` filters by exact type — pair with per-page iteration for cross-page sweeps. |
 | `pbir_get_visual_types` | Dump the full visual-type → bucket map (use when you forget bucket names) |
 | `pbir_move_visual` | Reposition / resize / re-layer one visual |
 | `pbir_duplicate_visual` | Clone a visual, optionally to a different page, with x/y offset |

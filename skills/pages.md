@@ -52,13 +52,17 @@ Returns per page:
 {
   "id": "<pageId>",
   "displayName": "Sales Overview",
+  "width": 1280,
+  "height": 720,
   "visualCount": 12,
   "isActive": true,
   "hidden": false
 }
 ```
 
-`slim: false` adds `width`, `height`, `displayOption`. Pass `includeVisuals: true` (or a `pageId`) to get each page's visuals in the same call — replaces `pbir_list_pages` + N×`pbir_list_visuals`.
+The response also includes top-level `totalVisualCount` (sum of `visualCount` across the FULL page set, not just the visible slice when paginated) — use it for cross-report decisions without paging through every page. `slim: false` additionally adds `displayOption`. Pass `includeVisuals: true` (or a `pageId`) to get each page's visuals in the same call — replaces `pbir_list_pages` + N×`pbir_list_visuals`.
+
+**Cross-page queries — prefer `includeVisuals: true`.** When the question is "find all pages with type X" or "count visuals across the report", call `pbir_list_pages({ includeVisuals: true })` once instead of fanning out N parallel `pbir_list_visuals` per page. Same data, far fewer round-trips. For scoped per-page sweeps, `pbir_list_visuals({ visualType: "..." })` is the cheap follow-up.
 
 ---
 
