@@ -37,15 +37,16 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_list_visuals",
-    "List visuals on a page (paginated). Default slim returns id/type/x/y/w/h/title. slim:false includes filterCount. Use limit/offset to page through large pages.",
+    "List visuals on a page (paginated). Default slim returns id/type/x/y/w/h/title. slim:false includes filterCount. Use limit/offset to page through large pages. Use `visualType` to filter for cross-page sweeps in combination with `pbir_list_pages` per-page iteration.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       slim: z.boolean().optional().default(true),
+      visualType: z.string().optional().describe("Return only visuals matching this type (e.g. 'slicer', 'tableEx'). Case-sensitive. Filtered before pagination — `total` reflects filtered count."),
       limit: z.number().int().min(1).max(500).default(100).describe("Max items to return. Default 100."),
       offset: z.number().int().min(0).default(0).describe("Items to skip. Use with limit for paging."),
     },
     {"readOnlyHint":true,"openWorldHint":false},
-    async ({ pageId, slim, limit, offset }) => {
+    async ({ pageId, slim, visualType, limit, offset }) => {
       const _g = requireProject(ctx); if (_g) return _g;
       const r = resolvePageId(ctx.project, pageId);
       if (!r.resolved) return r.errorResponse;
@@ -53,9 +54,9 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       const finalPageId = pageId;
       const finalLimit = limit ?? 100;
       const finalOffset = offset ?? 0;
-      return cachedRead("pbir_list_visuals", { pageId: finalPageId, slim, limit: finalLimit, offset: finalOffset }, [`page:${finalPageId}`], () => {
+      return cachedRead("pbir_list_visuals", { pageId: finalPageId, slim, visualType, limit: finalLimit, offset: finalOffset }, [`page:${finalPageId}`], () => {
       const visualIds = ctx.project.listVisualIds(finalPageId);
-      const allVisuals = visualIds.map((id) => {
+      const allVisualsUnfiltered = visualIds.map((id) => {
         const v = ctx.project.getVisual(finalPageId, id);
         const titleValue = extractVisualTitle(v.visual.visualContainerObjects);
 
@@ -80,6 +81,17 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
           filterCount: v.filterConfig?.filters?.length ?? 0,
         };
       });
+      // visualType filter (v0.9.2). Filter BEFORE pagination so `total` is
+      // the filtered count and pagination math stays correct. The slim
+      // entry uses `type`; the verbose entry uses `visualType` — check
+      // both to handle either projection. Case-sensitive per the param doc.
+      const allVisuals = visualType
+        ? allVisualsUnfiltered.filter((v) => {
+            const t = (v as { type?: string; visualType?: string }).type
+              ?? (v as { type?: string; visualType?: string }).visualType;
+            return t === visualType;
+          })
+        : allVisualsUnfiltered;
       const total = allVisuals.length;
       const sliced = allVisuals.slice(finalOffset, finalOffset + finalLimit);
       const truncated = total > finalOffset + sliced.length;

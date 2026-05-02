@@ -31,6 +31,27 @@ function buildFakeVisuals(n) {
   return out;
 }
 
+// 200-visual fixture with three types: 50 card, 50 slicer, 100 tableEx.
+function buildMixedTypeVisuals() {
+  const out = {};
+  let i = 0;
+  const make = (count, type) => {
+    for (let k = 0; k < count; k++, i++) {
+      const id = `v${String(i).padStart(4, "0")}`;
+      out[id] = {
+        name: id,
+        visual: { visualType: type, visualContainerObjects: undefined },
+        position: { x: 0, y: 0, width: 100, height: 60, z: i, tabOrder: i },
+        filterConfig: { filters: [] },
+      };
+    }
+  };
+  make(50, "card");
+  make(50, "slicer");
+  make(100, "tableEx");
+  return out;
+}
+
 function buildMockProject({ pageId, visuals, pages = [] }) {
   return {
     listVisualIds: (pid) => (pid === pageId ? Object.keys(visuals) : []),
@@ -125,6 +146,48 @@ console.log("══════════════════════�
   assertEq("list_visuals offset:200 returns 0 items", body.visuals.length, 0);
   assertEq("list_visuals offset:200 truncated=false", body.truncated, false);
   assertEq("list_visuals offset:200 total=200", body.total, 200);
+
+  // ------------------------------------------------------------------
+  // Test 1b (v0.9.2) — pbir_list_visuals visualType filter
+  // ------------------------------------------------------------------
+  console.log("\n═══════════════════════════════════════════════════════════════════");
+  console.log("  filter — pbir_list_visuals visualType");
+  console.log("═══════════════════════════════════════════════════════════════════");
+
+  const mixedVisuals = buildMixedTypeVisuals();
+  const mixedProject = buildMockProject({ pageId: PAGE_ID, visuals: mixedVisuals });
+  const mixedCtx = { getReportPath: () => "/fake/report", connectReport: () => ({ success: true }), project: mixedProject };
+  invalidateAll();
+  const mixedHandler = captureHandler(registerVisualTools, "pbir_list_visuals", mixedCtx);
+
+  invalidateAll();
+  env = await mixedHandler({ pageId: PAGE_ID, slim: true, visualType: "slicer", limit: 100, offset: 0 });
+  body = parseEnvelope(env);
+  assertEq("filter slicer returns 50 items (full set)", body.visuals.length, 50);
+  assertEq("filter slicer total=50 (filtered count, not 200)", body.total, 50);
+  assertEq("filter slicer truncated=false", body.truncated, false);
+  assertEq("filter slicer all entries type==='slicer'", body.visuals.every((v) => v.type === "slicer"), true);
+
+  invalidateAll();
+  env = await mixedHandler({ pageId: PAGE_ID, slim: true, visualType: "slicer", limit: 10, offset: 0 });
+  body = parseEnvelope(env);
+  assertEq("filter slicer limit:10 returns 10 items", body.visuals.length, 10);
+  assertEq("filter slicer limit:10 total=50 (still reflects filtered set)", body.total, 50);
+  assertEq("filter slicer limit:10 truncated=true", body.truncated, true);
+  assertEq("filter slicer limit:10 nextOffset=10", body.nextOffset, 10);
+
+  invalidateAll();
+  env = await mixedHandler({ pageId: PAGE_ID, slim: true, visualType: "tableEx", limit: 500, offset: 0 });
+  body = parseEnvelope(env);
+  assertEq("filter tableEx returns 100 items", body.visuals.length, 100);
+  assertEq("filter tableEx total=100", body.total, 100);
+
+  invalidateAll();
+  env = await mixedHandler({ pageId: PAGE_ID, slim: true, visualType: "nonexistentType", limit: 100, offset: 0 });
+  body = parseEnvelope(env);
+  assertEq("filter nonexistentType returns 0 items (no error)", body.visuals.length, 0);
+  assertEq("filter nonexistentType total=0", body.total, 0);
+  assertEq("filter nonexistentType truncated=false", body.truncated, false);
 
   // ------------------------------------------------------------------
   // Test 2 — pbir_list_pages pagination + pageId-shortcut bypass
