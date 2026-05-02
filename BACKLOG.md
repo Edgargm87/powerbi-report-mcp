@@ -1,4 +1,4 @@
-<!-- doc-version: 1.1 | Last updated: 2026-04-27 -->
+<!-- doc-version: 1.2 | Last updated: 2026-05-02 -->
 # Backlog — powerbi-report-mcp
 
 Forward-looking work, organised by likely version. Each item lists evidence
@@ -6,27 +6,15 @@ Forward-looking work, organised by likely version. Each item lists evidence
 
 ---
 
-## v0.9.2 — small polish (no breaking changes)
+## v0.9.2 — open
 
-Surfaced by **Claude Opus during the v0.9.1 release-gate eval run** as
-genuine UX wins. Each tries to remove a paper-cut where the agent had to
-work around a missing field or call shape. None are blockers; all should
-land together as one minor patch.
+Items 1–5, 7–9 from the original v0.9.2 list shipped on 2026-05-02 (see
+`changelog/v0.9.2.md`). Item 6 is the only remaining work — kept here
+because it requires a human at the keyboard to capture screenshots.
 
 | # | Item | Evidence | Effort |
 |---|------|----------|-------:|
-| 1 | `pbir_list_pages` slim mode includes `width`/`height` | Eval task 1 — agent had to call `slim:false` just to get canvas dimensions, a common quick lookup | XS |
-| 2 | `pbir_list_pages` response gains top-level `totalVisualCount` | Eval task 2 — agent had to client-side sum `visualCount` per page | XS |
-| 3 | `pbir_list_visuals` accepts optional `visualType` filter | Eval tasks 3, 4 — both required cross-page sweeps; a single filtered call would replace N calls | S |
-| 4 | `pbir_list_pages` description highlights `includeVisuals: true` as the canonical cross-page query pattern | Eval tasks 3, 4 — agent picked parallel `pbir_list_visuals` over the single-call `includeVisuals` form. Description-only change | XS |
-| 5 | `pbir_get_report` includes `hasSemanticModel: boolean`; `pbir_model_usage` description names the `.SemanticModel` precondition | Eval task 9 — agent had to invoke the full `pbir_model_usage` tool just to discover there was no model | XS |
 | 6 | Add the 3 `<!-- TODO: add screenshot -->` markers (hero, batch, plugin install) to actual screenshots in README.md | Tracked since v0.8.2 | S (manual) |
-| 7 | New skill `skills/post-edit-checklist.md` — port the 7-step "Mandatory Post-Edit Visibility Checklist" pattern from pbi-pilot's SKILL.md (page registered in pageOrder, visual folders exist on disk, filter mechanism in correct file, bindings reference valid model fields, run validator with 0 errors, refresh, post-refresh re-check). The LLM consults it after batches of edits. Cheap, immediate value | [pbi-pilot SKILL.md](https://github.com/TemplateMechanics/pbi-pilot/blob/main/skills/powerbi-pbip/SKILL.md) §"Mandatory Post-Edit Visibility Checklist (PBIR)" | XS |
-| 8 | Add `queryState` role lookup table at the top of `skills/visuals.md` (`clusteredBarChart` → `Category`+`Y`, `card`/`slicer` → `Values`, `tableEx` → `Values`, `pivotTable` → `Rows`+`Columns`+`Values`, etc). Data already exists in `src/pbir.ts VISUAL_BUCKETS` — just surface as a quick-reference table for faster LLM lookup | pbi-pilot SKILL.md §"queryState role mapping by visual type" — they have it as a clean table; we have it scattered | XS |
-| 9 | Add 3 PBI Desktop quirks to `docs/pbir-gotchas.md`: (a) `enableAutoRecovery: false` workaround when PBI Desktop's auto-recovery masks fresh PBIR file changes; (b) "Visuals not appearing after restart" troubleshooting prose; (c) `filters: []` empty-array warning vs `filterConfig` schema-version-specific guidance | pbi-pilot SKILL.md §"Troubleshooting" + "CRITICAL — Common Visual Mistakes" | XS |
-
-Acceptance: bumps to v0.9.2, all tests still green, eval still 10/10 on
-Opus, plugin v0.3.2.
 
 ---
 
