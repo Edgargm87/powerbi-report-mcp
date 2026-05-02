@@ -65,6 +65,7 @@ const TOPIC_PRIORITY = [
   "formatting",
   "themes-per-visual",
   "pages",
+  "post-edit-checklist",
   "shapes",
   "slicers",
   "filters",

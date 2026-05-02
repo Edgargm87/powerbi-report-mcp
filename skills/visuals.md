@@ -1,6 +1,38 @@
-<!-- doc-version: 2.0 | Last updated: 2026-04-15 -->
-<!-- summary: Visual-type picker, bucket reference per type, binding shorthand, batch pbir_add_visual, pbir_change_visual_type, bulk delete. Read before any pbir_add_visual call. -->
+<!-- doc-version: 2.1 | Last updated: 2026-05-02 -->
+<!-- summary: Visual-type picker, queryState role lookup table, bucket reference per type, binding shorthand, batch pbir_add_visual, pbir_change_visual_type, bulk delete. Read before any pbir_add_visual call. -->
 # Skill: Visuals — Adding & Managing Chart/Data Visuals
+
+## queryState role lookup — which buckets each visual type needs
+
+Quick lookup — which projection roles each visual type needs in `queryState`. The exact bucket names are validated by `pbir_add_visual` and the binding coercion in `bindingApply.ts`. Source of truth: `VISUAL_BUCKETS` in `src/pbir.ts`.
+
+| Visual type | Required / valid buckets | Notes |
+|---|---|---|
+| `barChart`, `clusteredBarChart`, `columnChart`, `clusteredColumnChart` | Category + Y (+ Series, Gradient) | Stacked variants drop Gradient |
+| `stackedBarChart`, `hundredPercentStackedBarChart`, `hundredPercentStackedColumnChart` | Category + Y + Series | Series = stack legend |
+| `lineChart`, `areaChart` | Category + Y (+ Y2, Series) | Y2 for dual-axis |
+| `stackedAreaChart`, `hundredPercentStackedAreaChart` | Category + Y + Series | |
+| `lineClusteredColumnComboChart`, `lineStackedColumnComboChart` | Category + Y (column) + Y2 (line) (+ Series) | Combo: Y=column, Y2=line. NOT ColumnY/LineY |
+| `ribbonChart`, `ribbonChart2` | Category + Y + Series | |
+| `waterfallChart` | Category + Y + Breakdown | |
+| `scatterChart` | Category + X + Y + Size + Series | Dimension is Category, NOT Details |
+| `pieChart`, `donutChart` | Category + Y (+ Series) | |
+| `funnelChart`, `funnel` | Category + Y | |
+| `treemap` | Group + Values + Details | Only visual that legitimately uses Details |
+| `map` | Category + Size + Series | |
+| `filledMap` | Location + Legend + Values | |
+| `azureMap` | Category + Size | |
+| `pivotTable` | Rows + Columns + Values | Multi-bucket |
+| `tableEx` | Values | Single-bucket — all columns/measures go in Values |
+| `card`, `multiRowCard` | Values | Single-bucket; `card` = single measure only |
+| `cardVisual` | Data (+ Rows for small multiples) | New card visual; flexible Data array |
+| `cardNew` | Fields | Fields bucket (not Values) |
+| `kpi` | Indicator + TrendLine + Goal | Three different fields — don't pick this for "single number" |
+| `gauge` | Y + MinValue + MaxValue + TargetValue | |
+| `decompositionTreeVisual` | Analyze + ExplainBy | |
+| `slicer`, `listSlicer`, `textSlicer` | Values | |
+| `advancedSlicerVisual` | Rows | NOT Values — common gotcha |
+| `textbox`, `basicShape`, `shape`, `image`, `actionButton`, `pageNavigator` | (none) | Container-only, no data binding |
 
 ## When to use
 Use these patterns when asked to add charts, tables, cards, KPIs, shapes, buttons, images, or any visual to a Power BI report page.

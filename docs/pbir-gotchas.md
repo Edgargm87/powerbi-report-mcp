@@ -544,3 +544,63 @@ Tools (`pbir_list_bookmarks`, `pbir_add_bookmark`, `pbir_rename_bookmark`, `pbir
 | B15 | Report file structure | Empty `reportExtensions.json` crashes PBI Desktop -- delete file when no measures |
 | B16 | Report file structure | `reportVersionAtImport` is read-only -- do not set manually |
 | B17 | Report file structure | Auto-generated files (`mobileState.json`, `semanticModelDiagramLayout.json`, `.pbi/localSettings.json`) must not be edited |
+
+---
+
+## PBI Desktop Quirks (External, Not PBIR-Schema)
+
+These are environmental gotchas that bite agents working through PBI Desktop, not bugs in the PBIR JSON schema itself. They surface as "I wrote the JSON correctly but Desktop won't show it."
+
+### Q1. `enableAutoRecovery` masking PBIR file changes
+
+**Symptom:** You edited PBIR JSON on disk, restarted PBI Desktop via `pbir_reload_report`, and the change still doesn't appear — Desktop seems to be showing a stale version of the file.
+
+**Cause:** PBI Desktop's auto-recovery feature can hold an in-memory snapshot from a previous session and overlay it on top of the freshly-loaded PBIR JSON. Most users will never hit this, but for sample/demo projects or projects that crashed mid-edit it can mask file changes after restart.
+
+**Workaround:** Temporarily disable auto-recovery in the `.pbip` file:
+
+```jsonc
+// my-report.pbip
+{
+  "settings": {
+    "enableAutoRecovery": false   // was true
+  }
+}
+```
+
+Then call `pbir_reload_report({ confirm: true })` and verify the change. Once verified, restore the original value (auto-recovery is genuinely useful for interactive editing — disable it only as a troubleshooting step, not as a default).
+
+**Source:** pbi-pilot SKILL.md "Troubleshooting" section.
+
+### Q2. Visuals or slicers not appearing after PBI Desktop restart
+
+**Symptom:** New visuals or filters added programmatically don't render in Desktop after reload — the page looks empty or the filter pane shows nothing.
+
+**Checklist (in order):**
+
+1. **Visual folders exist on disk.** Confirm `definition/pages/<page>/visuals/<visualId>/visual.json` exists for every expected visual. If missing, the write silently failed — re-run the create call with binding/layout validation in strict mode.
+2. **Page registered in pageOrder.** Open `definition/pages/pages.json` and confirm the new page id appears in the `pageOrder` array. `pbir_create_page` does this automatically; manual JSON writes often forget.
+3. **`pbir_reload_report` actually killed Desktop.** A "close window" gesture inside Desktop is not enough — the editor caches PBIR files for the entire process lifetime. Use `pbir_reload_report({ confirm: true })` (which does `taskkill /IM PBIDesktop.exe /F` and relaunches) or fully exit Desktop manually before reopening the `.pbip`.
+4. **Rule out auto-recovery (see Q1).** If steps 1-3 all check out, `enableAutoRecovery` may be masking the change.
+
+**Source:** pbi-pilot SKILL.md "Troubleshooting" section.
+
+### Q3. `filters: []` (empty array) in `page.json` schema 2.1.0+
+
+**Symptom:** A page that previously rendered fine starts showing odd filter-pane behavior, or PBI Desktop logs a parse warning, after a programmatic edit added a `filters: []` empty array to `page.json`.
+
+**Cause:** Schema `2.1.0+` of the page definition uses `filterConfig` (a nested object containing `filters: [...]`), not a bare top-level `filters` array. An empty top-level `filters: []` is technically syntactically valid in older schemas but can confuse Desktop on `2.1.0+` because Desktop expects `filterConfig` to be the page-level filtering anchor.
+
+**Fix:** Match the format already used by the project. Open an existing page in `definition/pages/` and check whether it uses `filterConfig` (schema 2.1.0+) or top-level `filters` (schema 1.0.0). When clearing all filters from a page on schema 2.1.0+, prefer:
+
+```jsonc
+// page.json — schema 2.1.0+
+{
+  // option A: omit filterConfig entirely when there are no page-level filters
+  // option B: filterConfig: { filters: [] }   <- valid, won't confuse Desktop
+}
+```
+
+Avoid the bare `"filters": []` form on schema 2.1.0+. Do not mix formats within a project.
+
+**Source:** pbi-pilot SKILL.md "Troubleshooting" + "CRITICAL — Common Visual Mistakes to Avoid" sections.
