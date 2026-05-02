@@ -2513,7 +2513,7 @@ process.on("SIGTERM", stopWatchers);
 export function registerModelUsageTool(server: McpServer, ctx: ServerContext): void {
   server.tool(
     "pbir_model_usage",
-    "Cross-reference the semantic model with the report — shows where every measure and column is used, DAX dependencies, unused fields, and per-page coverage. Also generates an HTML dashboard for visual inspection.",
+    "Cross-reference the semantic model with the report — shows where every measure and column is used, DAX dependencies, unused fields, and per-page coverage. Also generates an HTML dashboard for visual inspection. Requires a sibling `.SemanticModel/` folder alongside the `.Report/` — call `pbir_get_report` first to check `hasSemanticModel` before invoking this tool.",
     {
       reportPath: z.string().optional().describe("Path to the .Report folder. Uses current connected report if omitted."),
       slim: z.boolean().optional().default(true).describe("Slim mode returns usage counts only. Set false for full visual-level detail."),

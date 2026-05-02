@@ -123,6 +123,12 @@ function startServer() {
     const r2 = await srv.callTool("pbir_get_report", {});
     const r3 = await srv.callTool("pbir_set_report", { path: BOGUS });
     const r4 = await srv.callTool("pbir_get_visual_types", {});
+    // v0.9.2: rebind to the fixture (the bogus call cleared connection?
+    // No — connectReport on bogus fails so binding survived). Re-bind
+    // defensively before the list-pages probe to keep the test
+    // independent of internal connection-state semantics.
+    await srv.callTool("pbir_set_report", { path: FIXTURE });
+    const r5 = await srv.callTool("pbir_list_pages", { slim: true });
 
     // 1: pbir_set_report's published outputSchema must permit extra fields.
     // The handler returns {success, reportPath} — if additionalProperties:false
@@ -169,6 +175,28 @@ function startServer() {
       "pbir_get_visual_types outputSchema permits additional properties (got additionalProperties=" + (getVisualTypesSchema && getVisualTypesSchema.additionalProperties) + ")");
     // And the call itself must not crash.
     assert(!r4.error, "pbir_get_visual_types call returns no JSON-RPC error");
+
+    // 9 (v0.9.2): pbir_get_report includes hasSemanticModel.
+    // The eval fixture has no .SemanticModel sibling — must be false.
+    assert(typeof sc2.hasSemanticModel === "boolean",
+      "pbir_get_report includes hasSemanticModel:boolean (got: " + JSON.stringify(sc2.hasSemanticModel) + ")");
+    assert(sc2.hasSemanticModel === false,
+      "pbir_get_report hasSemanticModel===false on fixture without .SemanticModel sibling");
+
+    // 10 (v0.9.2): pbir_list_pages slim entries include width + height,
+    // and the response carries top-level totalVisualCount.
+    const sc5 = (r5.result || {}).structuredContent || {};
+    const firstPage = (sc5.pages && sc5.pages[0]) || {};
+    assert(typeof firstPage.width === "number" && typeof firstPage.height === "number",
+      "pbir_list_pages slim entry includes width + height (got: " + JSON.stringify({ w: firstPage.width, h: firstPage.height }) + ")");
+    assert(typeof sc5.totalVisualCount === "number" && sc5.totalVisualCount >= 0,
+      "pbir_list_pages response includes totalVisualCount:number (got: " + JSON.stringify(sc5.totalVisualCount) + ")");
+    // Also sanity-check: totalVisualCount equals the sum across the visible
+    // slice (here the fixture has 3 pages — fits in one page so the sum
+    // matches across the visible slice and the full set).
+    const visibleSum = (sc5.pages || []).reduce((acc, p) => acc + (p.visualCount || 0), 0);
+    assert(sc5.totalVisualCount === visibleSum,
+      "pbir_list_pages totalVisualCount === sum of visible page visualCount (fixture fits in one page)");
   } catch (err) {
     console.error("FATAL: " + (err.message || err));
     console.error("stderr:\n" + srv.stderr());
@@ -182,7 +210,7 @@ function startServer() {
     console.error("FAIL: " + failures.length + " assertion(s) failed.");
     process.exit(1);
   } else {
-    console.log("OK: 9/9 assertions passed.");
+    console.log("OK: " + (failures.length === 0 ? "all assertions passed." : "see failures."));
     process.exit(0);
   }
 })();

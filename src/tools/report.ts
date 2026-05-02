@@ -7,7 +7,7 @@ import { generateId, columnRef } from "../pbir.js";
 import type { PageDefinition, ExtensionEntity } from "../pbir.js";
 import type { ServerContext } from "../context.js";
 import { requireProject } from "../context.js";
-import { invalidateCache } from "../model-usage.js";
+import { invalidateCache, findSemanticModelPath } from "../model-usage.js";
 import { extractVisualTitle } from "../helpers/extractTitle.js";
 import { ok, fail } from "../helpers/mcpResult.js";
 import { getCanvasSummary } from "../helpers/layoutValidation.js";
@@ -50,13 +50,30 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_get_report",
-    "Show the currently connected report path.",
+    "Show the currently connected report path. Includes `hasSemanticModel: boolean` — true when a sibling `.SemanticModel/` folder exists. Check this before calling `pbir_model_usage`.",
     {},
     {"readOnlyHint":true,"openWorldHint":false},
     async () =>
-      cachedRead("pbir_get_report", {}, ["report"], () => ({
-        reportPath: ctx.getReportPath() || "No report connected",
-      }))
+      cachedRead("pbir_get_report", {}, ["report"], () => {
+        const reportPath = ctx.getReportPath();
+        let hasSemanticModel = false;
+        if (reportPath) {
+          try {
+            // findSemanticModelPath throws when no .SemanticModel sibling
+            // exists or when the definition.pbir pointer is broken. Both
+            // paths converge on hasSemanticModel=false — agents should call
+            // this before pbir_model_usage to avoid the noisy throw.
+            const modelPath = findSemanticModelPath(reportPath);
+            hasSemanticModel = !!modelPath && fs.existsSync(modelPath);
+          } catch {
+            hasSemanticModel = false;
+          }
+        }
+        return {
+          reportPath: reportPath || "No report connected",
+          hasSemanticModel,
+        };
+      })
   );
 
   // ============================================================
@@ -64,7 +81,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_list_pages",
-    "List pages in the report (paginated). Slim mode (default) returns id, displayName, visualCount, isActive, hidden. Set slim=false for width/height/displayOption. Set includeVisuals=true (or pass pageId) to include a per-visual summary. Pagination is skipped when pageId is supplied.",
+    "List pages in the report (paginated). Slim mode (default) returns id, displayName, width, height, visualCount, isActive, hidden. Set slim=false to additionally include displayOption. Set includeVisuals=true (or pass pageId) to include a per-visual summary. Pagination is skipped when pageId is supplied. Top-level `totalVisualCount` is the sum of `visualCount` across the FULL set (not just the visible slice when paginated). For cross-page queries (e.g. \"find all pages with type X\" or \"count visuals across the report\"), prefer calling `pbir_list_pages({ includeVisuals: true })` once over fanning out parallel `pbir_list_visuals` per page — fewer round-trips, same data.",
     {
       slim: z.boolean().optional().default(true).describe("Slim mode (default true) — omits width/height/displayOption to reduce token usage"),
       includeVisuals: z.boolean().optional().default(false).describe("When true, each page also includes a `visuals` array with slim per-visual entries."),
@@ -91,13 +108,13 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         const base: Record<string, unknown> = {
           id,
           displayName: page.displayName,
+          width: page.width,
+          height: page.height,
           visualCount: visualIds.length,
           isActive: id === meta.activePageName,
           hidden: page.visibility === "HiddenInViewMode",
         };
         if (!slim) {
-          base.width = page.width;
-          base.height = page.height;
           base.displayOption = page.displayOption;
         }
         if (withVisuals) {
@@ -119,6 +136,14 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         return base;
       });
 
+      // totalVisualCount is summed across the FULL page set (not the
+      // visible slice when paginated) so the agent can make
+      // cross-report decisions without paging through every page.
+      const totalVisualCount = allPages.reduce(
+        (acc, p) => acc + (typeof p.visualCount === "number" ? p.visualCount : 0),
+        0
+      );
+
       // Single-page lookup — pagination is irrelevant. Return that one page
       // regardless of limit/offset.
       if (pageId) {
@@ -127,6 +152,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
           pages: allPages,
           total: 1,
           total_count: 1,
+          totalVisualCount,
           truncated: false,
           has_more: false,
           nextOffset: null,
@@ -147,6 +173,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
         pages: sliced,
         total,
         total_count: total,
+        totalVisualCount,
         truncated,
         has_more: truncated,
         nextOffset,

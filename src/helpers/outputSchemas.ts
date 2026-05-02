@@ -79,6 +79,7 @@ const listPagesSchema = z
     pageCount: z.number().optional(),
     total: z.number().optional(),
     total_count: z.number().optional(),
+    totalVisualCount: z.number().optional(),
     truncated: z.boolean().optional(),
     has_more: z.boolean().optional(),
     nextOffset: z.number().nullable().optional(),
@@ -126,6 +127,7 @@ const getReportSchema = z
   .object({
     ...envelope,
     reportPath: z.string().optional(),
+    hasSemanticModel: z.boolean().optional(),
   })
   .passthrough();
 

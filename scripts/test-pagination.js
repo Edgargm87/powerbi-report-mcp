@@ -165,6 +165,13 @@ console.log("══════════════════════�
   assertEq("list_pages offset:0 total_count=total", body.total_count, body.total);
   assertEq("list_pages offset:0 has_more=truncated", body.has_more, body.truncated);
   assertEq("list_pages offset:0 next_offset=nextOffset", body.next_offset, body.nextOffset);
+  // v0.9.2: slim mode now includes width/height per page (cheap, common
+  // lookup that previously forced an extra slim:false call).
+  assertEq("list_pages slim entry has width", body.pages[0].width, 1280);
+  assertEq("list_pages slim entry has height", body.pages[0].height, 720);
+  // v0.9.2: top-level totalVisualCount sums visualCount across the FULL
+  // page set (not just the visible slice). Mock pages have 0 visuals each.
+  assertEq("list_pages totalVisualCount sum across full set", body.totalVisualCount, 0);
 
   invalidateAll();
   env = await pagesHandler({ slim: true, includeVisuals: false, limit: 10, offset: 20 });
