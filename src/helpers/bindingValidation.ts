@@ -427,6 +427,12 @@ export interface ValidationOutcome {
    * "couldn't validate, hope for the best". null = validation ran.
    */
   skipReason: SkippedReason | null;
+  /**
+   * Loaded model inventory (when one was reachable). Tool handlers thread this
+   * into createAndSaveVisual / applyBindingsToVisual so parseFieldSpec can
+   * auto-resolve measure home tables. null when validation skipped or off.
+   */
+  inventory: ModelFieldInventory | null;
 }
 
 /**
@@ -482,22 +488,30 @@ export function runBindingValidation(
 ): ValidationOutcome {
   const mode = resolveValidationMode(strictBindings);
   if (mode === "off") {
-    return { proceed: true, errors: [], message: "", mode, skipReason: "mode_off" };
+    // Even in off mode, load the inventory so the auto-resolver can still fix
+    // measure home tables — silent correction is the whole point of "off".
+    let inv: ModelFieldInventory | null = null;
+    try {
+      inv = getModelFieldInventory(project.reportPath);
+    } catch {
+      inv = null;
+    }
+    return { proceed: true, errors: [], message: "", mode, skipReason: "mode_off", inventory: inv };
   }
   // Short-circuit on empty input before we bother loading the inventory —
   // there's nothing to check and an inventory miss here would be misleading.
   if (!bindings || bindings.length === 0) {
-    return { proceed: true, errors: [], message: "", mode, skipReason: "empty_bindings" };
+    return { proceed: true, errors: [], message: "", mode, skipReason: "empty_bindings", inventory: null };
   }
   const { inventory, skipReason } = getInventoryForProject(project, mode);
   if (!inventory) {
     // No model to validate against — degrade silently but surface the reason.
-    return { proceed: true, errors: [], message: "", mode, skipReason };
+    return { proceed: true, errors: [], message: "", mode, skipReason, inventory: null };
   }
   const errors = validateBindings(bindings, inventory);
   if (errors.length === 0) {
-    return { proceed: true, errors: [], message: "", mode, skipReason: null };
+    return { proceed: true, errors: [], message: "", mode, skipReason: null, inventory };
   }
   const message = formatBindingErrors(errors);
-  return { proceed: mode !== "strict", errors, message, mode, skipReason: null };
+  return { proceed: mode !== "strict", errors, message, mode, skipReason: null, inventory };
 }

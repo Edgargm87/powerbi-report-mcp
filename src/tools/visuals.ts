@@ -5,6 +5,8 @@ import type { VisualDefinition, QueryState, Projection } from "../pbir.js";
 import {
   VisualSpecSchema,
   createAndSaveVisual,
+  beginBindingAutoCorrections,
+  drainBindingAutoCorrections,
 } from "../helpers/createVisual.js";
 import type { VisualSpec, FieldSpecInput } from "../helpers/createVisual.js";
 import type { ServerContext } from "../context.js";
@@ -383,10 +385,18 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       }
 
       const results: Array<{ visualId: string; visualType: string }> = [];
+      beginBindingAutoCorrections();
       for (let i = 0; i < specs.length; i++) {
-        const result = createAndSaveVisual(ctx.project, pageId, specs[i], maxZ + (i + 1) * 1000);
+        const result = createAndSaveVisual(
+          ctx.project,
+          pageId,
+          specs[i],
+          maxZ + (i + 1) * 1000,
+          validation.inventory
+        );
         results.push(result);
       }
+      const corrections = drainBindingAutoCorrections();
 
       invalidateCache();
       invalidateScope(`page:${pageId}`);
@@ -401,6 +411,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
           ? results
           : results.map((r) => r.visualId),
       };
+      if (corrections.length > 0) response.bindingAutoCorrections = corrections;
       attachBindingValidationMetadata(response, validation);
       if (layoutValidation.warnings.length > 0) {
         response.layoutWarnings = layoutValidation.warnings;

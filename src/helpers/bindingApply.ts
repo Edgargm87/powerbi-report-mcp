@@ -16,6 +16,7 @@ import { buildQueryRef, buildNativeQueryRef, buildAutoFilters, VISUAL_BUCKETS } 
 import type { Projection, QueryState } from "../pbir.js";
 import { parseFieldSpec, SLICER_VISUAL_TYPES } from "./createVisual.js";
 import type { FieldSpecInput } from "./createVisual.js";
+import type { ModelFieldInventory } from "../model-usage.js";
 
 export interface BucketBindingInput {
   bucket: string;
@@ -24,6 +25,8 @@ export interface BucketBindingInput {
 
 export interface ApplyBindingsOptions {
   autoFilters: boolean;
+  /** Inventory for measure home-table auto-resolution. Optional for legacy paths. */
+  inventory?: ModelFieldInventory | null;
 }
 
 /**
@@ -57,7 +60,7 @@ export function applyBindingsToVisual(
     }
 
     const projections: Projection[] = binding.fields.map((fieldSpec, i) => {
-      const field = parseFieldSpec(fieldSpec);
+      const field = parseFieldSpec(fieldSpec, opts.inventory);
       const isFirst =
         i === 0 &&
         (bucketName === "Category" ||

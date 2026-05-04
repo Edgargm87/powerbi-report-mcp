@@ -7,6 +7,7 @@ import { requireProject } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
 import { runBindingValidation, attachBindingValidationMetadata } from "../helpers/bindingValidation.js";
 import { applyBindingsToVisual } from "../helpers/bindingApply.js";
+import { beginBindingAutoCorrections, drainBindingAutoCorrections } from "../helpers/createVisual.js";
 import { resolvePageId } from "../helpers/resolvePage.js";
 import { invalidateScope } from "../helpers/readCache.js";
 
@@ -59,16 +60,19 @@ export function registerBindingTools(server: McpServer, ctx: ServerContext): voi
       }
 
       const visual = ctx.project.getVisual(pageId, visualId);
+      beginBindingAutoCorrections();
       applyBindingsToVisual(
         visual,
         bindings.map((b) => ({ bucket: b.bucket, fields: b.fields as FieldSpecInput[] })),
-        { autoFilters: autoFilters ?? true }
+        { autoFilters: autoFilters ?? true, inventory: validation.inventory }
       );
+      const corrections = drainBindingAutoCorrections();
 
       ctx.project.saveVisual(pageId, visualId, visual);
       invalidateCache();
       invalidateScope(`page:${pageId}`);
       const response: Record<string, unknown> = { success: true, visualId };
+      if (corrections.length > 0) response.bindingAutoCorrections = corrections;
       attachBindingValidationMetadata(response, validation);
       return {
         content: [{ type: "text", text: JSON.stringify(response) }],

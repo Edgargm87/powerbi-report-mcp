@@ -30,7 +30,11 @@ import { CANVAS } from "../wireframe-validator.js";
 import type { WireframeVisual } from "../wireframe-validator.js";
 import { runLayoutValidation, getCanvasSummary } from "../helpers/layoutValidation.js";
 import { runBindingValidation, isNoteworthySkip } from "../helpers/bindingValidation.js";
-import { createAndSaveVisual } from "../helpers/createVisual.js";
+import {
+  createAndSaveVisual,
+  beginBindingAutoCorrections,
+  drainBindingAutoCorrections,
+} from "../helpers/createVisual.js";
 import type { VisualSpec, FieldSpecInput } from "../helpers/createVisual.js";
 import { invalidateCache } from "../model-usage.js";
 import type { ServerContext } from "../context.js";
@@ -612,6 +616,7 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
         width: number;
         height: number;
       }> = [];
+      beginBindingAutoCorrections();
       for (let i = 0; i < plan.length; i++) {
         const p = plan[i];
         const spec: VisualSpec = {
@@ -624,7 +629,13 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
           title: p.title,
           bindings: (p.bindings ?? undefined) as VisualSpec["bindings"],
         };
-        const result = createAndSaveVisual(ctx.project, pageId, spec, maxZ + (i + 1) * 1000);
+        const result = createAndSaveVisual(
+          ctx.project,
+          pageId,
+          spec,
+          maxZ + (i + 1) * 1000,
+          bv.inventory
+        );
         written.push({
           visualId: result.visualId,
           visualType: result.visualType,
@@ -652,6 +663,10 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
           warnings: outcome.warnings.length,
         },
       };
+      const layoutGridCorrections = drainBindingAutoCorrections();
+      if (layoutGridCorrections.length > 0) {
+        commitResponse.bindingAutoCorrections = layoutGridCorrections;
+      }
       if (outcome.warnings.length > 0) commitResponse.layoutWarnings = outcome.warnings;
       if (bv.errors.length > 0) {
         commitResponse.bindingWarnings = bv.errors;

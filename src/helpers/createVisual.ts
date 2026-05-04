@@ -13,6 +13,7 @@ import {
 } from "../pbir.js";
 import type { VisualDefinition, Projection, QueryState, FieldRef } from "../pbir.js";
 import { buildFormattingProps, applyFormattingToTarget, applyDataColors } from "./formatting.js";
+import type { ModelFieldInventory } from "../model-usage.js";
 
 // --- VisualSpec interface ---
 export interface VisualSpec {
@@ -241,8 +242,57 @@ export const VisualSpecSchema = z.object({
     .describe("Action target: page ID for pageNavigation, URL string for URL, bookmark ID for bookmark"),
 });
 
+/** Surfaced when parseFieldSpec auto-corrected a measure entity to its home table. */
+export interface BindingAutoCorrection {
+  from: string;
+  to: string;
+  reason: "measure home table";
+}
+
+/**
+ * Module-level sink for auto-corrections produced during a single tool-call's
+ * parseFieldSpec invocations. Tool handlers reset and drain it around the
+ * createAndSaveVisual / applyBindingsToVisual call sequence so the corrections
+ * can bubble into the response payload.
+ *
+ * This is the surgical alternative to threading a result-collector through
+ * every binding code path. The collector is process-wide but each tool handler
+ * resets it before use, so two concurrent calls in the same Node process would
+ * risk cross-talk only inside the same handler turn — which doesn't happen in
+ * practice (MCP server is request/response, single-threaded JS).
+ */
+let _autoCorrectionSink: BindingAutoCorrection[] | null = null;
+
+/** Begin collecting auto-corrections — call before a binding-write sequence. */
+export function beginBindingAutoCorrections(): void {
+  _autoCorrectionSink = [];
+}
+
+/** Drain and return collected auto-corrections (or [] when none / not begun). */
+export function drainBindingAutoCorrections(): BindingAutoCorrection[] {
+  const out = _autoCorrectionSink ?? [];
+  _autoCorrectionSink = null;
+  return out;
+}
+
 // --- Parse field specification — supports Table[Column] shorthand ---
-export function parseFieldSpec(spec: FieldSpecInput): FieldRef {
+//
+// When `inventory` is provided AND the spec is a measure AND the specified
+// entity does NOT define the measure AND exactly ONE other table does, the
+// entity is auto-corrected to that home table and a BindingAutoCorrection is
+// pushed to the active collector (see beginBindingAutoCorrections).
+//
+// Columns and aggregations are NEVER auto-corrected — columns are bound to
+// their physical table and aggregations operate on a column reference; only
+// measures float to a "home" table independent of where they're queried from.
+//
+// When `inventory` is null/undefined (live-connect reports, legacy callers,
+// tests without a model) → no correction is attempted; behaviour is identical
+// to the pre-auto-correct version.
+export function parseFieldSpec(
+  spec: FieldSpecInput,
+  inventory?: ModelFieldInventory | null
+): FieldRef {
   let entity: string;
   let property: string;
 
@@ -266,6 +316,35 @@ export function parseFieldSpec(spec: FieldSpecInput): FieldRef {
     );
   }
 
+  // Measure home-table auto-resolution.
+  if (spec.type === "measure" && inventory) {
+    const specifiedTable = inventory.tables.get(entity);
+    const inSpecified = specifiedTable?.measures.has(property) ?? false;
+    if (!inSpecified) {
+      const homes: string[] = [];
+      for (const [tableName, t] of inventory.tables) {
+        if (tableName === entity) continue;
+        if (t.measures.has(property)) homes.push(tableName);
+      }
+      // Single unambiguous home → auto-correct. Ambiguous (multiple homes) is
+      // surfaced via the validator's home-table suggestion list instead — we
+      // don't pick a winner here. Zero homes → leave alone (the validator
+      // already produced a measure_not_found error if validation ran).
+      if (homes.length === 1) {
+        const fromLabel = `${entity}[${property}]`;
+        const toLabel = `${homes[0]}[${property}]`;
+        entity = homes[0];
+        if (_autoCorrectionSink) {
+          _autoCorrectionSink.push({
+            from: fromLabel,
+            to: toLabel,
+            reason: "measure home table",
+          });
+        }
+      }
+    }
+  }
+
   if (spec.type === "measure") {
     return measureRef(entity, property);
   }
@@ -281,7 +360,8 @@ export function createAndSaveVisual(
   project: PbirProject,
   pageId: string,
   spec: VisualSpec,
-  baseZ: number
+  baseZ: number,
+  inventory?: ModelFieldInventory | null
 ): { visualId: string; visualType: string } {
   const visualId = generateId();
   const {
@@ -350,7 +430,7 @@ export function createAndSaveVisual(
         }
       }
       const projections: Projection[] = binding.fields.map((fieldSpec, i) => {
-        const field = parseFieldSpec(fieldSpec);
+        const field = parseFieldSpec(fieldSpec, inventory);
         const isFirst =
           i === 0 &&
           (bucketName === "Category" ||

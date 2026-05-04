@@ -337,6 +337,24 @@ Precedence: per-call param > env var > default (strict).
 
 Case-sensitivity: field names are matched exactly — `sales[quantity]` is treated as a missing table. PBI Desktop is case-sensitive here too. The "did you mean" suggestions use case-insensitive Levenshtein, so a casing mistake will surface the correctly-cased name as the top suggestion.
 
+**Measure home table — auto-resolution.** Measures should ideally be referenced by their **home table** (the table where the measure is defined in TMDL/BIM), not by a fact table that the LLM happens to associate with the metric. A common failure mode: the LLM writes `Sales[Total Revenue]` when `Total Revenue` is actually authored on `_Measures` — Power BI Desktop happily accepts the file but renders no data because `SourceRef.Entity` points at the wrong table.
+
+The MCP auto-corrects this when the measure name lives in **exactly one** other table. The response then carries a `bindingAutoCorrections` array so the correction is visible:
+
+```json
+{
+  "success": true,
+  "...": "...",
+  "bindingAutoCorrections": [
+    { "from": "Sales[Total Revenue]", "to": "_Measures[Total Revenue]", "reason": "measure home table" }
+  ]
+}
+```
+
+When the LLM sees this in a response, it should update its mental model of which table holds which measures and use the corrected entity on subsequent calls.
+
+When the measure name exists in **multiple** tables, auto-correction can't pick a winner — the call fails strict validation with `measure_not_found` and the suggestions list each candidate as `_Table[Measure] (candidate home table)`. Pick one and re-issue. Auto-correction never applies to columns or aggregations: those are bound to physical tables and there is no such thing as a column "home table".
+
 ## Common workflows
 
 ### Create a page then populate it

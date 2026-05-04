@@ -3,8 +3,10 @@ import { z } from "zod";
 import {
   BucketBindingSchema,
   FormatCategorySchema,
+  beginBindingAutoCorrections,
+  drainBindingAutoCorrections,
 } from "../helpers/createVisual.js";
-import type { FieldSpecInput } from "../helpers/createVisual.js";
+import type { FieldSpecInput, BindingAutoCorrection } from "../helpers/createVisual.js";
 import { applyFormattingToTarget } from "../helpers/formatting.js";
 import type { ServerContext } from "../context.js";
 import { requireProject } from "../context.js";
@@ -267,10 +269,15 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
       const updated: string[] = [];
       const errors: string[] = [];
       const perEntryBindingErrors: Array<{ visualId: string; errors: unknown[] }> = [];
+      const allCorrections: BindingAutoCorrection[] = [];
 
       for (const { visualId, bindings } of updates) {
         try {
-          // Per-entry validation when continueOnError is set.
+          // Per-entry validation when continueOnError is set. The per-entry
+          // validation also re-loads the inventory, so we capture the per-entry
+          // outcome's inventory for the auto-resolver. In batch mode the
+          // outer `validation` already holds the inventory.
+          let entryInventory = validation.inventory;
           if (continueOnError) {
             const entryBindings = bindings.map((b) => ({
               bucket: b.bucket,
@@ -282,13 +289,16 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
               perEntryBindingErrors.push({ visualId, errors: entryValidation.errors });
               continue;
             }
+            entryInventory = entryValidation.inventory;
           }
           const visual = ctx.project.getVisual(pageId, visualId);
+          beginBindingAutoCorrections();
           applyBindingsToVisual(
             visual,
             bindings.map((b) => ({ bucket: b.bucket, fields: b.fields as FieldSpecInput[] })),
-            { autoFilters: autoFilters ?? true }
+            { autoFilters: autoFilters ?? true, inventory: entryInventory }
           );
+          allCorrections.push(...drainBindingAutoCorrections());
           ctx.project.saveVisual(pageId, visualId, visual);
           updated.push(visualId);
         } catch (err) {
@@ -304,6 +314,7 @@ export function registerBulkTools(server: McpServer, ctx: ServerContext): void {
         ids: updated,
         errors,
         ...(perEntryBindingErrors.length > 0 ? { perEntryBindingErrors } : {}),
+        ...(allCorrections.length > 0 ? { bindingAutoCorrections: allCorrections } : {}),
       };
       attachBindingValidationMetadata(bulkResponse, validation);
       return {
