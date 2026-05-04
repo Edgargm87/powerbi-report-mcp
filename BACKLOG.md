@@ -1,4 +1,4 @@
-<!-- doc-version: 1.2 | Last updated: 2026-05-02 -->
+<!-- doc-version: 1.3 | Last updated: 2026-05-02 -->
 # Backlog — powerbi-report-mcp
 
 Forward-looking work, organised by likely version. Each item lists evidence
@@ -15,6 +15,35 @@ because it requires a human at the keyboard to capture screenshots.
 | # | Item | Evidence | Effort |
 |---|------|----------|-------:|
 | 6 | Add the 3 `<!-- TODO: add screenshot -->` markers (hero, batch, plugin install) to actual screenshots in README.md | Tracked since v0.8.2 | S (manual) |
+
+---
+
+## Investigation needed — slicer defaults not always applying
+
+Reported by user during real Cowork session: slicers are still not landing on
+the documented house defaults (184×60, `title.show: false`, `header.show: true`,
+8pt text, etc.) every time, despite `scripts/test-slicer-defaults.js` passing
+all assertions at the unit level.
+
+**Status:** Needs more testing to characterise. The unit tests cover
+`createAndSaveVisual` directly; the symptom may be in the call-path between
+the MCP tool entry and the helper, or in caller behaviour (LLM passing
+`title` or explicit dimensions which intentionally override defaults).
+
+**Next step:** capture a `pbir_get_visual({verbose:true})` payload of a
+broken slicer + the originating `pbir_add_visual` call, then diff against
+the expected shape from `test-slicer-defaults.js`. From there decide if
+it's a code fix, a skill rewording (so the LLM stops over-specifying), or
+a doc fix to the defaults table.
+
+Likely culprits to rule out first:
+- LLM passing `title`, `width`, or `height` explicitly → defaults only fire when omitted (intentional)
+- LLM passing `containerFormat` / `visualFormat` → overrides chrome defaults
+- `height < 44` auto-bump not firing in some path
+- `queryState` bucket coercion (fixed in `c977f46` for new writes — verify no regression)
+
+Once characterised, slot into the appropriate version (likely v0.9.x patch
+or v0.10.0 if it touches the binding/format layer).
 
 ---
 
