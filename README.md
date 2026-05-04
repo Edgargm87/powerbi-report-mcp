@@ -1,14 +1,14 @@
-<!-- doc-version: 1.5 | Last updated: 2026-04-26 -->
+<!-- doc-version: 1.6 | Last updated: 2026-05-02 -->
 <p align="center">
   <h1 align="center">Power BI Report MCP Server</h1>
   <p align="center">
-    Build Power BI reports with natural language — through any AI assistant.
+    Build Power BI reports with natural language — currently tested with Claude (Code, Desktop, Cowork).
   </p>
 </p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/version-0.8.2-green.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.9.2-green.svg" alt="Version">
   <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg" alt="Node.js">
   <img src="https://img.shields.io/badge/MCP-1.12-purple.svg" alt="MCP SDK">
   <img src="https://img.shields.io/badge/Power%20BI-PBIR-yellow.svg" alt="PBIR Format">
@@ -16,7 +16,8 @@
 </p>
 
 <p align="center">
-  <code>Claude</code> &middot; <code>OpenAI</code> &middot; <code>GitHub Copilot</code> &middot; <code>Cursor</code> &middot; <code>Windsurf</code> &middot; <code>Continue.dev</code> &middot; <code>Cline</code> &middot; <code>Any MCP Client</code>
+  <strong>Tested:</strong> <code>Claude Code</code> &middot; <code>Claude Desktop</code> &middot; <code>Claude Cowork</code><br>
+  <em>Built on the standard MCP protocol — other MCP-compatible clients should work but are not yet verified.</em>
 </p>
 
 ---
@@ -43,9 +44,9 @@ Full details: **[CHANGELOG.md](CHANGELOG.md)**.
 
 ## What is this?
 
-The first open-source **MCP server for Power BI report authoring**. It connects any AI assistant to Power BI's PBIR (Power BI Report) file format, turning natural language into real report pages — cards, charts, tables, themes, filters, and formatting.
+The first open-source **MCP server for Power BI report authoring**. It connects Claude (or any MCP-compatible client — see [Tested clients](#tested-clients)) to Power BI's PBIR (Power BI Report) file format, turning natural language into real report pages — cards, charts, tables, themes, filters, and formatting.
 
-No REST API keys. No Power BI service. Just local files + your AI assistant.
+No REST API keys. No Power BI service. Just local files + Claude.
 
 ```
 You: "Build me a sales dashboard with KPIs, trend charts, and a detail table"
@@ -253,7 +254,7 @@ graph TD
 
 #### Why `pbir_model_usage` is a default tool — the deletion fail-safe
 
-`pbir_model_usage` ships in the default set (not on-demand) because it is the **safety layer** for any AI-driven cleanup of the semantic model. When a user asks Claude (or any LLM) to *"remove unused measures"* or *"clean up dead columns"*, the model would otherwise guess based on measure names and delete things blindly — and break visuals that depend on indirect references.
+`pbir_model_usage` ships in the default set (not on-demand) because it is the **safety layer** for AI-driven cleanup of the semantic model. When a user asks Claude to *"remove unused measures"* or *"clean up dead columns"*, the model would otherwise guess based on measure names and delete things blindly — and break visuals that depend on indirect references.
 
 With `pbir_model_usage` always available, the LLM can call it first and see the full dependency picture before touching anything:
 
@@ -643,19 +644,17 @@ Use `pbir_add_visual` batch mode + inline `title`, `dataColors`, `containerForma
 
 ---
 
-## Compatible Clients
+## Tested clients
 
-| Client | Support | Config |
-|--------|---------|--------|
-| **Claude Desktop** | Native | `claude_desktop_config.json` |
-| **Claude Code** | Native | `claude mcp add` |
-| **GitHub Copilot** | VS Code agent mode | `.vscode/mcp.json` |
-| **Cursor** | Native | `~/.cursor/mcp.json` |
-| **Windsurf** | Native | MCP settings |
-| **Continue.dev** | Native | `~/.continue/config.json` |
-| **Cline** | Native | VS Code settings |
-| **OpenAI ChatGPT** | Via MCP bridge | `mcp-proxy` |
-| **Custom agents** | `@modelcontextprotocol/sdk` | Programmatic |
+The MCP is built on the standard MCP protocol. **Currently verified against:**
+
+| Client | Status | Config |
+|--------|--------|--------|
+| **Claude Code** | ✅ Tested | `claude mcp add` or local `.mcp.json` |
+| **Claude Desktop** | ✅ Tested | `claude_desktop_config.json` |
+| **Claude Cowork** | ✅ Tested | Drag the `.plugin` from [Releases](https://github.com/jonathan-pap/powerbi-report-mcp/releases) |
+
+**Other MCP-compatible clients** (Cursor, Continue.dev, Cline, GitHub Copilot agent mode, OpenAI via `mcp-proxy`, custom `@modelcontextprotocol/sdk` agents) **should work** since this is a standard MCP server — but they haven't been verified against this codebase yet. If you try one and it works (or doesn't), please [open an issue](https://github.com/jonathan-pap/powerbi-report-mcp/issues) so we can update this table.
 
 ---
 
