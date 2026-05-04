@@ -1,6 +1,6 @@
 {
   "name": "powerbi-report-builder",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Build Power BI reports from natural language. Pages, visuals, themes, layouts, formatting — all PBIR-format.",
   "author": { "name": "Jonathan" },
   "keywords": ["power-bi", "powerbi", "report", "pbir", "data-visualization", "dashboard"],
