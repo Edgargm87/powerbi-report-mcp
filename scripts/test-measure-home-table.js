@@ -196,6 +196,57 @@ console.log("\n─── parseFieldSpec: auto-correction ───────�
 })();
 
 // ---------------------------------------------------------------------------
+// Sort-path regression (v0.9.4) — pbir_set_visual_sort uses parseFieldSpec
+// with inventory, so the same auto-correction surfaces on sort targets.
+// We exercise the exact code path the refactored handler runs: a parseFieldSpec
+// call per sort entry, with the auto-correction sink draining at the end.
+// ---------------------------------------------------------------------------
+
+console.log("\n─── Sort path: same auto-correction applies (v0.9.4) ───────────────");
+
+(function () {
+  // Sort the same way pbir_set_visual_sort does — measure on the wrong table.
+  const sortInput = [
+    { field: "Sales[Total Revenue]", type: "measure", direction: "Descending" },
+  ];
+  beginBindingAutoCorrections();
+  const sortEntries = sortInput.map((s) =>
+    ({ field: parseFieldSpec({ field: s.field, type: s.type }, inventory), direction: s.direction })
+  );
+  const corrections = drainBindingAutoCorrections();
+
+  const entity = sortEntries[0]?.field?.Measure?.Expression?.SourceRef?.Entity;
+  if (entity !== "_Measures") {
+    return fail("SORT 1  sort-target measure auto-corrects to home table",
+      `got Entity=${entity}`);
+  }
+  if (corrections.length !== 1
+      || corrections[0].from !== "Sales[Total Revenue]"
+      || corrections[0].to !== "_Measures[Total Revenue]") {
+    return fail("SORT 1  bindingAutoCorrections emitted for sort target",
+      JSON.stringify(corrections));
+  }
+  pass("SORT 1  pbir_set_visual_sort path — measure on wrong table auto-corrected + surfaced");
+})();
+
+(function () {
+  // Explicit-correct path: no correction emitted.
+  const sortInput = [
+    { field: "_Measures[Total Revenue]", type: "measure", direction: "Descending" },
+  ];
+  beginBindingAutoCorrections();
+  sortInput.map((s) =>
+    parseFieldSpec({ field: s.field, type: s.type }, inventory)
+  );
+  const corrections = drainBindingAutoCorrections();
+  if (corrections.length !== 0) {
+    return fail("SORT 2  explicit-correct sort target → no correction",
+      JSON.stringify(corrections));
+  }
+  pass("SORT 2  pbir_set_visual_sort path — explicit-correct entity emits no correction");
+})();
+
+// ---------------------------------------------------------------------------
 // Summary
 // ---------------------------------------------------------------------------
 

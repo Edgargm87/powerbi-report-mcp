@@ -304,6 +304,8 @@ Override the auto-sort with explicit sort fields and directions. Field uses `Tab
 
 The visual must already have a `query` (it must have data bindings) — sort can't be set on container-only visuals like shapes or buttons.
 
+When `type: "measure"` and the specified entity does not own the measure but exactly one other table does (and a sibling `.SemanticModel` is present), the entity is auto-corrected to the home table — the same behaviour `pbir_add_visual` and `pbir_update_visual_bindings` apply. The response surfaces a `bindingAutoCorrections` array when this fires.
+
 ## `pbir_apply_theme`
 
 Apply a named preset theme to every data visual on a page in one call.

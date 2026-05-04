@@ -4,11 +4,11 @@ import { applyFormattingToTarget, applyDataColors } from "../helpers/formatting.
 import { validateFormatTypos } from "../helpers/themeIndex.js";
 import { resolvePageId } from "../helpers/resolvePage.js";
 import { invalidateScope } from "../helpers/readCache.js";
-import { FormatCategorySchema, DataColorSchema, NO_DATA_VISUAL_TYPES } from "../helpers/createVisual.js";
+import { FormatCategorySchema, DataColorSchema, NO_DATA_VISUAL_TYPES, parseFieldSpec, beginBindingAutoCorrections, drainBindingAutoCorrections } from "../helpers/createVisual.js";
+import { getInventoryForProject, resolveValidationMode } from "../helpers/bindingValidation.js";
 import { THEME_PRESETS } from "../helpers/defaults.js";
 import type { ServerContext } from "../context.js";
 import { requireProject } from "../context.js";
-import type { FieldRef } from "../pbir.js";
 import { fail } from "../helpers/mcpResult.js";
 
 // Categories that belong in visualContainerObjects (container chrome)
@@ -505,50 +505,22 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       pageId = rp.pageId;
       const visual = ctx.project.getVisual(pageId, visualId);
 
-      // Import parseFieldSpec to reuse the field parsing logic
-      // We need to build FieldRef objects from the sort spec
+      // Resolve model inventory so parseFieldSpec can auto-correct measure
+      // entities to their home table (closes v0.9.3 audit follow-up — same
+      // bug class as the original parseFieldSpec fix, just at the sort site).
+      const { inventory } = getInventoryForProject(ctx.project, resolveValidationMode(undefined));
+
+      // Build FieldRef objects via parseFieldSpec — same path as bindings,
+      // including measure home-table auto-resolution when unambiguous.
+      beginBindingAutoCorrections();
       const sortEntries = sort.map((s) => {
-        // Parse field shorthand
-        const match = s.field.match(/^(.+)\[(.+)\]$/);
-        if (!match) {
-          throw new Error(`Invalid field: "${s.field}". Expected Table[Column] format.`);
-        }
-        const entity = match[1].trim();
-        const property = match[2].trim();
-
-        let field: FieldRef;
-        if (s.type === "measure") {
-          field = {
-            Measure: {
-              Expression: { SourceRef: { Entity: entity } },
-              Property: property,
-            },
-          };
-        } else if (s.type === "aggregation") {
-          const aggMap: Record<string, number> = { Sum: 0, Avg: 1, Count: 2, Min: 3, Max: 4, CountNonNull: 5, Median: 6, StandardDeviation: 7, Variance: 8 };
-          const func = aggMap[s.aggregation || "Sum"] ?? 0;
-          field = {
-            Aggregation: {
-              Expression: {
-                Column: {
-                  Expression: { SourceRef: { Entity: entity } },
-                  Property: property,
-                },
-              },
-              Function: func,
-            },
-          };
-        } else {
-          field = {
-            Column: {
-              Expression: { SourceRef: { Entity: entity } },
-              Property: property,
-            },
-          };
-        }
-
+        const field = parseFieldSpec(
+          { field: s.field, type: s.type, aggregation: s.aggregation },
+          inventory
+        );
         return { field, direction: s.direction };
       });
+      const corrections = drainBindingAutoCorrections();
 
       // Set the sort definition on the visual's query
       if (!visual.visual.query) {
@@ -563,15 +535,17 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       ctx.project.saveVisual(pageId, visualId, visual);
 
       invalidateScope(`page:${pageId}`);
+      const response: Record<string, unknown> = {
+        success: true,
+        pageId,
+        visualId,
+        sortFields: sort.map((s) => `${s.field} ${s.direction}`),
+      };
+      if (corrections.length > 0) response.bindingAutoCorrections = corrections;
       return {
         content: [{
           type: "text",
-          text: JSON.stringify({
-            success: true,
-            pageId,
-            visualId,
-            sortFields: sort.map((s) => `${s.field} ${s.direction}`),
-          }),
+          text: JSON.stringify(response),
         }],
       };
     }
