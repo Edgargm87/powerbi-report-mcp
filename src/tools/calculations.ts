@@ -1,6 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ServerContext } from "../context.js";
+import { fail } from "../helpers/mcpResult.js";
 
 /**
  * Visual calculations — DAX expressions scoped to a visual's matrix/table context.
@@ -116,14 +117,7 @@ export function registerCalculationTools(server: McpServer, ctx: ServerContext):
       const projections = findValuesBucket(visual.visual.query);
 
       if (!projections) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ success: false, error: "No queryState bucket with projections found — visual calculations require a table/matrix visual with data bindings" }),
-            },
-          ],
-        };
+        return fail("No queryState bucket with projections found — visual calculations require a table/matrix visual with data bindings");
       }
 
       const calcProjection: NativeVisualCalcProjection = {
@@ -176,14 +170,7 @@ export function registerCalculationTools(server: McpServer, ctx: ServerContext):
       const projections = findValuesBucket(visual.visual.query);
 
       if (!projections) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ success: false, error: "No calculations found on this visual" }),
-            },
-          ],
-        };
+        return fail("No calculations found on this visual");
       }
 
       const before = projections.length;

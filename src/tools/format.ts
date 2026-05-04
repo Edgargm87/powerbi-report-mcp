@@ -9,6 +9,7 @@ import { THEME_PRESETS } from "../helpers/defaults.js";
 import type { ServerContext } from "../context.js";
 import { requireProject } from "../context.js";
 import type { FieldRef } from "../pbir.js";
+import { fail } from "../helpers/mcpResult.js";
 
 // Categories that belong in visualContainerObjects (container chrome)
 const CONTAINER_CATEGORIES = new Set([
@@ -274,9 +275,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       }
 
       if (!entity || !property2) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({ success: false, error: "entity and property2 are required for rules and gradient" }) }],
-        };
+        return fail("entity and property2 are required for rules and gradient");
       }
 
       // Build the field expression — columns must use Aggregation (Sum) not raw Column,
@@ -287,9 +286,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
 
       if (formatType === "rules") {
         if (!rules || rules.length === 0) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({ success: false, error: "rules array is required for formatType=rules" }) }],
-          };
+          return fail("rules array is required for formatType=rules");
         }
 
         const cases = rules.map((rule) => {
@@ -337,9 +334,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       } else {
         // gradient — uses FillRule in objects.values (not visualContainerObjects)
         if (!minColor || !maxColor) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({ success: false, error: "minColor and maxColor are required for formatType=gradient" }) }],
-          };
+          return fail("minColor and maxColor are required for formatType=gradient");
         }
 
         // Build the queryRef for the selector metadata
@@ -422,14 +417,7 @@ export function registerFormatTools(server: McpServer, ctx: ServerContext): void
       pageId = rp.pageId;
       const preset = THEME_PRESETS[theme];
       if (!preset) {
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify({ success: false, error: `Unknown theme: ${theme}` }),
-            },
-          ],
-        };
+        return fail(`Unknown theme: ${theme}`);
       }
 
       const chartTypes = new Set([

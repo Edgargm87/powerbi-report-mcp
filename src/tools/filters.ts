@@ -6,6 +6,7 @@ import type { ServerContext } from "../context.js";
 import { requireProject } from "../context.js";
 import { resolvePageId } from "../helpers/resolvePage.js";
 import { cachedRead, invalidateScope } from "../helpers/readCache.js";
+import { fail } from "../helpers/mcpResult.js";
 
 // --- Helper: flatten a PBIR FieldRef to "Table[Field]" string ---
 function fieldRefToString(field: FieldRef): string {
@@ -349,9 +350,7 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
       if (!rp.resolved) return rp.errorResponse;
       pageId = rp.pageId;
       if (filterType === "topN" && !visualId) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({ success: false, error: "topN filters must be applied at visual level — provide visualId" }) }],
-        };
+        return fail("topN filters must be applied at visual level — provide visualId");
       }
 
       let newFilter: FilterItem;
@@ -360,23 +359,17 @@ export function registerFilterTools(server: McpServer, ctx: ServerContext): void
         newFilter = buildCategoricalFilter(entity, property, values);
       } else if (filterType === "topN") {
         if (!n || !orderByEntity || !orderByProperty) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({ success: false, error: "topN requires: n, orderByEntity, orderByProperty" }) }],
-          };
+          return fail("topN requires: n, orderByEntity, orderByProperty");
         }
         newFilter = buildTopNFilter(entity, property, n, topNDirection ?? "Top", orderByEntity, orderByProperty, orderByIsMeasure ?? false);
       } else if (filterType === "advanced") {
         if (!operator) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({ success: false, error: "advanced requires: operator" }) }],
-          };
+          return fail("advanced requires: operator");
         }
         newFilter = buildAdvancedFilter(entity, property, operator, value, logicalOperator, operator2, value2);
       } else {
         if (!period || !count) {
-          return {
-            content: [{ type: "text", text: JSON.stringify({ success: false, error: "relativeDate requires: period, count" }) }],
-          };
+          return fail("relativeDate requires: period, count");
         }
         newFilter = buildRelativeDateFilter(entity, property, period, count, dateDirection ?? "last");
       }
