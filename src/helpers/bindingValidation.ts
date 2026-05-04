@@ -308,7 +308,40 @@ export function validateFieldSpec(
     spec.type === "measure"
       ? [...table.measures]
       : [...table.columns, ...table.measures];
-  const suggestions = topMatches(property, pool, (n) => asLabel(entity, n), 3);
+  let suggestions = topMatches(property, pool, (n) => asLabel(entity, n), 3);
+
+  // Cross-table measure home-table search.
+  //
+  // Real failure mode: LLM types `Sales[Total Revenue]` because it conflates
+  // the fact-table label with the measure's actual home table (e.g. `_Measures`).
+  // PBI Desktop silently fails — the visual ends up with the right field name
+  // but the wrong SourceRef.Entity, so no data renders.
+  //
+  // When the spec is a measure and the property exists in OTHER tables (case
+  // exact, since PBI is case-sensitive on entity/property), surface those as
+  // top-priority suggestions ahead of typo-similar names from the wrong table.
+  if (spec.type === "measure") {
+    const homeTables: string[] = [];
+    for (const [tableName, t] of inventory.tables) {
+      if (tableName === entity) continue;
+      if (t.measures.has(property)) {
+        homeTables.push(tableName);
+      }
+    }
+    if (homeTables.length > 0) {
+      // Tag the first hit when single-home (the auto-correction target the
+      // resolver will pick up), or list all when ambiguous.
+      const tagged = homeTables.length === 1
+        ? [`${homeTables[0]}[${property}] (actual home table)`]
+        : homeTables.map((t) => `${t}[${property}] (candidate home table)`);
+      // Drop typo-similar suggestions that point at the same property name in
+      // the wrong table — they're dominated by the home-table hits.
+      const sameProp = `[${property}]`;
+      suggestions = [...tagged, ...suggestions.filter((s) => !s.endsWith(sameProp))];
+      // Cap to keep the response compact — preserve the home-table hits up front.
+      if (suggestions.length > 3) suggestions = suggestions.slice(0, 3);
+    }
+  }
 
   return {
     label: asLabel(entity, property),
