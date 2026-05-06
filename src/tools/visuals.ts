@@ -26,11 +26,27 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_get_visual_types",
-    "Get a list of available visual types and their data role buckets",
-    {},
+    "List available visual types. Default returns slim type list (~150 tokens). Pass verbose:true for per-type data-role bucket metadata (~1,200 tokens).",
+    {
+      verbose: z
+        .boolean()
+        .optional()
+        .describe("If true, return the full {type: [buckets...]} map. Default false returns {types:[...], count}."),
+    },
     {"readOnlyHint":true,"openWorldHint":false},
-    async () => {
-      return { content: [{ type: "text", text: JSON.stringify(VISUAL_BUCKETS, null, 2) }] };
+    async ({ verbose }: { verbose?: boolean }) => {
+      if (verbose) {
+        return { content: [{ type: "text", text: JSON.stringify(VISUAL_BUCKETS, null, 2) }] };
+      }
+      const types = Object.keys(VISUAL_BUCKETS).sort();
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ success: true, types, count: types.length }),
+          },
+        ],
+      };
     }
   );
 
