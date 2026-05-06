@@ -242,18 +242,18 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_add_visual",
-    "Add one or more visuals to a page. Pass `visuals` array. Inline containerFormat/visualFormat/dataColors per entry avoids extra pbir_format_visual calls. Call `pbir_lookup_theme_property` for valid category/property names per visualType. Stacked charts (columnChart/barChart) need a Series binding. 'KPI card' = `card` with one measure. Scatter uses `Details` bucket.",
+    "Add visuals to a page via `visuals: [...]` batch. Inline containerFormat/visualFormat/dataColors per entry avoids extra pbir_format_visual calls. Stacked charts need a Series binding; 'KPI card' = `card` with one measure; scatter uses `Category` bucket. Use pbir_lookup_theme_property for valid category/property names.",
     {
-      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
+      pageId: z.string().optional().describe("Auto-resolved when only one page exists."),
       visuals: z.array(VisualSpecSchema),
       strictBindings: z
         .boolean()
         .optional()
-        .describe("Binding validation: true=strict, false=warn. Omit for env default."),
+        .describe("true=strict, false=warn. Omit for env default."),
       strictLayout: z
         .boolean()
         .optional()
-        .describe("Layout validation: true=strict, false=warn. Omit for env default. Canvas 1280x720, 15px L/R and 6px bottom margins, 5px gaps."),
+        .describe("true=strict, false=warn. Canvas 1280x720, 15px L/R / 6px bottom margins, 5px gaps. Omit for env default."),
       includeTypes: z
         .boolean()
         .optional()

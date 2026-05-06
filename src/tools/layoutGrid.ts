@@ -277,51 +277,45 @@ const MarginsSchema = z
 export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): void {
   server.tool(
     "pbir_layout_grid",
-    "Compute a deterministic rows×cols grid layout for a page, optionally writing the visuals. Server owns the margin/gap/remainder math — the LLM can't overflow or leave mismatched gaps. planOnly:true (default) returns the computed plan without writing. planOnly:false validates bindings + layout then writes every cell as a visual in one call. Use this INSTEAD of calling pbir_add_visual N times when building a page from scratch. See guide('wireframes') for when each grid shape is appropriate.",
+    "Compute a deterministic rows×cols grid; server owns margin/gap/remainder math. Use this INSTEAD of N pbir_add_visual calls when building a page from scratch. planOnly:true (default) returns the plan; planOnly:false validates bindings+layout then writes in one call. See guide('wireframes') for grid-shape selection.",
     {
-      pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
-      rows: z.number().int().min(1).describe("Grid rows (≥1)"),
-      cols: z.number().int().min(1).describe("Grid columns (≥1)"),
+      pageId: z.string().optional().describe("Auto-resolved when only one page exists."),
+      rows: z.number().int().min(1),
+      cols: z.number().int().min(1),
       gaps: z
         .number()
         .int()
         .min(0)
         .optional()
         .default(CANVAS.gap)
-        .describe(`Gap in px between cells, both directions (default ${CANVAS.gap})`),
+        .describe(`Px between cells, both directions (default ${CANVAS.gap}).`),
       margins: MarginsSchema.describe(
-        `Custom page margins. Default is canonical (L=${CANVAS.marginLeft}, R=${CANVAS.marginRight}, T=${CANVAS.marginTop}, B=${CANVAS.marginBottom}).`
+        `Default canonical (L=${CANVAS.marginLeft}, R=${CANVAS.marginRight}, T=${CANVAS.marginTop}, B=${CANVAS.marginBottom}).`
       ),
       reserveBannerRow: z
         .boolean()
         .optional()
         .default(false)
         .describe(
-          `If true, grid starts at y=${CANVAS.firstContentRowY} leaving the top ${CANVAS.bannerHeight}px free for a banner shape (caller adds the banner separately via pbir_add_visual).`
+          `Start grid at y=${CANVAS.firstContentRowY}, leaving top ${CANVAS.bannerHeight}px for a banner shape (add separately via pbir_add_visual).`
         ),
       cells: z
         .array(CellSchema)
         .min(1)
-        .describe("Cells to place in the grid. Empty cells allowed — don't need to fill every slot."),
+        .describe("Empty slots allowed — don't need to fill every cell."),
       planOnly: z
         .boolean()
         .optional()
         .default(true)
-        .describe(
-          "true (default) = return computed plan only; false = validate + write visuals in one call."
-        ),
+        .describe("true (default) = plan only; false = validate + write."),
       strictLayout: z
         .boolean()
         .optional()
-        .describe(
-          "Layout validation: true=strict (default), false=warn. Same semantics as pbir_add_visual. Omit for env default (MCP_LAYOUT_VALIDATION)."
-        ),
+        .describe("true=strict (default), false=warn. Omit for env default."),
       strictBindings: z
         .boolean()
         .optional()
-        .describe(
-          "Binding validation for commit mode: true=strict (default), false=warn. Ignored when planOnly:true. Omit for env default (MCP_BINDING_VALIDATION)."
-        ),
+        .describe("Commit-mode only (ignored when planOnly:true). true=strict (default), false=warn. Omit for env default."),
       includeTypes: z
         .boolean()
         .optional()

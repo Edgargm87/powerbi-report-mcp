@@ -81,13 +81,13 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_list_pages",
-    "List pages in the report (paginated). Slim mode (default) returns id, displayName, width, height, visualCount, isActive, hidden. Set slim=false to additionally include displayOption. Set includeVisuals=true (or pass pageId) to include a per-visual summary. Pagination is skipped when pageId is supplied. Top-level `totalVisualCount` is the sum of `visualCount` across the FULL set (not just the visible slice when paginated). For cross-page queries (e.g. \"find all pages with type X\" or \"count visuals across the report\"), prefer calling `pbir_list_pages({ includeVisuals: true })` once over fanning out parallel `pbir_list_visuals` per page — fewer round-trips, same data.",
+    "List pages (paginated). Slim default returns id/displayName/width/height/visualCount/isActive/hidden; slim:false adds displayOption. includeVisuals:true (or pageId) embeds per-visual summaries. Top-level `totalVisualCount` sums the FULL set, not just the visible slice. For cross-page sweeps prefer one `includeVisuals:true` call over fanning out per-page pbir_list_visuals.",
     {
-      slim: z.boolean().optional().default(true).describe("Slim mode (default true) — omits width/height/displayOption to reduce token usage"),
-      includeVisuals: z.boolean().optional().default(false).describe("When true, each page also includes a `visuals` array with slim per-visual entries."),
-      pageId: z.string().optional().describe("Scope to a single page (implies includeVisuals). When set, limit/offset are ignored."),
-      limit: z.number().int().min(1).max(500).default(100).describe("Max items to return. Default 100."),
-      offset: z.number().int().min(0).default(0).describe("Items to skip. Use with limit for paging."),
+      slim: z.boolean().optional().default(true),
+      includeVisuals: z.boolean().optional().default(false).describe("Embed slim per-visual entries on each page."),
+      pageId: z.string().optional().describe("Scope to a single page (implies includeVisuals; limit/offset ignored)."),
+      limit: z.number().int().min(1).max(500).default(100),
+      offset: z.number().int().min(0).default(0),
     },
     {"readOnlyHint":true,"openWorldHint":false},
     async ({ slim, includeVisuals, pageId, limit, offset }) => {
