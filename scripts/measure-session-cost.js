@@ -256,8 +256,8 @@ async function run() {
   // an error envelope) for completeness, then ALSO fetch the same skill via
   // resources/read — both paths cost the model the same skill body, so we
   // report the resource read as the canonical skill-load cost.
-  const guideW = await callTool(12, "pbir_guide", { topic: "wireframes" }, "tool path (may error: outputSchema mismatch)");
-  const guideE = await callTool(13, "pbir_guide", { topic: "errors" }, "tool path (may error: outputSchema mismatch)");
+  const guideW = await callTool(12, "pbir_guide", { topic: "wireframes" }, "tool path (text content)");
+  const guideE = await callTool(13, "pbir_guide", { topic: "errors" }, "tool path (text content)");
 
   // Read the same skill bodies via the resource API for accurate skill-load
   // cost measurement.
@@ -357,7 +357,7 @@ function renderReport(r) {
   else if (catalogPctNum >= 10) verdict = "**middling** (10-30%) — Tier B (sharpen call patterns) recommended.";
   else verdict = "**not the bottleneck** (<10%) — skip catalog optimization; focus on call payloads.";
 
-  return `# Session Cost Baseline — v0.9.4
+  return `# Session Cost Baseline — v0.9.5
 
 Measurement run: ${r.timestamp}
 Token approximation: ${r.tokenizer}
