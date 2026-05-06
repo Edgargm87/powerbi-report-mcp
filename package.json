@@ -38,7 +38,8 @@
     "hooks:install": "node scripts/install-hooks.js",
     "plugin:build": "node scripts/build-plugin.js",
     "eval:install": "pip install -r evals/requirements.txt",
-    "eval": "python evals/run.py -t stdio -c node -a dist/index.js -e PBIR_REPORT_PATH=evals/fixtures/sample.Report -o evals/last-report.md evals/questions.xml"
+    "eval": "python evals/run.py -t stdio -c node -a dist/index.js -e PBIR_REPORT_PATH=evals/fixtures/sample.Report -o evals/last-report.md evals/questions.xml",
+    "measure:session": "node scripts/measure-session-cost.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
