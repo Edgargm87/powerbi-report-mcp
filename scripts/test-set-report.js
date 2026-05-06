@@ -123,6 +123,7 @@ function startServer() {
     const r2 = await srv.callTool("pbir_get_report", {});
     const r3 = await srv.callTool("pbir_set_report", { path: BOGUS });
     const r4 = await srv.callTool("pbir_get_visual_types", {});
+    const rGuide = await srv.callTool("pbir_guide", { topic: "wireframes" });
     // v0.9.2: rebind to the fixture (the bogus call cleared connection?
     // No — connectReport on bogus fails so binding survived). Re-bind
     // defensively before the list-pages probe to keep the test
@@ -175,6 +176,21 @@ function startServer() {
       "pbir_get_visual_types outputSchema permits additional properties (got additionalProperties=" + (getVisualTypesSchema && getVisualTypesSchema.additionalProperties) + ")");
     // And the call itself must not crash.
     assert(!r4.error, "pbir_get_visual_types call returns no JSON-RPC error");
+
+    // 8b (v0.9.5): pbir_guide returns markdown text content without
+    // outputSchema rejection. Pre-fix, pbir_guide had a guideSchema entry
+    // in READ_TOOL_SCHEMAS but the handler returns content[0].text only
+    // (no structuredContent), so the SDK rejected every successful call
+    // with "Output validation error". Fix: drop pbir_guide from the
+    // schema map. Validate: no JSON-RPC error AND content[0].text starts
+    // with a markdown header.
+    assert(!rGuide.error, "pbir_guide(topic:'wireframes') returns no JSON-RPC error");
+    const guideRes = rGuide.result || {};
+    const guideContent = (guideRes.content && guideRes.content[0]) || {};
+    assert(guideContent.type === "text" && typeof guideContent.text === "string" && guideContent.text.length > 0,
+      "pbir_guide returns non-empty text content");
+    assert(typeof guideContent.text === "string" && guideContent.text.trimStart().startsWith("# "),
+      "pbir_guide content[0].text starts with markdown header (got first 40: " + JSON.stringify((guideContent.text || "").slice(0, 40)) + ")");
 
     // 9 (v0.9.2): pbir_get_report includes hasSemanticModel.
     // The eval fixture has no .SemanticModel sibling — must be false.

@@ -236,12 +236,12 @@ const modelUsageSchema = z
   })
   .passthrough();
 
-const guideSchema = z
-  .object({
-    ...envelope,
-    topics: z.array(z.string()).optional(),
-  })
-  .passthrough();
+// Note: pbir_guide is intentionally NOT in READ_TOOL_SCHEMAS below.
+// The tool returns markdown text content (skill body) — there is no
+// structured JSON shape to validate. Declaring an outputSchema here
+// caused the SDK to reject every successful call with "Output validation
+// error" (the handler emits content[0].text only, no structuredContent).
+// Text-content tools opt out of structured-output validation.
 
 const loadToolsSchema = z
   .object({
@@ -267,6 +267,9 @@ const loadToolsSchema = z
 //   • pbir_get_visual_types     — returns a raw VISUAL_BUCKETS array dump (not a JSON object)
 //   • pbir_get_visual (verbose) — returns full raw PBIR JSON; shape too variable
 //   • pbir_get_report_settings  — returns the raw report object verbatim
+//   • pbir_guide                — returns markdown text content (no JSON shape to validate);
+//                                  declaring a schema here caused "Output validation error"
+//                                  on every successful call (handler emits content[0].text only)
 //   • all mutation tools         — noisier shapes; loose envelope is fine
 
 export const READ_TOOL_SCHEMAS: Record<string, Record<string, z.ZodTypeAny>> = {
@@ -282,6 +285,7 @@ export const READ_TOOL_SCHEMAS: Record<string, Record<string, z.ZodTypeAny>> = {
   pbir_audit_theme_compliance: auditThemeComplianceSchema.shape,
   pbir_diff_report_theme: diffReportThemeSchema.shape,
   pbir_model_usage: modelUsageSchema.shape,
-  pbir_guide: guideSchema.shape,
+  // Note: the guide tool is intentionally absent — see deferred-list comment
+  // below ("returns markdown text content, no structured shape to validate").
   pbir_load_tools: loadToolsSchema.shape,
 };
