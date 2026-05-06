@@ -152,6 +152,29 @@ claude mcp add powerbi-report-mcp node C:\path\to\powerbi-report-mcp\dist\index.
 
 > Each config includes both **powerbi-report-mcp** and **powerbi-modeling-mcp** for full dual-layer access. See [configs/README.md](configs/README.md) for optional settings (pre-connect to a report, load all tools at startup).
 
+#### Optional: opt into minimal tool loading
+
+For long Claude Code / Cowork sessions where catalog tokens matter, set `MCP_TOOLS=minimal` to load only the 12 default tools at startup (saves ~7,500 catalog tokens; the remaining 44 activate on demand via `pbir_load_tools`):
+
+```jsonc
+{
+  "mcpServers": {
+    "powerbi-report-mcp": {
+      "command": "node",
+      "args": ["/path/to/powerbi-report-mcp/dist/index.js"],
+      "env": {
+        "MCP_TOOLS": "minimal"   // optional — saves ~7,500 catalog tokens
+      }
+    }
+  }
+}
+```
+
+Trade-off summary (full breakdown in [Smart Tool Loading](#smart-tool-loading) below):
+
+- **Default (load-all)** — All 56 tools available immediately. Best for unpredictable/exploratory sessions and clients that snapshot the tool list at startup. ~14,500 catalog tokens.
+- **`MCP_TOOLS=minimal`** — 12 default tools at startup; others activatable via `pbir_load_tools`. Best for known-narrow workflows. ~7,000 catalog tokens. Requires MCP client support for `notifications/tools/list_changed` to surface activated tools mid-session — Claude Code/Desktop don't refresh; Cowork may; verify before relying.
+
 ### 3b. Cowork plugin
 
 Prefer to skip the `git clone`/`npm install` dance? Grab the latest **`.plugin`** bundle from [GitHub Releases](https://github.com/jonathan-pap/powerbi-report-mcp/releases) and drag it into Claude — the plugin ships the server, skills, and a default MCP wiring in one file.
