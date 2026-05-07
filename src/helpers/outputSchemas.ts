@@ -243,6 +243,65 @@ const modelUsageSchema = z
 // error" (the handler emits content[0].text only, no structuredContent).
 // Text-content tools opt out of structured-output validation.
 
+const wireframeIssueSchema = z
+  .object({
+    severity: z.string().optional(),
+    code: z.string().optional(),
+    message: z.string().optional(),
+    visuals: z.array(z.string()).optional(),
+  })
+  .passthrough();
+
+const wireframeReportSchema = z
+  .object({
+    ok: z.boolean().optional(),
+    issues: z.array(wireframeIssueSchema).optional(),
+    stats: z
+      .object({
+        visualCount: z.number().optional(),
+        errors: z.number().optional(),
+        warnings: z.number().optional(),
+        coverage: z.number().optional(),
+        bottomEdge: z.number().optional(),
+        rightEdge: z.number().optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+
+const validateWireframeSchema = z
+  .object({
+    ...envelope,
+    scope: z.string().optional(),
+    pageId: z.string().optional(),
+    displayName: z.string().optional(),
+    report: wireframeReportSchema.optional(),
+    pages: z
+      .array(
+        z
+          .object({
+            pageId: z.string().optional(),
+            displayName: z.string().optional(),
+            report: wireframeReportSchema.optional(),
+          })
+          .passthrough()
+      )
+      .optional(),
+    reportSummary: z
+      .object({
+        totalErrors: z.number().optional(),
+        totalWarnings: z.number().optional(),
+        pagesWithErrors: z.number().optional(),
+        pageCount: z.number().optional(),
+      })
+      .passthrough()
+      .optional(),
+    availableIds: z.array(z.string()).optional(),
+    hint: z.string().optional(),
+  })
+  .passthrough();
+
 const loadToolsSchema = z
   .object({
     ...envelope,
@@ -285,6 +344,7 @@ export const READ_TOOL_SCHEMAS: Record<string, Record<string, z.ZodTypeAny>> = {
   pbir_audit_theme_compliance: auditThemeComplianceSchema.shape,
   pbir_diff_report_theme: diffReportThemeSchema.shape,
   pbir_model_usage: modelUsageSchema.shape,
+  pbir_validate_wireframe: validateWireframeSchema.shape,
   // Note: the guide tool is intentionally absent — see deferred-list comment
   // below ("returns markdown text content, no structured shape to validate").
   pbir_load_tools: loadToolsSchema.shape,

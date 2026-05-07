@@ -79,6 +79,14 @@ Two modes:
   bindings, slicers all behave identically. Fails fast with structured
   errors if anything's off — no partial writes.
 
+## Validating an existing page: `pbir_validate_wireframe`
+
+After hand-edits or to audit an inherited report, call
+`pbir_validate_wireframe({ pageId? })` (omit `pageId` to auto-resolve when
+there's only one page) or `pbir_validate_wireframe({ scope: "report" })` to
+check every page at once. Returns the same structured `WireframeReport`
+(errors + warnings + stats) the unit tests use — read-only, no writes.
+
 ---
 
 ---
