@@ -1,5 +1,5 @@
-<!-- doc-version: 1.1 | Last updated: 2026-04-26 -->
-# Eval Baseline — v0.9.1
+<!-- doc-version: 1.2 | Last updated: 2026-05-02 -->
+# Eval Baseline — v0.9.6
 
 Reference accuracy against `evals/fixtures/sample.Report` and `evals/questions.xml`
 (10 read-only multi-hop questions). Recorded 2026-04-26.
@@ -10,7 +10,26 @@ before merging.
 
 ## Frozen results
 
-### v0.9.1 (current — release-gate run after `pbir_set_report` outputSchema fix)
+### v0.9.6 (current — release-gate run after `pbir_validate_wireframe` addition)
+
+| Model | Accuracy | Avg duration | Avg tool calls |
+|-------|---------:|-------------:|---------------:|
+| `claude-sonnet-4-5` | **10/10 (100 %)** | 65.4 s | **1.6** |
+
+Sonnet **gained a point** vs the v0.9.0 baseline (was 9/10) — likely cumulative
+effect of the v0.9.5 catalog trim + slimmer `pbir_get_visual_types` + the
+v0.9.6 description discipline. Sonnet now matches Opus accuracy AND runs ~17 s
+faster per task (65 s vs 78 s on the v0.9.0 Opus run). Tool-call count also
+dropped from 1.9 → 1.6 — the model is making more decisive single-call choices
+(likely picking `includeVisuals:true` more often, per the v0.9.2 description
+nudge). 16 total calls (was 19) across 10 tasks.
+
+The new `pbir_validate_wireframe` tool didn't appear in the agent's chosen
+sequences — none of the 10 evaluation questions ask about layout validity.
+That's expected; the tool's value surfaces in different workflows
+(authoring, debugging) not the read-only verification questions in this suite.
+
+### v0.9.1 (prior baseline — release-gate after `pbir_set_report` outputSchema fix)
 
 | Model | Accuracy | Avg duration | Avg tool calls |
 |-------|---------:|-------------:|---------------:|
@@ -74,7 +93,7 @@ npm run eval -- --model claude-sonnet-4-5 -o evals/last-report.md
 - **Questions:** `evals/questions.xml` — 10 read-only questions authored against
   the live MCP tool surface (not by reading fixture JSON), each manually solved
   to verify the expected answer.
-- **MCP version at baseline:** v0.9.0 (`8a6a82f`).
+- **MCP version at current baseline:** v0.9.6 (`fe335ff`). Original baseline at v0.9.0 (`8a6a82f`).
 - **Runner:** `evals/run.py` (vendored from anthropic-skills:mcp-builder, patched
   for MCPEncoder + parallel tool_use handling).
 
