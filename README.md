@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT License"></a>
-  <img src="https://img.shields.io/badge/version-0.9.2-green.svg" alt="Version">
+  <img src="https://img.shields.io/badge/version-0.9.6-green.svg" alt="Version">
   <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg" alt="Node.js">
   <img src="https://img.shields.io/badge/MCP-1.12-purple.svg" alt="MCP SDK">
   <img src="https://img.shields.io/badge/Power%20BI-PBIR-yellow.svg" alt="PBIR Format">
@@ -29,6 +29,11 @@
 <!-- TODO: add hero screenshot of a generated report page in Power BI Desktop -->
 
 ---
+
+### What's new in 0.9
+
+- **Layout validator now reachable via `pbir_validate_wireframe`** (v0.9.6) — same checks the test suite runs (margins, gaps, overlap, off-canvas, banner geometry), callable from agents on a single page or across the entire report
+- **Tier C.1 catalog reduction + `pbir_guide` fix** (v0.9.5) — see [CHANGELOG.md](CHANGELOG.md)
 
 ### What's new in 0.8
 

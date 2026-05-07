@@ -1,6 +1,6 @@
 {
   "name": "powerbi-report-mcp",
-  "version": "0.9.5",
+  "version": "0.9.6",
   "description": "MCP server for building Power BI reports (PBIR format)",
   "main": "dist/index.js",
   "bin": {
@@ -22,6 +22,7 @@
     "audit": "node scripts/audit-skill-coverage.js",
     "audit:strict": "node scripts/audit-skill-coverage.js --strict",
     "test:wireframe": "node scripts/test-wireframe-validator.js",
+    "test:validate-wireframe": "node scripts/test-validate-wireframe.js",
     "test:binding": "node scripts/test-binding-validator.js",
     "test:measure-home-table": "node scripts/test-measure-home-table.js",
     "test:extract-title": "node scripts/test-extract-title.js",
@@ -34,7 +35,7 @@
     "test:set-report": "node scripts/test-set-report.js",
     "schema:check": "node scripts/refresh-theme-schema.js --check",
     "schema:refresh": "node scripts/refresh-theme-schema.js",
-    "test:all": "npm run build && npm run audit:strict && npm run test:wireframe && npm run test:binding && npm run test:measure-home-table && npm run test:extract-title && npm run test:layout && npm run test:grid && npm run test:slicer && npm run test:schema-docs && npm run test:surface && npm run test:pagination && npm run test:set-report",
+    "test:all": "npm run build && npm run audit:strict && npm run test:wireframe && npm run test:binding && npm run test:measure-home-table && npm run test:extract-title && npm run test:layout && npm run test:grid && npm run test:slicer && npm run test:schema-docs && npm run test:surface && npm run test:pagination && npm run test:set-report && npm run test:validate-wireframe",
     "hooks:install": "node scripts/install-hooks.js",
     "plugin:build": "node scripts/build-plugin.js",
     "eval:install": "pip install -r evals/requirements.txt",

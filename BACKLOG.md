@@ -55,8 +55,8 @@ can't be reached over the MCP wire.
 
 | # | Item | Evidence | Effort |
 |---|------|----------|-------:|
-| 1 | New tool `pbir_validate_wireframe({ pageId? })` exposing `src/wireframe-validator.ts` over MCP. Returns `{ errors: [...], warnings: [...] }` per visual on the active page (or specified page) | Artifact v1 v2 follow-up — currently the artifact would have to duplicate ~380 lines of validator logic client-side | M |
-| 2 | Wire the new tool into the wireframe scaffolder artifact's Inspect tab footer (clickable warnings highlight the offending visual on the SVG canvas) | Same evidence | M (artifact-side, no `src/`) |
+| ~~1~~ | ~~New tool `pbir_validate_wireframe({ pageId? })` exposing `src/wireframe-validator.ts` over MCP~~ — **shipped in v0.9.6** (see `changelog/v0.9.6.md`); also supports `scope:"report"` for whole-report validation | — | — |
+| 2 | Wire `pbir_validate_wireframe` into the wireframe scaffolder artifact's Inspect tab footer (clickable warnings highlight the offending visual on the SVG canvas) | Artifact v1 v2 follow-up | M (artifact-side, no `src/`) |
 | 3 | Extract the 5 canonical layouts to a real `CANONICAL_LAYOUTS` export in `src/wireframe-validator.ts` (the v1 artifact agent expected this and had to fall back to extracting from `skills/wireframes.md` + `scripts/test-wireframe-validator.js`) | Wireframe scaffolder probing report | S |
 | 4 | Bindings UI in the wireframe scaffolder modal — model field picker, fed by `pbir_model_usage` field inventory | Spec'd as deferred in artifact v1 ("we'll know if it's worth building once people use v1") | L |
 | 5 | New tool `pbir_verify_project({ pageId? })` — runs the 7-step post-edit checklist (from v0.9.2 item 7) programmatically, returns `[{check, passed, details}]`. Pairs naturally with `pbir_validate_wireframe` above (both are "give me actionable verification across the whole project" tools). Once this exists, the skill version (v0.9.2 item 7) can either stay as guidance or get slimmed to "call `pbir_verify_project` after edits" | pbi-pilot SKILL.md §"Mandatory Post-Edit Visibility Checklist" promoted from skill to MCP tool | M |
