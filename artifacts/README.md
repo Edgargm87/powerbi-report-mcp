@@ -1,4 +1,4 @@
-<!-- doc-version: 2.0 | Last updated: 2026-04-26 -->
+<!-- doc-version: 3.0 | Last updated: 2026-05-02 -->
 # PBIR Wireframe Scaffolder — Cowork artifact source
 
 A two-tab Cowork artifact for inspecting the bound `.Report` and scaffolding
@@ -60,6 +60,16 @@ These tool shapes are still valid as of the v2 rewrite. The v2 rewrite
 itself (React → vanilla JS) was forced by Cowork sandbox limits — the
 artifact runtime blocks Babel/JSX transpilation and disallows React, so
 the v1 source could never have actually instantiated.
+
+v3 adds a Warnings footer to the Inspect tab via the v0.9.6
+`pbir_validate_wireframe` tool. Click a warning row → the offending
+visual highlights on the SVG canvas. Click the footer background to
+clear. The page-scope call returns
+`{ pageId, displayName, report: { ok, issues: [{ severity, code,
+message, visuals: [labels] }], stats: { visualCount, errors, warnings,
+coverage, bottomEdge, rightEdge } } }`. Issue `visuals[]` are LABELS
+(title || id || visualType) — the artifact resolves those back to
+visual IDs for highlighting.
 
 ## Source
 
@@ -229,6 +239,37 @@ the v1 source could never have actually instantiated.
     padding: 8px 12px; background: #fdecea; color: var(--danger);
     border-bottom: 1px solid #f5c6cb; font-size: 12px;
   }
+  .validation-footer {
+    margin-top: 12px;
+    border-top: 1px solid #e1e4e8;
+    background: #f6f7f9;
+    padding: 8px 12px;
+  }
+  .validation-summary { font-size: 12px; color: #1a1a1a; }
+  .validation-summary.clean { color: #16a34a; }
+  .validation-summary.dirty { color: #1a1a1a; }
+  .validation-issues { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+  .issue-row {
+    display: grid;
+    grid-template-columns: 14px 110px 1fr auto;
+    gap: 8px; align-items: center;
+    padding: 4px 6px; border-radius: 4px; cursor: pointer;
+    font-size: 12px;
+  }
+  .issue-row:hover { background: #eef0f3; }
+  .issue-row.active { background: #fef2f2; }
+  .issue-severity {
+    width: 10px; height: 10px; border-radius: 50%;
+    display: inline-block;
+  }
+  .issue-severity.error { background: #dc2626; }
+  .issue-severity.warning { background: #d97706; }
+  .issue-code {
+    font-family: monospace; font-size: 11px; color: #6b6b6b;
+  }
+  .issue-message { color: #1a1a1a; }
+  .issue-target { color: #6b6b6b; font-size: 11px; }
+  .validation-loading { color: #6b6b6b; font-size: 12px; font-style: italic; }
   [data-tip] { position: relative; }
   [data-tip]:hover::after {
     content: attr(data-tip);
@@ -419,7 +460,10 @@ the v1 source could never have actually instantiated.
     reportConnected: false,
     loading: false,
     lastRefreshedAt: null,     // Date.now() of last successful refresh
-    pagesSig: ""               // signature of last pages payload — used to flag "no changes"
+    pagesSig: "",              // signature of last pages payload — used to flag "no changes"
+    validation: null,          // { ok, issues: [...], stats: {...} } | null — page-scope report
+    validationLoading: false,
+    highlightedVisualIds: []   // visual IDs to highlight on the SVG canvas
   };
   var pollTimer = null;
   var toastTimer = null;
@@ -588,7 +632,14 @@ the v1 source could never have actually instantiated.
       var tab = el("button", {
         className: cls,
         onclick: function () {
-          setState({ activePageId: p.id, selectedVisual: null, visualDetail: null });
+          setState({
+            activePageId: p.id,
+            selectedVisual: null,
+            visualDetail: null,
+            highlightedVisualIds: [],
+            validation: null
+          });
+          fetchValidation(p.id);
         }
       }, p.displayName + (p.hidden ? " (hidden)" : ""));
       pageTabs.appendChild(tab);
@@ -599,7 +650,101 @@ the v1 source could never have actually instantiated.
     var sidePanel = renderSidePanel();
 
     var body = el("div", { className: "inspect-body" }, [canvasWrap, sidePanel]);
-    return el("div", { className: "tab-content" }, [controls, pageTabs, body]);
+    var children = [controls, pageTabs, body];
+    var footer = renderValidationFooter(activePage);
+    if (footer) children.push(footer);
+    return el("div", { className: "tab-content" }, children);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Validation footer — surfaces pbir_validate_wireframe (v0.9.6) output for
+  // the active page. Issues come back with `visuals: [labels]` (where label
+  // = title || id || visualType); we resolve labels back to visual IDs for
+  // SVG highlighting on click.
+  // ─────────────────────────────────────────────────────────────────────────
+  function renderValidationFooter(activePage) {
+    if (state.validationLoading) {
+      return el("div", { className: "validation-footer" },
+        el("div", { className: "validation-loading" }, "Validating..."));
+    }
+    var rep = state.validation;
+    if (!rep) return null;
+    var issues = (rep.issues || []).slice();
+    var stats = rep.stats || {};
+    var errCount = issues.filter(function (i) { return i.severity === "error"; }).length;
+    var warnCount = issues.filter(function (i) { return i.severity === "warning"; }).length;
+
+    var summary;
+    if (errCount === 0 && warnCount === 0) {
+      var cov = stats.coverage != null ? stats.coverage.toFixed(1) + "%" : "—";
+      summary = el("div", { className: "validation-summary clean" },
+        "✓ Layout looks clean — " + (stats.visualCount || 0) +
+        " visuals, " + cov + " coverage");
+    } else {
+      var bits = [];
+      if (errCount > 0) bits.push(errCount + " error" + (errCount === 1 ? "" : "s"));
+      if (warnCount > 0) bits.push(warnCount + " warning" + (warnCount === 1 ? "" : "s"));
+      summary = el("div", { className: "validation-summary dirty" },
+        "⚠ " + bits.join(" · ") + " · click to inspect");
+    }
+
+    // Resolve labels → visual IDs using the active page's visuals list.
+    var labelToId = {};
+    (activePage.visuals || []).forEach(function (v) {
+      var label = v.title || v.id || v.type || v.visualType;
+      if (label && !labelToId[label]) labelToId[label] = v.id;
+      if (v.id) labelToId[v.id] = v.id; // self-mapping
+    });
+    function resolveIds(labels) {
+      var out = [];
+      (labels || []).forEach(function (lab) {
+        var id = labelToId[lab];
+        if (id && out.indexOf(id) === -1) out.push(id);
+      });
+      return out;
+    }
+
+    var children = [summary];
+    if (issues.length > 0) {
+      var list = el("div", { className: "validation-issues" });
+      issues.forEach(function (issue) {
+        var ids = resolveIds(issue.visuals);
+        var isActive = state.highlightedVisualIds.length > 0 &&
+          ids.length > 0 &&
+          ids.every(function (id) { return state.highlightedVisualIds.indexOf(id) !== -1; }) &&
+          ids.length === state.highlightedVisualIds.length;
+        var rowCls = "issue-row" + (isActive ? " active" : "");
+        var sev = issue.severity === "error" ? "error" : "warning";
+        var msg = issue.message || issue.code || "";
+        var targetText = (issue.visuals && issue.visuals.length)
+          ? "→ " + issue.visuals.join(", ")
+          : "";
+        var row = el("div", {
+          className: rowCls,
+          "data-visual-ids": ids.join(","),
+          onclick: function (e) {
+            e.stopPropagation();
+            setState({ highlightedVisualIds: ids });
+          }
+        }, [
+          el("span", { className: "issue-severity " + sev }),
+          el("span", { className: "issue-code" }, issue.code || ""),
+          el("span", { className: "issue-message" }, msg),
+          el("span", { className: "issue-target" }, targetText)
+        ]);
+        list.appendChild(row);
+      });
+      children.push(list);
+    }
+
+    return el("div", {
+      className: "validation-footer",
+      onclick: function () {
+        if (state.highlightedVisualIds.length > 0) {
+          setState({ highlightedVisualIds: [] });
+        }
+      }
+    }, children);
   }
 
   function renderInspectCanvas(visuals) {
@@ -626,19 +771,22 @@ the v1 source could never have actually instantiated.
     }));
 
     var selId = state.selectedVisual ? state.selectedVisual.id : null;
+    var hl = state.highlightedVisualIds || [];
     visuals.forEach(function (v) {
       var t = v.type || v.visualType || "default";
       var isSel = v.id === selId;
+      var isHl = hl.indexOf(v.id) !== -1;
       var g = svgEl("g", {
         style: { cursor: "pointer" },
+        "data-visual-id": v.id,
         onclick: function () { handleVisualClick(v); }
       });
       g.appendChild(svgEl("rect", {
         x: v.x, y: v.y, width: v.w, height: v.h,
         fill: colorFor(t),
         "fill-opacity": isSel ? 0.85 : 0.55,
-        stroke: isSel ? "#000" : "rgba(0,0,0,0.4)",
-        "stroke-width": isSel ? 3 : 1
+        stroke: isHl ? "#dc2626" : (isSel ? "#000" : "rgba(0,0,0,0.4)"),
+        "stroke-width": isHl ? 4 : (isSel ? 3 : 1)
       }));
       var label = svgEl("text", {
         x: v.x + 8, y: v.y + 22,
@@ -918,9 +1066,34 @@ the v1 source could never have actually instantiated.
         var msg = firstLoad ? "Refreshed" : (changed ? "Refreshed — pages updated" : "Refreshed — no changes");
         showToast("success", msg, 1500);
       }
+      // Fetch validation alongside page data (fire-and-forget — own loading flag).
+      if (nextActive) fetchValidation(nextActive);
     } catch (e) {
       setState({ loading: false, error: null });
       showToast("error", e.message || String(e));
+    }
+  }
+
+  async function fetchValidation(pageId) {
+    if (!pageId) {
+      setState({ validation: null });
+      return;
+    }
+    setState({ validationLoading: true });
+    try {
+      var res = await callMcp("pbir_validate_wireframe", { pageId: pageId, scope: "page" });
+      // Only apply if the page is still active (avoid stale overwrites).
+      if (state.activePageId === pageId) {
+        setState({
+          validation: (res && res.report) || null,
+          validationLoading: false
+        });
+      } else {
+        setState({ validationLoading: false });
+      }
+    } catch (e) {
+      setState({ validation: null, validationLoading: false });
+      // Don't toast — validation failure shouldn't block the inspect view.
     }
   }
 
