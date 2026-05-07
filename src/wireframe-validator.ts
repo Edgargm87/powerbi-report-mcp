@@ -123,6 +123,15 @@ function groupByYOverlap(vs: WireframeVisual[]): WireframeVisual[][] {
 
 // Main entry --------------------------------------------------------------
 
+/**
+ * Validate a list of visual rectangles against the wireframe rules and return
+ * a structured `WireframeReport` (issues + stats). Pure — does no I/O.
+ *
+ * Public API: callable from unit tests, the `pbir_layout_grid` planner, and
+ * the `pbir_validate_wireframe` MCP tool. Each call site is allowed to depend
+ * on the exported `WireframeVisual` / `WireframeIssue` / `WireframeReport`
+ * shapes — they are part of the package's stable surface.
+ */
 export function validateWireframe(visuals: WireframeVisual[]): WireframeReport {
   const issues: WireframeIssue[] = [];
 
