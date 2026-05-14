@@ -85,6 +85,20 @@ manually, then macro-ify the most-repeated sequences. Don't pre-design.
 
 ---
 
+## Exploratory — folder-architecture/
+
+`folder-architecture/` (added at v0.9.6 commit `08eda17`) mirrors the full
+MCP surface (56 active tools + 17 skills, plus 3 PARKED visual-calculation
+tools) as the 3-Layer Folder Architecture pattern from the
+AI_Folder_Architecture.pdf. It answers the question "what would a
+pure-markdown extraction of this MCP look like?"
+
+Snapshot, not generated artifact. Refresh manually if/when the experiment is
+referenced. See `folder-architecture/README.md` and `folder-architecture/claude.md`
+for what's there and why.
+
+---
+
 ## Backlog hygiene
 
 - When an item ships, **delete it from this file** and ensure the change is
