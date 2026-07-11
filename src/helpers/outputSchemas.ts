@@ -150,6 +150,14 @@ const listBookmarksSchema = z
   })
   .passthrough();
 
+const listCustomVisualsSchema = z
+  .object({
+    ...envelope,
+    customVisuals: z.array(z.string()).optional(),
+    count: z.number().optional(),
+  })
+  .passthrough();
+
 const listReportThemesSchema = z
   .object({
     ...envelope,
@@ -334,10 +342,19 @@ const loadToolsSchema = z
 export const READ_TOOL_SCHEMAS: Record<string, Record<string, z.ZodTypeAny>> = {
   pbir_list_pages: listPagesSchema.shape,
   pbir_list_visuals: listVisualsSchema.shape,
-  pbir_get_visual: getVisualSchema.shape,
+  // pbir_get_visual intentionally omitted: verbose:true returns the full raw
+  // PBIR JSON, whose shape is far wider than getVisualSchema (slim mode only).
+  // Exporting `.shape` for the tightened map loses the `.passthrough()` that
+  // lives on the ZodObject wrapper, so the SDK's JSON-Schema conversion ends
+  // up with additionalProperties:false and verbose calls fail output
+  // validation with "must NOT have additional properties". Leaving this tool
+  // out of the map falls back to GENERIC_OUTPUT_SCHEMA (undefined = no
+  // validation), matching the documented intent above and how
+  // pbir_get_report_settings / pbir_guide are already handled.
   pbir_get_report: getReportSchema.shape,
   pbir_list_filters: listFiltersSchema.shape,
   pbir_list_bookmarks: listBookmarksSchema.shape,
+  pbir_list_custom_visuals: listCustomVisualsSchema.shape,
   pbir_list_report_themes: listReportThemesSchema.shape,
   pbir_get_report_theme: getReportThemeSchema.shape,
   pbir_lookup_theme_property: lookupThemePropertySchema.shape,

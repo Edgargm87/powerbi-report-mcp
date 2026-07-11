@@ -30,6 +30,7 @@ import { CANVAS } from "../wireframe-validator.js";
 import type { WireframeVisual } from "../wireframe-validator.js";
 import { runLayoutValidation, getCanvasSummary } from "../helpers/layoutValidation.js";
 import { runBindingValidation, isNoteworthySkip } from "../helpers/bindingValidation.js";
+import { checkCustomVisualsAvailable } from "../helpers/customVisualValidation.js";
 import {
   createAndSaveVisual,
   beginBindingAutoCorrections,
@@ -277,7 +278,7 @@ const MarginsSchema = z
 export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): void {
   server.tool(
     "pbir_layout_grid",
-    "Compute a deterministic rows×cols grid; server owns margin/gap/remainder math. Use this INSTEAD of N pbir_add_visual calls when building a page from scratch. planOnly:true (default) returns the plan; planOnly:false validates bindings+layout then writes in one call. See guide('wireframes') for grid-shape selection.",
+    "Compute a deterministic rows×cols grid; server owns margin/gap/remainder math. Use this INSTEAD of N pbir_add_visual calls when building NEW visuals from scratch with precise per-cell spans and bindings. planOnly:true (default) returns the plan; planOnly:false validates bindings+layout then writes in one call. See guide('wireframes') for grid-shape selection. To re-arrange visuals that already exist on the page instead, use `pbir_auto_layout`.",
     {
       pageId: z.string().optional().describe("Auto-resolved when only one page exists."),
       rows: z.number().int().min(1),
@@ -316,6 +317,10 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
         .boolean()
         .optional()
         .describe("Commit-mode only (ignored when planOnly:true). true=strict (default), false=warn. Omit for env default."),
+      strictCustomVisual: z
+        .boolean()
+        .optional()
+        .describe("Commit-mode only (ignored when planOnly:true). true=strict (default), false=warn. Blocks cell visualTypes that look like a custom visual but aren't registered in this report's publicCustomVisuals."),
       includeTypes: z
         .boolean()
         .optional()
@@ -581,6 +586,38 @@ export function registerLayoutGridTool(server: McpServer, ctx: ServerContext): v
                   error: "binding_validation_failed",
                   bindingErrors: bv.errors,
                   bindingMode: bv.mode,
+                  ...prelude,
+                  plan,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      // Custom-visual availability check — same gate pbir_add_visual applies.
+      const customVisualCheck = checkCustomVisualsAvailable(
+        ctx.project,
+        plan.map((p) => p.visualType),
+        params.strictCustomVisual
+      );
+      if (!customVisualCheck.proceed) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  success: false,
+                  mode: "commit" as const,
+                  planOnly: false,
+                  error: "custom_visual_not_registered",
+                  hint: "These visualTypes aren't installed in this report. Set strictCustomVisual:false to proceed anyway, or install the visual in Desktop first. Use pbir_list_custom_visuals to see what's registered.",
+                  customVisualMode: customVisualCheck.mode,
+                  unregistered: customVisualCheck.unregistered,
+                  registered: customVisualCheck.registered,
                   ...prelude,
                   plan,
                 },

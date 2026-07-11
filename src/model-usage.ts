@@ -789,6 +789,15 @@ export interface ModelFieldInventory {
   tableNames: string[];
   /** Extension measures (stored in reportExtensions.json, not the model). */
   extensionMeasures: Map<string, Set<string>>;
+  /**
+   * True when a local `.SemanticModel` was actually parsed. False for
+   * live-connected reports, where `tables`/`extensionMeasures` only reflect
+   * report-level extension measures — the real remote-dataset schema is
+   * unknown to this process. Validation logic must NOT flag unrecognised
+   * tables as errors when this is false (they may be legitimate remote
+   * fields), but MAY still validate strictly within known extension tables.
+   */
+  hasLocalModel: boolean;
   /** Timestamp when built — useful for debugging cache behaviour. */
   builtAt: number;
 }
@@ -827,16 +836,26 @@ export function getModelFieldInventory(reportPath: string): ModelFieldInventory 
     return fieldInventoryCache.inventory;
   }
 
+  // Note: a missing/unparsable `.SemanticModel` (live-connected reports have
+  // none by design) used to bail out to `null` here immediately — but that
+  // also skipped the reportExtensions.json block below, so live-connect
+  // reports never got an `extensionMeasures` map populated. That in turn made
+  // it impossible for parseFieldSpec to know a `Table[Measure]` reference
+  // pointed at a report-extension measure (vs. a real model table), so the
+  // `SourceRef.Schema: "extension"` marker Desktop requires was never emitted
+  // and every newly-created binding to an extension measure rendered broken.
+  // Extension measures live under the `.Report` folder regardless of whether
+  // a semantic model is bundled, so we now always attempt that block and only
+  // degrade to `null` at the very end if there's truly nothing to report.
   let rawModel: RawModel | null = null;
   try {
     const modelPath = findSemanticModelPath(reportPath);
     rawModel = parseModel(modelPath);
   } catch {
-    // Missing .SemanticModel or parse failure — degrade to null so validation
-    // is skipped rather than failing every bind call.
-    return null;
+    // Missing .SemanticModel or parse failure — fall through; extension
+    // measures may still be readable below.
+    rawModel = null;
   }
-  if (!rawModel) return null;
 
   const tables = new Map<string, { columns: Set<string>; measures: Set<string> }>();
   const getTable = (name: string) => {
@@ -848,20 +867,22 @@ export function getModelFieldInventory(reportPath: string): ModelFieldInventory 
     return t;
   };
 
-  for (const c of rawModel.columns) {
-    if (!c.table || !c.name) continue;
-    getTable(c.table).columns.add(c.name);
-  }
-  for (const m of rawModel.measures) {
-    if (!m.table || !m.name) continue;
-    getTable(m.table).measures.add(m.name);
-  }
-  // Calc-group tables expose their calc items as measures to the report layer.
-  for (const cg of rawModel.calcGroups ?? []) {
-    if (!cg.name) continue;
-    const t = getTable(cg.name);
-    for (const item of cg.items ?? []) {
-      if (item.name) t.measures.add(item.name);
+  if (rawModel) {
+    for (const c of rawModel.columns) {
+      if (!c.table || !c.name) continue;
+      getTable(c.table).columns.add(c.name);
+    }
+    for (const m of rawModel.measures) {
+      if (!m.table || !m.name) continue;
+      getTable(m.table).measures.add(m.name);
+    }
+    // Calc-group tables expose their calc items as measures to the report layer.
+    for (const cg of rawModel.calcGroups ?? []) {
+      if (!cg.name) continue;
+      const t = getTable(cg.name);
+      for (const item of cg.items ?? []) {
+        if (item.name) t.measures.add(item.name);
+      }
     }
   }
 
@@ -894,10 +915,16 @@ export function getModelFieldInventory(reportPath: string): ModelFieldInventory 
     // Extension file corrupt / unreadable — skip, don't fail the whole build.
   }
 
+  // Truly nothing to report (no local model AND no extension measures) —
+  // degrade to null exactly like the old early-return, so validation is
+  // skipped rather than callers acting on a misleadingly-empty inventory.
+  if (!rawModel && extensionMeasures.size === 0) return null;
+
   const inventory: ModelFieldInventory = {
     tables,
     tableNames: [...tables.keys()],
     extensionMeasures,
+    hasLocalModel: !!rawModel,
     builtAt: Date.now(),
   };
   fieldInventoryCache = { reportPath, inventory };

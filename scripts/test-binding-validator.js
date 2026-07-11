@@ -54,6 +54,7 @@ const inventory = {
   ]),
   tableNames: ["Sales", "Date"],
   extensionMeasures: new Map([["Sales", new Set(["Ext YTD Sales"])]]),
+  hasLocalModel: true,
   builtAt: Date.now(),
 };
 

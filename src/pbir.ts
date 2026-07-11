@@ -19,20 +19,20 @@ export interface Position {
 
 export interface FieldRef {
   Column?: {
-    Expression: { SourceRef: { Entity: string } };
+    Expression: { SourceRef: { Schema?: string; Entity: string } };
     Property: string;
   };
   Aggregation?: {
     Expression: {
       Column: {
-        Expression: { SourceRef: { Entity: string } };
+        Expression: { SourceRef: { Schema?: string; Entity: string } };
         Property: string;
       };
     };
     Function: number;
   };
   Measure?: {
-    Expression: { SourceRef: { Entity: string } };
+    Expression: { SourceRef: { Schema?: string; Entity: string } };
     Property: string;
   };
 }
@@ -160,6 +160,15 @@ export interface ReportDefinition {
   objects?: Record<string, unknown>;
   resourcePackages?: ResourcePackage[];
   settings?: Record<string, unknown>;
+  /**
+   * Custom visuals (e.g. AppSource/organizational visuals like
+   * "htmlContent<32-hex-guid>") actually installed/registered in this report.
+   * A visualType matching the custom-visual naming convention (see
+   * isCustomVisualType in helpers/customVisualValidation.ts) that is NOT in
+   * this list will fail to render in Desktop even though the PBIR JSON is
+   * otherwise well-formed — Desktop has nothing to instantiate it with.
+   */
+  publicCustomVisuals?: string[];
 }
 
 // --- Report extensions (reportExtensions.json) — user-defined measures attached
@@ -555,10 +564,18 @@ export class PbirProject {
 
 // --- Field reference builders ---
 
-export function columnRef(entity: string, property: string): FieldRef {
+// `schema` is the PBIR `SourceRef.Schema` marker. Power BI Desktop stamps
+// `Schema: "extension"` on any field reference that points at a report-level
+// extension measure (reportExtensions.json / `pbir_manage_extension_measures`)
+// instead of a real semantic-model table. Omitting it is silently accepted by
+// the file format but Desktop then fails to resolve the field at render time
+// ("Hubo un problema con uno o más campos") — this bit us on visuals created
+// against live-connected reports that only have extension measures. Callers
+// building a ref to a known extension-measure table must pass schema:"extension".
+export function columnRef(entity: string, property: string, schema?: string): FieldRef {
   return {
     Column: {
-      Expression: { SourceRef: { Entity: entity } },
+      Expression: { SourceRef: schema ? { Schema: schema, Entity: entity } : { Entity: entity } },
       Property: property,
     },
   };
@@ -567,13 +584,14 @@ export function columnRef(entity: string, property: string): FieldRef {
 export function aggregationRef(
   entity: string,
   property: string,
-  func: number = 0
+  func: number = 0,
+  schema?: string
 ): FieldRef {
   return {
     Aggregation: {
       Expression: {
         Column: {
-          Expression: { SourceRef: { Entity: entity } },
+          Expression: { SourceRef: schema ? { Schema: schema, Entity: entity } : { Entity: entity } },
           Property: property,
         },
       },
@@ -582,10 +600,10 @@ export function aggregationRef(
   };
 }
 
-export function measureRef(entity: string, property: string): FieldRef {
+export function measureRef(entity: string, property: string, schema?: string): FieldRef {
   return {
     Measure: {
-      Expression: { SourceRef: { Entity: entity } },
+      Expression: { SourceRef: schema ? { Schema: schema, Entity: entity } : { Entity: entity } },
       Property: property,
     },
   };

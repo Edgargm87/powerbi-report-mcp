@@ -261,6 +261,12 @@ export function validateFieldSpec(
 
   const table = inventory.tables.get(entity);
   if (!table) {
+    // Live-connected reports (no local .SemanticModel) only know about
+    // report-extension tables locally — the real remote-dataset schema is
+    // invisible to this process. An unrecognised table here may be a
+    // perfectly valid remote field, so don't block on it; only flag
+    // table_not_found when we actually have a local model to check against.
+    if (!inventory.hasLocalModel) return null;
     // Table name wrong — suggest nearest table.
     return {
       label: asLabel(entity, property),

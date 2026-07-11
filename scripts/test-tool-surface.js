@@ -144,9 +144,15 @@ function listToolsAndResources() {
   const recordMatch = outSchemaSrc.match(/READ_TOOL_SCHEMAS[^=]*=\s*\{([\s\S]*?)\};/);
   const expectOutputSchema = new Set();
   if (recordMatch) {
+    // Strip line comments first — the map body has explanatory `//` comments
+    // that name tools intentionally EXCLUDED from the map (e.g. pbir_get_visual,
+    // omitted because verbose:true's shape is too wide for a tight schema).
+    // Without stripping, the regex below picks those names up as if they were
+    // actual keys and wrongly demands an outputSchema for them too.
+    const cleaned = recordMatch[1].replace(/\/\/[^\n]*/g, "");
     const re = /pbir_[a-z_]+/g;
     let mm;
-    while ((mm = re.exec(recordMatch[1]))) expectOutputSchema.add(mm[0]);
+    while ((mm = re.exec(cleaned))) expectOutputSchema.add(mm[0]);
   }
   const missingOutSchema = result.tools
     .filter((t) => expectOutputSchema.has(t.name) && !t.outputSchema)

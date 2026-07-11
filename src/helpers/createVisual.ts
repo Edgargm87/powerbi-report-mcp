@@ -346,7 +346,14 @@ export function parseFieldSpec(
   }
 
   if (spec.type === "measure") {
-    return measureRef(entity, property);
+    // Report-level extension measures (reportExtensions.json) require
+    // SourceRef.Schema = "extension" — Desktop-authored refs always carry it,
+    // and omitting it makes Desktop fail to resolve the field at render time
+    // ("Hubo un problema con uno o más campos") even though the file is
+    // otherwise well-formed. inventory.extensionMeasures is the source of
+    // truth for which entity/property pairs live there (see model-usage.ts).
+    const isExtensionMeasure = inventory?.extensionMeasures.get(entity)?.has(property) ?? false;
+    return measureRef(entity, property, isExtensionMeasure ? "extension" : undefined);
   }
   if (spec.type === "aggregation") {
     const func = AggregationFunction[spec.aggregation || "Sum"] ?? 0;

@@ -13,6 +13,10 @@ import type { ServerContext } from "../context.js";
 import { requireProject } from "../context.js";
 import { invalidateCache } from "../model-usage.js";
 import { runBindingValidation, attachBindingValidationMetadata } from "../helpers/bindingValidation.js";
+import {
+  checkCustomVisualsAvailable,
+  getRegisteredCustomVisuals,
+} from "../helpers/customVisualValidation.js";
 import { extractVisualTitle } from "../helpers/extractTitle.js";
 import { runLayoutValidation } from "../helpers/layoutValidation.js";
 import { validateFormatTypos } from "../helpers/themeIndex.js";
@@ -44,6 +48,28 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
           {
             type: "text",
             text: JSON.stringify({ success: true, types, count: types.length }),
+          },
+        ],
+      };
+    }
+  );
+
+  // ============================================================
+  // TOOL: pbir_list_custom_visuals
+  // ============================================================
+  server.tool(
+    "pbir_list_custom_visuals",
+    "List custom visuals (AppSource/organizational, e.g. 'htmlContent<32-hex-guid>') actually registered/installed in the connected report. Only these visualTypes can be safely used by pbir_add_visual / pbir_change_visual_type — anything else fails to render in Desktop even though the PBIR JSON is valid.",
+    {},
+    { readOnlyHint: true, openWorldHint: false },
+    async () => {
+      const _g = requireProject(ctx); if (_g) return _g;
+      const registered = getRegisteredCustomVisuals(ctx.project);
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({ success: true, customVisuals: registered, count: registered.length }),
           },
         ],
       };
@@ -254,6 +280,10 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
         .boolean()
         .optional()
         .describe("true=strict, false=warn. Canvas 1280x720, 15px L/R / 6px bottom margins, 5px gaps. Omit for env default."),
+      strictCustomVisual: z
+        .boolean()
+        .optional()
+        .describe("true=strict (default), false=warn. Blocks visualTypes that look like a custom visual (e.g. 'htmlContent<32-hex-guid>') but aren't registered in this report's publicCustomVisuals. Use pbir_list_custom_visuals to see what's installed."),
       includeTypes: z
         .boolean()
         .optional()
@@ -340,6 +370,37 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
                   error: "binding_validation_failed",
                   bindingErrors: validation.errors,
                   mode: validation.mode,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
+
+      // Custom-visual availability check (strict / warn / off). Catches the
+      // exact failure mode we hit building the Fintra/colleague dashboards:
+      // binding to a custom visualType that isn't registered in THIS report's
+      // publicCustomVisuals produces a well-formed but dead visual in Desktop.
+      const customVisualCheck = checkCustomVisualsAvailable(
+        ctx.project,
+        specs.map((s) => s.visualType),
+        params.strictCustomVisual
+      );
+      if (!customVisualCheck.proceed) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: false,
+                  error: "custom_visual_not_registered",
+                  hint: "These visualTypes aren't installed in this report. Set strictCustomVisual:false to proceed anyway, or install the visual in Desktop first. Use pbir_list_custom_visuals to see what's registered.",
+                  mode: customVisualCheck.mode,
+                  unregistered: customVisualCheck.unregistered,
+                  registered: customVisualCheck.registered,
                 },
                 null,
                 2
@@ -448,7 +509,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_delete_visual",
-    "Delete a visual from a page",
+    "Permanently delete one visual from a page. Irreversible. To remove several at once, use `pbir_bulk_delete_visuals`.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID to delete"),
@@ -473,7 +534,7 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_move_visual",
-    "Move and/or resize a visual on a page",
+    "Move, resize, and/or change the stacking (z) order of a visual on a page. x/y/width/height/z are all optional — only the ones you pass are changed.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       visualId: z.string().describe("The visual ID"),
@@ -564,10 +625,36 @@ export function registerVisualTools(server: McpServer, ctx: ServerContext): void
       pageId: z.string().describe("The page ID"),
       visualId: z.string().describe("The visual ID"),
       visualType: z.string().describe("The new visual type"),
+      strictCustomVisual: z
+        .boolean()
+        .optional()
+        .describe("true=strict (default), false=warn. Blocks switching to a custom visualType that isn't registered in this report's publicCustomVisuals. Use pbir_list_custom_visuals to see what's installed."),
     },
     {"openWorldHint":false},
-    async ({ pageId, visualId, visualType }) => {
+    async ({ pageId, visualId, visualType, strictCustomVisual }) => {
       const _g = requireProject(ctx); if (_g) return _g;
+      const customVisualCheck = checkCustomVisualsAvailable(ctx.project, [visualType], strictCustomVisual);
+      if (!customVisualCheck.proceed) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify(
+                {
+                  success: false,
+                  error: "custom_visual_not_registered",
+                  hint: "This visualType isn't installed in this report. Set strictCustomVisual:false to proceed anyway, or install the visual in Desktop first. Use pbir_list_custom_visuals to see what's registered.",
+                  mode: customVisualCheck.mode,
+                  unregistered: customVisualCheck.unregistered,
+                  registered: customVisualCheck.registered,
+                },
+                null,
+                2
+              ),
+            },
+          ],
+        };
+      }
       const visual = ctx.project.getVisual(pageId, visualId);
       visual.visual.visualType = visualType;
       ctx.project.saveVisual(pageId, visualId, visual);

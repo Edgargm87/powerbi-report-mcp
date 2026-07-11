@@ -65,6 +65,7 @@ const ALL_TOOLS: readonly string[] = [
   "pbir_list_visuals",
   "pbir_get_visual",
   "pbir_get_visual_types",
+  "pbir_list_custom_visuals",
   "pbir_add_visual",
   "pbir_delete_visual",
   "pbir_move_visual",

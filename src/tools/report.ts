@@ -276,7 +276,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_rename_page",
-    "Rename an existing page",
+    "Rename an existing page's display name. Does not change its internal page ID, or any bookmarks/navigation targets that reference it by ID.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       displayName: z.string().describe("New display name"),
@@ -303,7 +303,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_delete_page",
-    "Delete a page and all its visuals",
+    "Permanently delete a page and every visual on it. Irreversible once written to disk — there's no undo.",
     {
       pageId: z.string().describe("The page ID to delete"),
     },
@@ -331,7 +331,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_reorder_pages",
-    "Set the page order",
+    "Set the page order. `pageOrder` must list EVERY existing page ID exactly once (a full permutation) — partial lists are rejected.",
     {
       pageOrder: z.preprocess((v) => typeof v === "string" ? JSON.parse(v) : v, z.array(z.string())).describe("Array of page IDs in desired order"),
     },
@@ -361,7 +361,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_set_active_page",
-    "Set which page is active (shown on open)",
+    "Set which page opens by default when the report is first loaded in Power BI Desktop or the Service.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
     },
@@ -477,7 +477,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_update_page_size",
-    "Update the page dimensions",
+    "Update the page's width/height and/or displayOption. Does NOT reposition or resize the visuals already on it — they keep their x/y/width/height, so shrinking the page can push them outside the new canvas.",
     {
       pageId: z.string().optional().describe("Page ID. Auto-resolved when only one page exists."),
       width: z.number().optional(),
@@ -513,7 +513,7 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_auto_layout",
-    "Auto-arrange all visuals on a page in a grid.",
+    "Auto-arrange EXISTING visuals already on a page into a simple equal-size grid (evenly split by rows/cols/padding). Use this to tidy up visuals that are already placed. To PLAN AND CREATE new visuals in a precise grid (per-cell spans, bindings, validated margins/gaps) use `pbir_layout_grid` instead.",
     {
       pageId: z.string().describe("The page ID"),
       columns: z.number().optional().default(3),

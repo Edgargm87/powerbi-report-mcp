@@ -45,6 +45,7 @@ Use these patterns when asked to add charts, tables, cards, KPIs, shapes, button
 | `pbir_get_visual` | Inspect one visual (slim by default — bindings as `Table[Field]` strings) |
 | `pbir_list_visuals` | List all visuals on a page (slim mode = id, type, x, y, w, h, title). Optional `visualType` filters by exact type — pair with per-page iteration for cross-page sweeps. |
 | `pbir_get_visual_types` | Dump the full visual-type → bucket map (use when you forget bucket names) |
+| `pbir_list_custom_visuals` | List custom visuals (AppSource/organizational, e.g. `htmlContent<32-hex-guid>`) actually registered in THIS report — check before binding to one |
 | `pbir_move_visual` | Reposition / resize / re-layer one visual |
 | `pbir_duplicate_visual` | Clone a visual, optionally to a different page, with x/y offset |
 | `pbir_change_visual_type` | Swap a visual's type while keeping its bindings (e.g. barChart → columnChart) |
@@ -52,6 +53,12 @@ Use these patterns when asked to add charts, tables, cards, KPIs, shapes, button
 | `pbir_bulk_delete_visuals` | Remove many visuals in one call |
 
 For batch reformat / rebind see `skills/formatting.md` and `pbir_bulk_bind`.
+
+### Custom visuals — check before you bind
+
+A custom visualType (AppSource, organizational, or private `.pbiviz` — always named like `<name><32-hex-guid>`, e.g. `htmlContent443BE3AD55E043BF878BED274D3A6855`) only renders if it's actually registered in the connected report's `publicCustomVisuals` list. A visual.json referencing an unregistered custom type is perfectly valid JSON and loads fine, but Desktop has nothing installed to draw it with — it shows up broken.
+
+Call `pbir_list_custom_visuals` first to see what's available. `pbir_add_visual` and `pbir_change_visual_type` both check this automatically (strict by default — set `strictCustomVisual:false` to proceed with a warning instead of a hard block, e.g. if you're about to install the visual in Desktop right after). Native visual types are never affected by this check.
 
 ## `pbir_add_visual`
 

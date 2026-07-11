@@ -56,6 +56,16 @@ Single error type — `error: "format_typo"`, `issues: [{cat, prop?, didYouMean}
 
 ---
 
+## Custom-visual codes (`customVisualValidation` via `pbir_add_visual` / `pbir_change_visual_type` / `pbir_layout_grid`)
+
+Single error type — `error: "custom_visual_not_registered"`, payload carries `unregistered: string[]` and `registered: string[]`.
+
+- A visualType matching the custom-visual naming convention (`<name><32-hex-guid>`, e.g. `htmlContent443BE3AD55E043BF878BED274D3A6855`) that isn't in the report's `publicCustomVisuals` will load as valid JSON but render broken in Desktop.
+- Recovery: check `pbir_list_custom_visuals` for what's actually installed, use one of those, or install the visual in Desktop first. Set `strictCustomVisual:false` to proceed anyway (warn mode) if you know the visual will be installed before the next Desktop reload.
+- Native visual types are never flagged by this check.
+
+---
+
 ## Bulk safety codes (`bulk_*` tools)
 
 | Field | Meaning | Recovery |
