@@ -167,6 +167,91 @@ export function findSemanticModelPath(reportPath: string): string {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// Live-connect dataset reference parsing
+//
+// A report with NO bundled .SemanticModel (hasSemanticModel:false) is either a
+// thin/live-connected report or a broken pointer. Live-connected reports still
+// record WHICH remote dataset they're bound to — definition.pbir's
+// `datasetReference.byConnection.connectionString` — a semicolon-delimited
+// pseudo-connection-string (NOT standard OLE DB/ADO.NET syntax, PBI-specific)
+// observed in the wild as:
+//
+//   Data Source="powerbi://api.powerbi.com/v1.0/myorg/<workspace>";
+//   initial catalog="<dataset name>";
+//   access mode=readonly;
+//   integrated security=ClaimsToken;
+//   semanticmodelid=<dataset GUID>
+//
+// Parsing this out means an agent never has to ask the user for the
+// workspace/dataset name before handing off to powerbi-modeling-mcp's
+// `ConnectFabric` operation (workspaceName + semanticModelName) — see
+// pbir_get_report, which surfaces this as `liveConnection`.
+// ═══════════════════════════════════════════════════════════════════════════════
+
+export interface LiveConnectionInfo {
+  /** Workspace name, parsed from the "Data Source" powerbi:// URL. */
+  workspace?: string;
+  /** Dataset/semantic model display name, from "initial catalog". */
+  dataset?: string;
+  /** Dataset GUID, from "semanticmodelid" — more robust than name matching
+   *  when available (no whitespace/casing ambiguity). */
+  semanticModelId?: string;
+  /** Everything else we didn't specifically parse (accessMode, security, ...). */
+  extra: Record<string, string>;
+}
+
+/**
+ * Parse a PBI live-connect pseudo-connection-string (semicolon-delimited
+ * key=value pairs, values optionally double-quoted) into structured fields.
+ * Returns null if the string doesn't look like this format at all.
+ */
+export function parseLiveConnectionString(connectionString: string): LiveConnectionInfo | null {
+  if (!connectionString || typeof connectionString !== "string") return null;
+
+  const extra: Record<string, string> = {};
+  let workspace: string | undefined;
+  let dataset: string | undefined;
+  let semanticModelId: string | undefined;
+
+  for (const rawPart of connectionString.split(";")) {
+    const part = rawPart.trim();
+    if (!part) continue;
+    const eqIdx = part.indexOf("=");
+    if (eqIdx === -1) continue;
+    const key = part.slice(0, eqIdx).trim().toLowerCase();
+    let value = part.slice(eqIdx + 1).trim();
+    // Strip a single layer of surrounding double quotes, if present.
+    if (value.startsWith('"') && value.endsWith('"') && value.length >= 2) {
+      value = value.slice(1, -1);
+    }
+
+    if (key === "data source") {
+      // "powerbi://api.powerbi.com/v1.0/myorg/<workspace>" — workspace is
+      // everything after the last "/v1.0/myorg/" (or, failing that, after
+      // the last "/") — workspace names may contain spaces but not slashes.
+      const myorgIdx = value.toLowerCase().indexOf("/myorg/");
+      const afterMyorg = myorgIdx !== -1 ? value.slice(myorgIdx + "/myorg/".length) : value;
+      try {
+        workspace = decodeURIComponent(afterMyorg);
+      } catch {
+        workspace = afterMyorg;
+      }
+    } else if (key === "initial catalog") {
+      dataset = value;
+    } else if (key === "semanticmodelid") {
+      semanticModelId = value;
+    } else {
+      extra[key] = value;
+    }
+  }
+
+  if (!workspace && !dataset && !semanticModelId && Object.keys(extra).length === 0) {
+    return null;
+  }
+  return { workspace, dataset, semanticModelId, extra };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // Step 2: Parse Model (TMDL + BIM)
 // ═══════════════════════════════════════════════════════════════════════════════
 

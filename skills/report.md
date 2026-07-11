@@ -56,7 +56,42 @@ On connect the server also auto-starts pbir_model_usage watchers if a `.Semantic
 {}
 ```
 
-Returns `{ "reportPath": "C:/Projects/MyReport.Report" }` (or `"No report connected"` if none).
+Returns `{ "reportPath": "...", "hasSemanticModel": boolean }` (or `reportPath: "No report connected"` if none).
+
+`hasSemanticModel` tells you whether a sibling `.SemanticModel/` folder exists next to the report:
+- `true` → local/bundled model. Use `pbir_model_usage` for the real column/measure cross-reference.
+- `false` → the report is **live-connected** to a remote dataset (Fabric/Power BI Service, or another report's model). There's no local `.SemanticModel` to parse, so `pbir_model_usage` can only see report-level extension measures (`reportExtensions.json`), not the real remote schema.
+
+### Live-connected reports: `liveConnection`
+
+When `hasSemanticModel` is `false` and `definition.pbir` has a `byConnection` dataset reference, the response also includes a parsed `liveConnection` object:
+
+```json
+{
+  "reportPath": "...",
+  "hasSemanticModel": false,
+  "liveConnection": {
+    "workspace": "Bodega de datos",
+    "dataset": "Datamart - Microcredito",
+    "semanticModelId": "97cdf91e-bd99-4e2c-82f9-e660a1ee1b33",
+    "extra": { "access mode": "readonly", "integrated security": "ClaimsToken" }
+  }
+}
+```
+
+This is parsed straight out of `definition.pbir`'s raw `byConnection.connectionString` (a semicolon-delimited PBI pseudo connection string — not standard ADO.NET/OLE DB), so you never have to ask the user for the workspace or dataset name.
+
+**Hand these off to `powerbi-modeling-mcp` to read the real remote schema:**
+```json
+{
+  "operation": "ConnectFabric",
+  "workspaceName": "<liveConnection.workspace>",
+  "semanticModelName": "<liveConnection.dataset>"
+}
+```
+via `connection_operations`. This reaches the actual Fabric/Power BI Service model — the DAX tables, columns, and measures behind the live connection — instead of only the thin report-level extension measures this MCP can see on its own.
+
+**If `ConnectFabric` fails with a `Discover` permission error** (`"...user does not have permission to call the Discover method"`), that is a **Power BI Service permissions issue on the account calling it**, not a bug in the parsing or the handoff — the connecting account needs at least **Build** permission on that semantic model in the workspace. See `skills/errors.md` for the exact error text and recovery options.
 
 ---
 

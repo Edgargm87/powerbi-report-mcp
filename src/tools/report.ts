@@ -7,7 +7,7 @@ import { generateId, columnRef } from "../pbir.js";
 import type { PageDefinition, ExtensionEntity } from "../pbir.js";
 import type { ServerContext } from "../context.js";
 import { requireProject } from "../context.js";
-import { invalidateCache, findSemanticModelPath } from "../model-usage.js";
+import { invalidateCache, findSemanticModelPath, parseLiveConnectionString } from "../model-usage.js";
 import { extractVisualTitle } from "../helpers/extractTitle.js";
 import { ok, fail } from "../helpers/mcpResult.js";
 import { getCanvasSummary } from "../helpers/layoutValidation.js";
@@ -50,13 +50,14 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
   // ============================================================
   server.tool(
     "pbir_get_report",
-    "Show the currently connected report path. Includes `hasSemanticModel: boolean` — true when a sibling `.SemanticModel/` folder exists. Check this before calling `pbir_model_usage`.",
+    "Show the currently connected report path. Includes `hasSemanticModel: boolean` — true when a sibling `.SemanticModel/` folder exists. Check this before calling `pbir_model_usage`. For live-connected reports (hasSemanticModel:false), also includes `liveConnection: {workspace, dataset, semanticModelId}` parsed straight from definition.pbir — feed these directly into powerbi-modeling-mcp's `ConnectFabric` operation (workspaceName + semanticModelName) to read the REAL remote schema without asking the user for the workspace/dataset name.",
     {},
     {"readOnlyHint":true,"openWorldHint":false},
     async () =>
       cachedRead("pbir_get_report", {}, ["report"], () => {
         const reportPath = ctx.getReportPath();
         let hasSemanticModel = false;
+        let liveConnection: ReturnType<typeof parseLiveConnectionString> = null;
         if (reportPath) {
           try {
             // findSemanticModelPath throws when no .SemanticModel sibling
@@ -68,10 +69,26 @@ export function registerReportTools(server: McpServer, ctx: ServerContext): void
           } catch {
             hasSemanticModel = false;
           }
+          // findSemanticModelPath only ever reads datasetReference.byPath
+          // (local/bundled model case). Live-connect reports use
+          // datasetReference.byConnection instead — parse that separately so
+          // agents can hand the workspace/dataset straight to
+          // powerbi-modeling-mcp instead of asking the user for it.
+          try {
+            const pbirFile = path.join(reportPath, "definition.pbir");
+            if (fs.existsSync(pbirFile)) {
+              const pbir = JSON.parse(fs.readFileSync(pbirFile, "utf8"));
+              const connStr = pbir?.datasetReference?.byConnection?.connectionString;
+              if (connStr) liveConnection = parseLiveConnectionString(connStr);
+            }
+          } catch {
+            // Malformed definition.pbir — leave liveConnection null.
+          }
         }
         return {
           reportPath: reportPath || "No report connected",
           hasSemanticModel,
+          ...(liveConnection ? { liveConnection } : {}),
         };
       })
   );

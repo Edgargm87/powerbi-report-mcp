@@ -128,6 +128,14 @@ const getReportSchema = z
     ...envelope,
     reportPath: z.string().optional(),
     hasSemanticModel: z.boolean().optional(),
+    // Parsed live-connection info (workspace/dataset/semanticModelId), present
+    // only for live-connect reports (hasSemanticModel:false) whose
+    // definition.pbir has a byConnection datasetReference. Kept loose since
+    // `extra` carries any unparsed connection-string keys. Exporting `.shape`
+    // for the tightened map (see note below READ_TOOL_SCHEMAS) loses the
+    // wrapper's `.passthrough()`, so any new top-level field must be declared
+    // here explicitly or it fails output validation.
+    liveConnection: z.object({}).passthrough().optional(),
   })
   .passthrough();
 

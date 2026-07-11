@@ -81,3 +81,14 @@ Single error type — `error: "custom_visual_not_registered"`, payload carries `
 |---|---|---|
 | `no_pages` | Tool needed a pageId but the report has no pages | Call `pbir_create_page` first. |
 | `ambiguous_pageId` | Multiple pages, pageId omitted — `availableIds` lists the candidates | Pass `pageId` explicitly from the list. |
+
+---
+
+## Live-connect / `powerbi-modeling-mcp` handoff errors
+
+These surface from **`powerbi-modeling-mcp`**, not from this MCP — they happen when you take `pbir_get_report`'s `liveConnection` (see `skills/report.md`) and call `connection_operations` with `operation: "ConnectFabric"`.
+
+| Error text contains | Meaning | Recovery |
+|---|---|---|
+| `"...user does not have permission to call the Discover method"` | The calling account lacks **Build** permission on that semantic model in Power BI Service — this is a Fabric/PBI Service ACL issue, not a bug in `liveConnection` parsing or the handoff itself. `workspaceName`/`semanticModelName` resolved correctly and the request reached Microsoft's TOM server; it was rejected there. | Ask the dataset owner to grant the account **Build** (or Contributor/Member) on that semantic model, or re-run the connection under an account that already has it (e.g. the report's actual owner). |
+| `"No databases found on the server"` (when connecting to a **local** port from `ListLocalInstances`) | Power BI Desktop's embedded local Analysis Services instance does not proxy/host a remote model for live-connected reports — there is nothing to read locally. | Use `ConnectFabric` with `liveConnection.workspace` / `liveConnection.dataset` instead of trying to reach the local AS port. |
