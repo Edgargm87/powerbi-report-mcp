@@ -13,6 +13,7 @@ import {
 } from "../pbir.js";
 import type { VisualDefinition, Projection, QueryState, FieldRef } from "../pbir.js";
 import { buildFormattingProps, applyFormattingToTarget, applyDataColors } from "./formatting.js";
+import { loadSchema, getCategoriesForVisualType } from "./themeSchema.js";
 import type { ModelFieldInventory } from "../model-usage.js";
 
 // --- VisualSpec interface ---
@@ -785,12 +786,37 @@ export function createAndSaveVisual(
         },
       ]);
     } else {
-      applyFormattingToTarget(visual.visual.objects as Record<string, unknown>, [
+      // Not every visual type supports all four categories (e.g. `card` and
+      // `tableEx` have no categoryAxis/valueAxis/legend at all; `donutChart`
+      // has no axes). Writing an unsupported category into visual.objects
+      // produces a PBIR file Power BI Desktop can fail to load entirely
+      // (observed: "No se pudo cargar el informe" on report open), not just
+      // a broken single visual — so this must be schema-gated, not blanket.
+      // Unknown visualType (e.g. a custom AppSource visual not in the bundled
+      // theme schema) → apply none, matching how custom visuals have always
+      // behaved here (they don't get axis/legend defaults either way).
+      const candidateDefaults: Array<{ category: string; properties: Record<string, string | number | boolean> }> = [
         { category: "categoryAxis", properties: defaultVisualFont },
         { category: "valueAxis", properties: defaultVisualFont },
         { category: "labels", properties: defaultVisualFont },
         { category: "legend", properties: defaultVisualFont },
-      ]);
+      ];
+      let applicableDefaults = candidateDefaults;
+      try {
+        const { schema } = loadSchema();
+        const validCats = getCategoriesForVisualType(schema, visualType);
+        applicableDefaults =
+          validCats.size > 0
+            ? candidateDefaults.filter((d) => validCats.has(d.category))
+            : [];
+      } catch {
+        // Schema file missing/unreadable — fall back to skipping defaults
+        // entirely rather than risk writing an invalid category.
+        applicableDefaults = [];
+      }
+      if (applicableDefaults.length > 0) {
+        applyFormattingToTarget(visual.visual.objects as Record<string, unknown>, applicableDefaults);
+      }
     }
   }
 
