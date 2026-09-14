@@ -92,3 +92,20 @@ These surface from **`powerbi-modeling-mcp`**, not from this MCP — they happen
 |---|---|---|
 | `"...user does not have permission to call the Discover method"` | The calling account lacks **Build** permission on that semantic model in Power BI Service — this is a Fabric/PBI Service ACL issue, not a bug in `liveConnection` parsing or the handoff itself. `workspaceName`/`semanticModelName` resolved correctly and the request reached Microsoft's TOM server; it was rejected there. | Ask the dataset owner to grant the account **Build** (or Contributor/Member) on that semantic model, or re-run the connection under an account that already has it (e.g. the report's actual owner). |
 | `"No databases found on the server"` (when connecting to a **local** port from `ListLocalInstances`) | Power BI Desktop's embedded local Analysis Services instance does not proxy/host a remote model for live-connected reports — there is nothing to read locally. | Use `ConnectFabric` with `liveConnection.workspace` / `liveConnection.dataset` instead of trying to reach the local AS port. |
+
+---
+
+## Whole-report load failure on live-connect reports ("No se pudo cargar el informe")
+
+If Power BI Desktop shows a generic **"Ha habido un error / No se pudo cargar el informe"** dialog (just an ActivityId + timestamp, no field/visual detail) after `pbir_reload_report` on a **live-connect** report (`hasSemanticModel:false`), suspect **`reportExtensions.json`** before suspecting pages or visuals.
+
+Extension measures are registered against the real remote model as soon as Desktop opens the file — before any page renders. A `pbir_manage_extension_measures add` whose DAX references a table/column name that doesn't exactly match the live remote schema can fail model registration and crash the **entire** report load, not just break one visual (unlike a bad visual binding, which normally fails gracefully per-visual on a live-connect report — see the `bindingValidation` skip-when-`!hasLocalModel` note in `skills/report.md`).
+
+This is a real risk specifically because `getModelFieldInventory` has no way to validate table/column names against the true remote schema on a live-connect report (no local `.SemanticModel`, and `ConnectFabric` may not be available — see the Discover-permission row above) — so a plausible-looking DAX expression copied from an existing working measure can still reference a name that's subtly wrong, and nothing in this MCP will catch it before write time.
+
+**Diagnosis order** (cheapest/most reversible first):
+1. `pbir_list_pages` — confirm which pages exist; if you added pages/visuals this session, delete the newest one and `pbir_reload_report` to test.
+2. If the failure persists even back down to the original, untouched page(s), suspect `reportExtensions.json` next: `pbir_manage_extension_measures({operation:"list"})`, remove any measures added this session, reload.
+3. If it *still* fails with zero same-session changes left, the cause isn't file content — check the live-connect session itself (auth token expiry, network) or try closing all `PBIDesktop.exe` processes manually and reopening the `.pbip` directly (bypassing `pbir_reload_report`) to rule out a stuck Desktop process.
+
+**Recovery / prevention:** avoid adding new extension measures on a live-connect report purely by pattern-matching column names seen inside other measures' DAX text. Get real schema access first (fix the Build-permission issue above and use `ConnectFabric`, or ask the report owner to confirm exact table/column names) before writing new DAX against tables you can't independently verify.
